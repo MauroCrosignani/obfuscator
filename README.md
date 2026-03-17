@@ -1,5 +1,7 @@
 # ObfuscatoR
 
+[![Checks](https://github.com/MauroCrosignani/obfuscator/actions/workflows/checks.yml/badge.svg)](https://github.com/MauroCrosignani/obfuscator/actions/workflows/checks.yml)
+
 ObfuscatoR es un paquete y script en `R` pensado para equipos hispanoparlantes que necesitan compartir datos ofuscados con herramientas de IA sin exponer informacion sensible.
 
 La prioridad de UX es simple:
