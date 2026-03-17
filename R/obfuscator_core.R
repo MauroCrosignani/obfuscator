@@ -1,0 +1,941 @@
+# Core de ObfuscatoR.
+
+`%||%` <- function(x, y) {
+  if (is.null(x)) y else x
+}
+
+obfuscator_version <- function() {
+  "0.3.0"
+}
+
+obfuscator_config <- function(
+  col_roles = NULL,
+  id_cols = NULL,
+  seed = NULL,
+  id_prefix = "999",
+  log = TRUE,
+  clone = TRUE,
+  consistency_rules = list(),
+  numeric_mode = "range_random",
+  numeric_modes = NULL,
+  privacy_model = NULL,
+  locale = "es",
+  infer_roles = TRUE,
+  progress_callback = NULL
+) {
+  config <- list(
+    col_roles = col_roles,
+    id_cols = id_cols,
+    seed = seed,
+    id_prefix = id_prefix,
+    log = log,
+    clone = clone,
+    consistency_rules = consistency_rules,
+    numeric_mode = numeric_mode,
+    numeric_modes = numeric_modes,
+    privacy_model = privacy_model,
+    locale = locale,
+    infer_roles = infer_roles,
+    progress_callback = progress_callback
+  )
+
+  class(config) <- c("obfuscator_config", "list")
+  config
+}
+
+copy_df <- function(df) {
+  if (tibble::is_tibble(df)) {
+    return(tibble::as_tibble(as.data.frame(df, stringsAsFactors = FALSE)))
+  }
+
+  as.data.frame(df, stringsAsFactors = FALSE)
+}
+
+is_integerish_obfuscator <- function(x) {
+  if (!is.numeric(x)) {
+    return(FALSE)
+  }
+
+  finite_x <- x[is.finite(x)]
+  if (length(finite_x) == 0) {
+    return(TRUE)
+  }
+
+  all(abs(finite_x - round(finite_x)) < sqrt(.Machine$double.eps))
+}
+
+decimal_places_obfuscator <- function(x) {
+  finite_x <- x[is.finite(x)]
+  if (length(finite_x) == 0) {
+    return(0L)
+  }
+
+  formatted <- format(finite_x, scientific = FALSE, trim = TRUE, nsmall = 0)
+  suffix <- sub("^-?\\d+\\.?","", formatted)
+  max(nchar(suffix), na.rm = TRUE)
+}
+
+scramble_vector_obfuscator <- function(x) {
+  na_mask <- is.na(x)
+  if (all(na_mask)) {
+    return(x)
+  }
+
+  values <- x[!na_mask]
+  if (length(values) <= 1) {
+    return(x)
+  }
+
+  out <- x
+  out[!na_mask] <- sample(values, length(values), replace = FALSE)
+  out
+}
+
+validate_obfuscator_config <- function(df, config) {
+  allowed_keys <- c(
+    "col_roles",
+    "id_cols",
+    "seed",
+    "id_prefix",
+    "log",
+    "clone",
+    "consistency_rules",
+    "numeric_mode",
+    "numeric_modes",
+    "privacy_model",
+    "locale",
+    "infer_roles",
+    "progress_callback"
+  )
+
+  unknown_keys <- setdiff(names(config), allowed_keys)
+  if (length(unknown_keys) > 0) {
+    stop(sprintf(
+      "La configuracion contiene claves no soportadas: %s",
+      paste(unknown_keys, collapse = ", ")
+    ))
+  }
+
+  if (!is.null(config$seed) && (!is.numeric(config$seed) || length(config$seed) != 1 || is.na(config$seed))) {
+    stop("`seed` debe ser un valor numerico escalar o NULL.")
+  }
+
+  if (!is.character(config$id_prefix) || length(config$id_prefix) != 1 || nchar(config$id_prefix) == 0) {
+    stop("`id_prefix` debe ser un texto no vacio.")
+  }
+
+  if (!is.logical(config$log) || length(config$log) != 1) {
+    stop("`log` debe ser TRUE o FALSE.")
+  }
+
+  if (!is.logical(config$clone) || length(config$clone) != 1) {
+    stop("`clone` debe ser TRUE o FALSE.")
+  }
+
+  if (!is.logical(config$infer_roles) || length(config$infer_roles) != 1) {
+    stop("`infer_roles` debe ser TRUE o FALSE.")
+  }
+
+  if (!is.null(config$progress_callback) && !is.function(config$progress_callback)) {
+    stop("`progress_callback` debe ser una funcion o NULL.")
+  }
+
+  valid_numeric_modes <- c("range_random", "preserve_rank", "permute")
+  if (!config$numeric_mode %in% valid_numeric_modes) {
+    stop(sprintf(
+      "`numeric_mode` debe ser uno de: %s",
+      paste(valid_numeric_modes, collapse = ", ")
+    ))
+  }
+
+  if (!is.null(config$numeric_modes)) {
+    if (is.null(names(config$numeric_modes)) || any(names(config$numeric_modes) == "")) {
+      stop("`numeric_modes` debe ser una lista o vector nombrado por columna.")
+    }
+
+    invalid_modes <- setdiff(unname(unlist(config$numeric_modes, use.names = FALSE)), valid_numeric_modes)
+    if (length(invalid_modes) > 0) {
+      stop(sprintf(
+        "Se detectaron modos numericos no soportados en `numeric_modes`: %s",
+        paste(unique(invalid_modes), collapse = ", ")
+      ))
+    }
+  }
+
+  if (!is.null(config$col_roles)) {
+    valid_role_names <- c("id", "date", "categorical", "numeric")
+    invalid_role_names <- setdiff(names(config$col_roles), valid_role_names)
+    if (length(invalid_role_names) > 0) {
+      stop(sprintf(
+        "`col_roles` solo admite estos nombres: %s",
+        paste(valid_role_names, collapse = ", ")
+      ))
+    }
+
+    role_columns <- unique(unlist(config$col_roles, use.names = FALSE))
+    missing_columns <- setdiff(role_columns, colnames(df))
+    if (length(missing_columns) > 0) {
+      stop(sprintf(
+        "Las siguientes columnas definidas en `col_roles` no existen en el dataset: %s",
+        paste(missing_columns, collapse = ", ")
+      ))
+    }
+  }
+
+  if (!is.null(config$privacy_model)) {
+    if (!is.list(config$privacy_model) || is.null(config$privacy_model$type)) {
+      stop("`privacy_model` debe ser una lista con al menos el campo `type`.")
+    }
+
+    if (!identical(config$privacy_model$type, "k_anonymity")) {
+      stop("Por ahora solo se soporta `privacy_model$type = \"k_anonymity\"`.")
+    }
+
+    k <- config$privacy_model$k %||% NULL
+    if (is.null(k) || !is.numeric(k) || length(k) != 1 || is.na(k) || k < 2) {
+      stop("En `privacy_model`, `k` debe ser un numero entero mayor o igual a 2.")
+    }
+
+    qis <- config$privacy_model$quasi_identifiers %||% character(0)
+    if (!is.character(qis) || length(qis) == 0) {
+      stop("En `privacy_model`, `quasi_identifiers` debe ser un vector de columnas no vacio.")
+    }
+
+    missing_qis <- setdiff(qis, colnames(df))
+    if (length(missing_qis) > 0) {
+      stop(sprintf(
+        "Las siguientes columnas definidas como quasi-identificadores no existen: %s",
+        paste(missing_qis, collapse = ", ")
+      ))
+    }
+
+    suppression <- config$privacy_model$suppression %||% "rows"
+    if (!suppression %in% c("rows", "none")) {
+      stop("En `privacy_model`, `suppression` debe ser `rows` o `none`.")
+    }
+  }
+
+  TRUE
+}
+
+emit_progress_obfuscator <- function(callback, percent, stage, detail = NULL) {
+  if (is.null(callback)) {
+    return(invisible(NULL))
+  }
+
+  callback(list(
+    percent = max(0, min(100, percent)),
+    stage = stage,
+    detail = detail
+  ))
+  invisible(NULL)
+}
+
+detect_column_roles <- function(df, config = obfuscator_config()) {
+  validate_obfuscator_config(df, config)
+
+  col_names <- colnames(df)
+
+  infer_id_cols <- function(names_vec) {
+    patterns <- c(
+      "^id$",
+      "^id_",
+      "_id$",
+      "^nro_",
+      "documento",
+      "persid",
+      "cuit",
+      "cuil",
+      "empresa",
+      "contrib"
+    )
+    names_vec[grepl(paste(patterns, collapse = "|"), names_vec, ignore.case = TRUE)]
+  }
+
+  explicit_roles <- if (!is.null(config$col_roles)) config$col_roles else list()
+
+  roles <- list(
+    id = unique(c(
+      explicit_roles$id %||% character(0),
+      config$id_cols %||% character(0),
+      if (isTRUE(config$infer_roles)) infer_id_cols(col_names) else character(0)
+    )),
+    date = unique(c(
+      explicit_roles$date %||% character(0),
+      col_names[vapply(df, function(x) inherits(x, c("Date", "POSIXct", "POSIXlt", "POSIXt")), logical(1))]
+    )),
+    categorical = unique(explicit_roles$categorical %||% character(0)),
+    numeric = unique(explicit_roles$numeric %||% character(0))
+  )
+
+  auto_categorical <- col_names[vapply(df, function(x) is.character(x) || is.factor(x), logical(1))]
+  auto_numeric <- col_names[vapply(df, is.numeric, logical(1))]
+
+  roles$categorical <- unique(c(roles$categorical, setdiff(auto_categorical, roles$id)))
+  roles$numeric <- unique(c(roles$numeric, setdiff(auto_numeric, roles$id)))
+
+  roles$id <- intersect(roles$id, col_names)
+  roles$date <- intersect(setdiff(roles$date, roles$id), col_names)
+  roles$categorical <- intersect(setdiff(roles$categorical, c(roles$id, roles$date)), col_names)
+  roles$numeric <- intersect(setdiff(roles$numeric, c(roles$id, roles$date)), col_names)
+
+  roles
+}
+
+apply_consistency_rules_obfuscator <- function(data, rules) {
+  if (length(rules) == 0) {
+    return(list(data = data, report = list()))
+  }
+
+  normalize_rule <- function(rule) {
+    if (!is.list(rule) || is.null(rule$type)) {
+      stop("Cada regla de consistencia debe ser una lista con un campo `type`.")
+    }
+    rule
+  }
+
+  report <- vector("list", length(rules))
+
+  enforce_order_rule <- function(data, rule) {
+    required_fields <- c("lower", "upper")
+    missing_fields <- setdiff(required_fields, names(rule))
+    if (length(missing_fields) > 0) {
+      stop(sprintf(
+        "La regla `ordered` requiere los campos: %s",
+        paste(required_fields, collapse = ", ")
+      ))
+    }
+
+    lower <- rule$lower
+    upper <- rule$upper
+    allow_equal <- if (!is.null(rule$allow_equal)) isTRUE(rule$allow_equal) else TRUE
+    swap_strategy <- if (!is.null(rule$swap_strategy)) rule$swap_strategy else "swap"
+
+    if (!(lower %in% names(data)) || !(upper %in% names(data))) {
+      stop(sprintf("Las columnas `%s` y `%s` deben existir para aplicar una regla `ordered`.", lower, upper))
+    }
+
+    lower_values <- data[[lower]]
+    upper_values <- data[[upper]]
+    comparable_mask <- !is.na(lower_values) & !is.na(upper_values)
+    if (!any(comparable_mask)) {
+      return(list(data = data, report = c(rule, list(rows_adjusted = 0L))))
+    }
+
+    violating_mask <- if (allow_equal) {
+      lower_values[comparable_mask] > upper_values[comparable_mask]
+    } else {
+      lower_values[comparable_mask] >= upper_values[comparable_mask]
+    }
+
+    violating_rows <- which(comparable_mask)[violating_mask]
+    if (length(violating_rows) == 0) {
+      return(list(data = data, report = c(rule, list(rows_adjusted = 0L))))
+    }
+
+    if (!identical(swap_strategy, "swap")) {
+      stop("Por ahora solo se soporta `swap_strategy = \"swap\"`.")
+    }
+
+    tmp <- data[[lower]][violating_rows]
+    data[[lower]][violating_rows] <- data[[upper]][violating_rows]
+    data[[upper]][violating_rows] <- tmp
+
+    list(data = data, report = c(rule, list(rows_adjusted = length(violating_rows))))
+  }
+
+  for (idx in seq_along(rules)) {
+    rule <- normalize_rule(rules[[idx]])
+
+    if (identical(rule$type, "ordered")) {
+      result <- enforce_order_rule(data, rule)
+      data <- result$data
+      report[[idx]] <- result$report
+    } else {
+      stop(sprintf("Tipo de regla de consistencia no soportado: `%s`.", rule$type))
+    }
+  }
+
+  list(data = data, report = report)
+}
+
+obfuscate_numeric_range <- function(x, integer_col, preserve_integer_storage = FALSE) {
+  finite_mask <- is.finite(x)
+  if (!any(finite_mask)) {
+    return(x)
+  }
+
+  finite_values <- x[finite_mask]
+  if (length(finite_values) <= 1 || all(finite_values == finite_values[[1]])) {
+    return(x)
+  }
+
+  unique_finite <- sort(unique(finite_values))
+  if (length(unique_finite) <= 2) {
+    out <- x
+    out[finite_mask] <- scramble_vector_obfuscator(finite_values)
+    if (preserve_integer_storage) {
+      out[finite_mask] <- as.integer(round(out[finite_mask]))
+    }
+    return(out)
+  }
+
+  generate_group <- function(values) {
+    if (length(values) == 0) {
+      return(values)
+    }
+    if (length(values) == 1 || min(values) == max(values)) {
+      return(values)
+    }
+
+    rng <- range(values, na.rm = TRUE)
+    if (integer_col) {
+      lower_bound <- ceiling(rng[1])
+      upper_bound <- floor(rng[2])
+
+      if (!is.finite(lower_bound) || !is.finite(upper_bound) || upper_bound < lower_bound) {
+        return(values)
+      }
+
+      # Evita construir secuencias gigantes cuando el rango entero es enorme.
+      generated <- round(stats::runif(length(values), min = lower_bound, max = upper_bound))
+    } else {
+      generated <- stats::runif(length(values), min = rng[1], max = rng[2])
+      generated <- round(generated, digits = decimal_places_obfuscator(values))
+    }
+
+    generated[which.min(values)[1]] <- rng[1]
+    generated[which.max(values)[1]] <- rng[2]
+    generated
+  }
+
+  transformed <- finite_values
+  positive_mask <- finite_values > 0
+  negative_mask <- finite_values < 0
+  zero_mask <- finite_values == 0
+
+  transformed[positive_mask] <- generate_group(finite_values[positive_mask])
+  transformed[negative_mask] <- generate_group(finite_values[negative_mask])
+  transformed[zero_mask] <- 0
+
+  out <- x
+  out[finite_mask] <- transformed
+  if (preserve_integer_storage) {
+    out[finite_mask] <- as.integer(round(out[finite_mask]))
+  }
+  out
+}
+
+obfuscate_numeric_preserve_rank <- function(x, integer_col, preserve_integer_storage = FALSE) {
+  finite_mask <- is.finite(x)
+  if (!any(finite_mask)) {
+    return(x)
+  }
+
+  finite_values <- x[finite_mask]
+  if (length(finite_values) <= 1 || all(finite_values == finite_values[[1]])) {
+    return(x)
+  }
+
+  ranks <- rank(finite_values, ties.method = "first")
+  sorted_ranks <- order(ranks)
+  rng <- range(finite_values, na.rm = TRUE)
+
+  if (integer_col) {
+    candidate <- seq.int(from = ceiling(rng[1]), to = floor(rng[2]), length.out = length(finite_values))
+    candidate <- round(candidate)
+  } else {
+    candidate <- seq(from = rng[1], to = rng[2], length.out = length(finite_values))
+    candidate <- round(candidate, digits = decimal_places_obfuscator(finite_values))
+  }
+
+  jittered <- candidate
+  if (length(jittered) > 2 && diff(rng) > 0) {
+    inner <- seq_len(length(jittered) - 2) + 1
+    jittered[inner] <- sort(candidate[inner] + stats::runif(length(inner), -0.2, 0.2) * diff(rng))
+    if (!integer_col) {
+      jittered <- round(jittered, digits = decimal_places_obfuscator(finite_values))
+    }
+  }
+
+  transformed <- numeric(length(finite_values))
+  transformed[sorted_ranks] <- sort(jittered)
+
+  out <- x
+  out[finite_mask] <- transformed
+  if (preserve_integer_storage) {
+    out[finite_mask] <- as.integer(round(out[finite_mask]))
+  }
+  out
+}
+
+obfuscate_numeric_column <- function(x, mode) {
+  integer_col <- is_integerish_obfuscator(x)
+  preserve_integer_storage <- identical(typeof(x), "integer")
+
+  if (identical(mode, "permute")) {
+    out <- x
+    finite_mask <- is.finite(x)
+    out[finite_mask] <- scramble_vector_obfuscator(x[finite_mask])
+    if (preserve_integer_storage) {
+      out[finite_mask] <- as.integer(round(out[finite_mask]))
+    }
+    return(out)
+  }
+
+  if (identical(mode, "preserve_rank")) {
+    return(obfuscate_numeric_preserve_rank(x, integer_col, preserve_integer_storage = preserve_integer_storage))
+  }
+
+  obfuscate_numeric_range(x, integer_col, preserve_integer_storage = preserve_integer_storage)
+}
+
+make_id_map_obfuscator <- function(values, prefix, prefer_integer) {
+  uniq <- unique(values)
+  n <- length(uniq)
+
+  if (n == 0) {
+    return(setNames(character(0), character(0)))
+  }
+
+  if (prefer_integer) {
+    prefix_num <- suppressWarnings(as.numeric(prefix))
+    base <- if (is.na(prefix_num)) 999000000 else as.numeric(paste0(prefix, "000000"))
+    generated <- base + seq_len(n)
+
+    if (!any(generated > .Machine$integer.max)) {
+      return(setNames(as.integer(generated), as.character(uniq)))
+    }
+  }
+
+  width <- max(6L, nchar(as.character(n)))
+  setNames(paste0(prefix, "_", formatC(seq_len(n), width = width, flag = "0")), as.character(uniq))
+}
+
+obfuscate_id_col_obfuscator <- function(col, id_prefix) {
+  na_mask <- is.na(col)
+  if (all(na_mask)) {
+    return(col)
+  }
+
+  original_is_factor <- is.factor(col)
+  values_chr <- as.character(col)
+  non_na_values <- values_chr[!na_mask]
+  id_map <- make_id_map_obfuscator(non_na_values, id_prefix, prefer_integer = is_integerish_obfuscator(col))
+
+  mapped_chr <- values_chr
+  mapped_chr[!na_mask] <- unname(id_map[non_na_values])
+
+  if (original_is_factor) {
+    return(factor(mapped_chr, exclude = NULL))
+  }
+
+  if (identical(typeof(col), "integer") && is.numeric(id_map)) {
+    return(as.integer(mapped_chr))
+  }
+
+  if (is.numeric(col) && is.numeric(id_map)) {
+    return(as.numeric(mapped_chr))
+  }
+
+  mapped_chr
+}
+
+summarize_k_anonymity_risk <- function(data, quasi_identifiers, k) {
+  if (length(quasi_identifiers) == 0) {
+    return(list(
+      k = k,
+      quasi_identifiers = quasi_identifiers,
+      row_count = nrow(data),
+      equivalence_classes = 0L,
+      violating_classes = 0L,
+      violating_rows = 0L,
+      satisfied = TRUE
+    ))
+  }
+
+  qi_data <- data[quasi_identifiers]
+  complete_mask <- stats::complete.cases(qi_data)
+
+  if (!any(complete_mask)) {
+    return(list(
+      k = k,
+      quasi_identifiers = quasi_identifiers,
+      row_count = nrow(data),
+      equivalence_classes = 0L,
+      violating_classes = 0L,
+      violating_rows = 0L,
+      satisfied = TRUE
+    ))
+  }
+
+  keys <- do.call(
+    paste,
+    c(lapply(qi_data[complete_mask, , drop = FALSE], as.character), sep = "\r")
+  )
+  counts <- table(keys)
+  violating_keys <- names(counts[counts < k])
+
+  list(
+    k = k,
+    quasi_identifiers = quasi_identifiers,
+    row_count = nrow(data),
+    equivalence_classes = length(counts),
+    violating_classes = length(violating_keys),
+    violating_rows = sum(counts[counts < k]),
+    satisfied = all(counts >= k)
+  )
+}
+
+build_generalization_plan <- function(column, values, hierarchy = NULL) {
+  if (!is.null(hierarchy)) {
+    return(hierarchy)
+  }
+
+  if (inherits(values, c("Date", "POSIXct", "POSIXlt", "POSIXt"))) {
+    return(c("identity", "month", "quarter", "year"))
+  }
+
+  if (is.numeric(values)) {
+    return(c("identity", "interval_5", "interval_10", "interval_20", "global"))
+  }
+
+  if (is.factor(values) || is.character(values)) {
+    return(c("identity", "rare_2", "rare_5", "rare_10", "global"))
+  }
+
+  c("identity", "global")
+}
+
+generalize_numeric_step <- function(x, step) {
+  if (identical(step, "identity")) {
+    return(x)
+  }
+
+  if (identical(step, "global")) {
+    out <- rep(NA_character_, length(x))
+    non_na <- !is.na(x) & is.finite(x)
+    if (any(non_na)) {
+      rng <- range(x[non_na], na.rm = TRUE)
+      out[non_na] <- sprintf("[%s,%s]", format(rng[1], trim = TRUE), format(rng[2], trim = TRUE))
+    }
+    return(out)
+  }
+
+  width <- suppressWarnings(as.numeric(sub("^interval_", "", step)))
+  if (is.na(width)) {
+    stop(sprintf("Paso de generalizacion numerica no soportado: `%s`.", step))
+  }
+
+  out <- rep(NA_character_, length(x))
+  non_na <- !is.na(x) & is.finite(x)
+  if (!any(non_na)) {
+    return(out)
+  }
+
+  lower <- floor(x[non_na] / width) * width
+  upper <- lower + width - 1
+  if (!is_integerish_obfuscator(x)) {
+    upper <- lower + width
+  }
+  out[non_na] <- sprintf("[%s,%s]", format(lower, trim = TRUE), format(upper, trim = TRUE))
+  out
+}
+
+generalize_date_step <- function(x, step) {
+  if (identical(step, "identity")) {
+    return(as.character(x))
+  }
+
+  out <- rep(NA_character_, length(x))
+  non_na <- !is.na(x)
+  if (!any(non_na)) {
+    return(out)
+  }
+
+  dates <- as.Date(x[non_na])
+  if (identical(step, "month")) {
+    out[non_na] <- format(dates, "%Y-%m")
+  } else if (identical(step, "quarter")) {
+    out[non_na] <- paste0(format(dates, "%Y"), "-T", ((as.integer(format(dates, "%m")) - 1) %/% 3) + 1)
+  } else if (identical(step, "year")) {
+    out[non_na] <- format(dates, "%Y")
+  } else if (identical(step, "global")) {
+    out[non_na] <- "FECHA_GENERALIZADA"
+  } else {
+    stop(sprintf("Paso de generalizacion de fechas no soportado: `%s`.", step))
+  }
+
+  out
+}
+
+generalize_categorical_step <- function(x, step) {
+  values <- as.character(x)
+  if (identical(step, "identity")) {
+    return(values)
+  }
+
+  out <- values
+  non_na <- !is.na(values)
+  if (!any(non_na)) {
+    return(out)
+  }
+
+  if (identical(step, "global")) {
+    out[non_na] <- "OTROS"
+    return(out)
+  }
+
+  threshold <- suppressWarnings(as.numeric(sub("^rare_", "", step)))
+  if (is.na(threshold)) {
+    stop(sprintf("Paso de generalizacion categorica no soportado: `%s`.", step))
+  }
+
+  freq <- table(values[non_na])
+  rare_levels <- names(freq[freq < threshold])
+  out[non_na & values %in% rare_levels] <- "OTROS"
+  out
+}
+
+generalize_quasi_identifier <- function(x, step) {
+  if (is.numeric(x)) {
+    return(generalize_numeric_step(x, step))
+  }
+
+  if (inherits(x, c("Date", "POSIXct", "POSIXlt", "POSIXt"))) {
+    return(generalize_date_step(x, step))
+  }
+
+  generalize_categorical_step(x, step)
+}
+
+apply_k_anonymity_model <- function(data, privacy_model, progress_callback = NULL) {
+  if (is.null(privacy_model)) {
+    return(list(data = data, report = NULL))
+  }
+
+  k <- as.integer(privacy_model$k)
+  quasi_identifiers <- privacy_model$quasi_identifiers
+  suppression <- privacy_model$suppression %||% "rows"
+  hierarchies <- privacy_model$hierarchies %||% list()
+
+  before_risk <- summarize_k_anonymity_risk(data, quasi_identifiers, k)
+  emit_progress_obfuscator(progress_callback, 5, "Analizando riesgo de k-anonymity")
+  if (before_risk$satisfied) {
+    report <- list(
+      type = "k_anonymity",
+      k = k,
+      quasi_identifiers = quasi_identifiers,
+      suppression = suppression,
+      before = before_risk,
+      after = before_risk,
+      generalization_steps = setNames(rep("identity", length(quasi_identifiers)), quasi_identifiers),
+      rows_suppressed = 0L
+    )
+    return(list(data = data, report = report))
+  }
+
+  plans <- lapply(quasi_identifiers, function(col) build_generalization_plan(col, data[[col]], hierarchies[[col]] %||% NULL))
+  names(plans) <- quasi_identifiers
+  plan_positions <- setNames(rep(1L, length(quasi_identifiers)), quasi_identifiers)
+
+  generalized <- copy_df(data)
+  best_state <- generalized
+  best_risk <- before_risk
+
+  max_iterations <- max(vapply(plans, length, integer(1)), 1L) * max(length(quasi_identifiers), 1L) * 2L
+  iteration <- 0L
+
+  while (iteration < max_iterations) {
+    iteration <- iteration + 1L
+    current_risk <- summarize_k_anonymity_risk(generalized, quasi_identifiers, k)
+    loop_percent <- 5 + (iteration / max_iterations) * 75
+    emit_progress_obfuscator(
+      progress_callback,
+      loop_percent,
+      "Generalizando quasi-identificadores",
+      sprintf("Iteracion %s de %s", iteration, max_iterations)
+    )
+    best_state <- generalized
+    best_risk <- current_risk
+
+    if (current_risk$satisfied) {
+      break
+    }
+
+    next_candidates <- names(plan_positions)[vapply(names(plan_positions), function(col) {
+      plan_positions[[col]] < length(plans[[col]])
+    }, logical(1))]
+
+    if (length(next_candidates) == 0) {
+      break
+    }
+
+    candidate_scores <- vapply(next_candidates, function(col) {
+      plan_positions[[col]] + 1L
+    }, integer(1))
+    target_col <- next_candidates[which.min(candidate_scores)][1]
+    plan_positions[[target_col]] <- plan_positions[[target_col]] + 1L
+    selected_step <- plans[[target_col]][plan_positions[[target_col]]]
+    generalized[[target_col]] <- generalize_quasi_identifier(data[[target_col]], selected_step)
+  }
+
+  final_data <- best_state
+  final_risk <- best_risk
+  rows_suppressed <- 0L
+
+  if (!final_risk$satisfied && identical(suppression, "rows")) {
+    qi_data <- final_data[quasi_identifiers]
+    complete_mask <- stats::complete.cases(qi_data)
+    keys <- rep(NA_character_, nrow(final_data))
+    if (any(complete_mask)) {
+      keys[complete_mask] <- do.call(
+        paste,
+        c(lapply(qi_data[complete_mask, , drop = FALSE], as.character), sep = "\r")
+      )
+      counts <- table(keys[complete_mask])
+      violating_keys <- names(counts[counts < k])
+      keep_mask <- !(keys %in% violating_keys)
+      rows_suppressed <- sum(!keep_mask, na.rm = TRUE)
+      final_data <- final_data[keep_mask, , drop = FALSE]
+    }
+    final_risk <- summarize_k_anonymity_risk(final_data, quasi_identifiers, k)
+    emit_progress_obfuscator(progress_callback, 90, "Aplicando supresion residual")
+  }
+
+  applied_steps <- setNames(vapply(quasi_identifiers, function(col) {
+    plans[[col]][plan_positions[[col]]]
+  }, character(1)), quasi_identifiers)
+
+  report <- list(
+    type = "k_anonymity",
+    k = k,
+    quasi_identifiers = quasi_identifiers,
+    suppression = suppression,
+    before = before_risk,
+    after = final_risk,
+    generalization_steps = applied_steps,
+    rows_suppressed = rows_suppressed
+  )
+
+  emit_progress_obfuscator(progress_callback, 100, "k-anonymity finalizado")
+  list(data = final_data, report = report)
+}
+
+obfuscate_dataset <- function(df, config = obfuscator_config()) {
+  stopifnot(is.data.frame(df))
+
+  if (!inherits(config, "obfuscator_config")) {
+    config <- do.call(obfuscator_config, config)
+  }
+
+  validate_obfuscator_config(df, config)
+  progress_callback <- config$progress_callback
+
+  if (is.null(config$seed)) {
+    config$seed <- as.integer(Sys.time()) %% .Machine$integer.max
+  }
+
+  emit_progress_obfuscator(progress_callback, 0, "Preparando configuracion")
+
+  old_seed_exists <- exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
+  old_seed <- if (old_seed_exists) get(".Random.seed", envir = .GlobalEnv) else NULL
+  set.seed(config$seed)
+  on.exit({
+    if (old_seed_exists) {
+      assign(".Random.seed", old_seed, envir = .GlobalEnv)
+    } else if (exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)) {
+      rm(".Random.seed", envir = .GlobalEnv)
+    }
+  }, add = TRUE)
+
+  roles <- detect_column_roles(df, config)
+  out <- if (isTRUE(config$clone)) copy_df(df) else df
+  emit_progress_obfuscator(progress_callback, 10, "Roles de columnas detectados")
+
+  log_entries <- list(
+    timestamp = Sys.time(),
+    package_version = obfuscator_version(),
+    locale = config$locale,
+    seed = config$seed,
+    n_rows = nrow(df),
+    n_cols = ncol(df),
+    roles = roles,
+    numeric_mode = config$numeric_mode,
+    numeric_modes = config$numeric_modes,
+    privacy_model = config$privacy_model,
+    transformations = list()
+  )
+
+  for (col in roles$id) {
+    out[[col]] <- obfuscate_id_col_obfuscator(out[[col]], config$id_prefix)
+    log_entries$transformations[[col]] <- list(type = "id", method = "deterministic-map")
+  }
+  emit_progress_obfuscator(progress_callback, 25, "Identificadores ofuscados", sprintf("%s columnas", length(roles$id)))
+
+  for (col in roles$date) {
+    out[[col]] <- scramble_vector_obfuscator(out[[col]])
+    log_entries$transformations[[col]] <- list(type = "date", method = "permute")
+  }
+  emit_progress_obfuscator(progress_callback, 40, "Fechas procesadas", sprintf("%s columnas", length(roles$date)))
+
+  for (col in roles$categorical) {
+    out[[col]] <- scramble_vector_obfuscator(out[[col]])
+    log_entries$transformations[[col]] <- list(type = "categorical", method = "permute")
+  }
+  emit_progress_obfuscator(progress_callback, 55, "Variables categoricas procesadas", sprintf("%s columnas", length(roles$categorical)))
+
+  per_column_numeric_modes <- config$numeric_modes %||% list()
+  numeric_total <- max(length(roles$numeric), 1L)
+  numeric_done <- 0L
+  for (col in roles$numeric) {
+    col_mode <- per_column_numeric_modes[[col]] %||% config$numeric_mode
+    out[[col]] <- obfuscate_numeric_column(out[[col]], col_mode)
+    log_entries$transformations[[col]] <- list(type = "numeric", method = col_mode)
+    numeric_done <- numeric_done + 1L
+    emit_progress_obfuscator(
+      progress_callback,
+      55 + (numeric_done / numeric_total) * 15,
+      "Variables numericas procesadas",
+      sprintf("%s/%s columnas", numeric_done, length(roles$numeric))
+    )
+  }
+
+  consistency_result <- apply_consistency_rules_obfuscator(out, config$consistency_rules)
+  out <- consistency_result$data
+  if (length(config$consistency_rules) > 0) {
+    log_entries$consistency_rules <- consistency_result$report
+  }
+  emit_progress_obfuscator(progress_callback, 75, "Reglas de consistencia aplicadas")
+
+  privacy_progress <- if (is.null(progress_callback)) {
+    NULL
+  } else {
+    function(event) {
+      mapped_percent <- 75 + (event$percent / 100) * 20
+      emit_progress_obfuscator(progress_callback, mapped_percent, event$stage, event$detail)
+    }
+  }
+
+  privacy_result <- apply_k_anonymity_model(out, config$privacy_model, progress_callback = privacy_progress)
+  out <- privacy_result$data
+  if (!is.null(privacy_result$report)) {
+    log_entries$privacy_report <- privacy_result$report
+  }
+  emit_progress_obfuscator(progress_callback, 95, "Modelo de privacidad aplicado")
+
+  if (isTRUE(config$log)) {
+    attr(out, "obfuscator_log") <- log_entries
+  }
+
+  emit_progress_obfuscator(progress_callback, 100, "Ofuscacion finalizada")
+
+  out
+}
+
+obfuscate_csv <- function(input_path, output_path, config = obfuscator_config()) {
+  df <- readr::read_csv(input_path, show_col_types = FALSE)
+  out <- obfuscate_dataset(df, config = config)
+  readr::write_csv(out, output_path)
+  invisible(out)
+}

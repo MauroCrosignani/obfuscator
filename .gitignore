@@ -1,0 +1,14 @@
+.Rproj.user/
+.Rhistory
+.RData
+.Ruserdata
+.httr-oauth
+.Renviron
+.Rprofile
+*.Rproj
+*.Rproj.user
+*.tar.gz
+*.zip
+*.log
+/tmp/
+/tmp/**

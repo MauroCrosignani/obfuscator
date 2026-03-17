@@ -1,0 +1,5 @@
+export(obfuscate_dataset)
+export(obfuscate_csv)
+export(obfuscator_config)
+export(detect_column_roles)
+export(run_obfuscator_app)
