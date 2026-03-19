@@ -21,7 +21,8 @@ obfuscator_config <- function(
   privacy_model = NULL,
   locale = "es",
   infer_roles = TRUE,
-  progress_callback = NULL
+  progress_callback = NULL,
+  project_key = NULL
 ) {
   config <- list(
     col_roles = col_roles,
@@ -36,7 +37,8 @@ obfuscator_config <- function(
     privacy_model = privacy_model,
     locale = locale,
     infer_roles = infer_roles,
-    progress_callback = progress_callback
+    progress_callback = progress_callback,
+    project_key = project_key
   )
 
   class(config) <- c("obfuscator_config", "list")
@@ -87,8 +89,31 @@ scramble_vector_obfuscator <- function(x) {
   }
 
   out <- x
-  out[!na_mask] <- sample(values, length(values), replace = FALSE)
+  if (length(values) > 0) {
+    out[!na_mask] <- sample(values, length(values), replace = FALSE)
+  }
   out
+}
+
+#' Scramble Vector with key
+scramble_vector_deterministic <- function(x, project_key = NULL, col_name = "") {
+  na_mask <- is.na(x)
+  if (all(na_mask)) return(x)
+  
+  uniq <- sort(unique(as.character(x[!na_mask])))
+  if (length(uniq) <= 1) return(x)
+  
+  # Deterministic shuffle of levels
+  set.seed(sum(utf8ToInt(paste0(project_key, col_name))) %% .Machine$integer.max)
+  scrambled_uniq <- sample(uniq, length(uniq), replace = FALSE)
+  
+  mapping <- setNames(scrambled_uniq, uniq)
+  
+  out <- x
+  # Map each value to its scrambled counterpart
+  out[!na_mask] <- mapping[as.character(x[!na_mask])]
+  
+  return(list(data = out, mapping = mapping))
 }
 
 validate_obfuscator_config <- function(df, config) {
@@ -105,7 +130,8 @@ validate_obfuscator_config <- function(df, config) {
     "privacy_model",
     "locale",
     "infer_roles",
-    "progress_callback"
+    "progress_callback",
+    "project_key"
   )
 
   unknown_keys <- setdiff(names(config), allowed_keys)
@@ -140,6 +166,10 @@ validate_obfuscator_config <- function(df, config) {
     stop("`progress_callback` debe ser una funcion o NULL.")
   }
 
+  if (!is.null(config$project_key) && (!is.character(config$project_key) || length(config$project_key) != 1)) {
+    stop("`project_key` debe ser un texto escalar o NULL.")
+  }
+
   valid_numeric_modes <- c("range_random", "preserve_rank", "permute")
   if (!config$numeric_mode %in% valid_numeric_modes) {
     stop(sprintf(
@@ -163,7 +193,7 @@ validate_obfuscator_config <- function(df, config) {
   }
 
   if (!is.null(config$col_roles)) {
-    valid_role_names <- c("id", "date", "categorical", "numeric")
+    valid_role_names <- c("id", "date", "categorical", "numeric", "preserve")
     invalid_role_names <- setdiff(names(config$col_roles), valid_role_names)
     if (length(invalid_role_names) > 0) {
       stop(sprintf(
@@ -265,19 +295,21 @@ detect_column_roles <- function(df, config = obfuscator_config()) {
       col_names[vapply(df, function(x) inherits(x, c("Date", "POSIXct", "POSIXlt", "POSIXt")), logical(1))]
     )),
     categorical = unique(explicit_roles$categorical %||% character(0)),
-    numeric = unique(explicit_roles$numeric %||% character(0))
+    numeric = unique(explicit_roles$numeric %||% character(0)),
+    preserve = unique(explicit_roles$preserve %||% character(0))
   )
 
   auto_categorical <- col_names[vapply(df, function(x) is.character(x) || is.factor(x), logical(1))]
   auto_numeric <- col_names[vapply(df, is.numeric, logical(1))]
 
-  roles$categorical <- unique(c(roles$categorical, setdiff(auto_categorical, roles$id)))
-  roles$numeric <- unique(c(roles$numeric, setdiff(auto_numeric, roles$id)))
+  roles$categorical <- unique(c(roles$categorical, setdiff(auto_categorical, c(roles$id, roles$preserve))))
+  roles$numeric <- unique(c(roles$numeric, setdiff(auto_numeric, c(roles$id, roles$preserve))))
 
   roles$id <- intersect(roles$id, col_names)
-  roles$date <- intersect(setdiff(roles$date, roles$id), col_names)
-  roles$categorical <- intersect(setdiff(roles$categorical, c(roles$id, roles$date)), col_names)
-  roles$numeric <- intersect(setdiff(roles$numeric, c(roles$id, roles$date)), col_names)
+  roles$date <- intersect(setdiff(roles$date, c(roles$id, roles$preserve)), col_names)
+  roles$categorical <- intersect(setdiff(roles$categorical, c(roles$id, roles$date, roles$preserve)), col_names)
+  roles$numeric <- intersect(setdiff(roles$numeric, c(roles$id, roles$date, roles$preserve)), col_names)
+  roles$preserve <- intersect(roles$preserve, col_names)
 
   roles
 }
@@ -521,7 +553,7 @@ obfuscate_id_col_obfuscator <- function(col, id_prefix) {
   original_is_factor <- is.factor(col)
   values_chr <- as.character(col)
   non_na_values <- values_chr[!na_mask]
-  id_map <- make_id_map_obfuscator(non_na_values, id_prefix, prefer_integer = is_integerish_obfuscator(col))
+  id_map <- get_deterministic_id_map(non_na_values, id_prefix, project_key = NULL) # Placeholder, will be passed from top
 
   mapped_chr <- values_chr
   mapped_chr[!na_mask] <- unname(id_map[non_na_values])
@@ -539,6 +571,49 @@ obfuscate_id_col_obfuscator <- function(col, id_prefix) {
   }
 
   mapped_chr
+}
+
+#' Obtiene el mapa de identificadores de forma deterministica si hay project_key
+get_deterministic_id_map <- function(values, prefix, project_key = NULL) {
+  uniq <- sort(unique(as.character(values)))
+  if (length(uniq) == 0) return(list())
+  
+  if (is.null(project_key)) {
+    return(make_id_map_obfuscator(uniq, prefix, prefer_integer = is.numeric(values)))
+  }
+  
+  # Deterministic seed based on key and value
+  get_seed <- function(val) {
+    sum(utf8ToInt(paste0(project_key, val))) %% .Machine$integer.max
+  }
+  
+  mapped <- vapply(uniq, function(v) {
+    set.seed(get_seed(v))
+    # Generate a random ID with prefix
+    paste0(prefix, "_", sprintf("%08d", sample(1:99999999, 1)))
+  }, character(1))
+  
+  setNames(mapped, uniq)
+}
+
+#' Obfuscate ID Column
+obfuscate_id_col_obfuscator_v2 <- function(col, id_prefix, project_key = NULL) {
+  na_mask <- is.na(col)
+  if (all(na_mask)) return(col)
+  
+  original_is_factor <- is.factor(col)
+  values_chr <- as.character(col)
+  non_na_values <- values_chr[!na_mask]
+  id_map <- get_deterministic_id_map(non_na_values, id_prefix, project_key)
+  
+  mapped_chr <- values_chr
+  mapped_chr[!na_mask] <- unname(id_map[non_na_values])
+  
+  if (original_is_factor) return(factor(mapped_chr, exclude = NULL))
+  
+  if (is.numeric(col) && is.numeric(id_map)) return(as.numeric(mapped_chr))
+  
+  return(list(data = mapped_chr, mapping = id_map))
 }
 
 summarize_k_anonymity_risk <- function(data, quasi_identifiers, k) {
@@ -732,6 +807,12 @@ apply_k_anonymity_model <- function(data, privacy_model, progress_callback = NUL
       generalization_steps = setNames(rep("identity", length(quasi_identifiers)), quasi_identifiers),
       rows_suppressed = 0L
     )
+    # NEW: Add class IDs even on early return
+    qi_data_final <- data[quasi_identifiers]
+    if (nrow(qi_data_final) > 0) {
+      class_keys <- do.call(paste, c(lapply(qi_data_final, as.character), sep = "\r"))
+      data$.obfuscator_class_id <- as.integer(factor(class_keys))
+    }
     return(list(data = data, report = report))
   }
 
@@ -818,6 +899,14 @@ apply_k_anonymity_model <- function(data, privacy_model, progress_callback = NUL
     rows_suppressed = rows_suppressed
   )
 
+  # NEW: Add class IDs to the data for ID grouping
+  qi_data_final <- final_data[quasi_identifiers]
+  if (nrow(qi_data_final) > 0) {
+    class_keys <- do.call(paste, c(lapply(qi_data_final, as.character), sep = "\r"))
+    # Generate a unique integer for each class
+    final_data$.obfuscator_class_id <- as.integer(factor(class_keys))
+  }
+
   emit_progress_obfuscator(progress_callback, 100, "k-anonymity finalizado")
   list(data = final_data, report = report)
 }
@@ -868,8 +957,13 @@ obfuscate_dataset <- function(df, config = obfuscator_config()) {
   )
 
   for (col in roles$id) {
-    out[[col]] <- obfuscate_id_col_obfuscator(out[[col]], config$id_prefix)
-    log_entries$transformations[[col]] <- list(type = "id", method = "deterministic-map")
+    res <- obfuscate_id_col_obfuscator_v2(out[[col]], config$id_prefix, config$project_key)
+    out[[col]] <- if (is.list(res)) res$data else res
+    log_entries$transformations[[col]] <- list(
+      type = "id", 
+      method = "deterministic-map",
+      mapping = if (is.list(res)) res$mapping else NULL
+    )
   }
   emit_progress_obfuscator(progress_callback, 25, "Identificadores ofuscados", sprintf("%s columnas", length(roles$id)))
 
@@ -880,8 +974,18 @@ obfuscate_dataset <- function(df, config = obfuscator_config()) {
   emit_progress_obfuscator(progress_callback, 40, "Fechas procesadas", sprintf("%s columnas", length(roles$date)))
 
   for (col in roles$categorical) {
-    out[[col]] <- scramble_vector_obfuscator(out[[col]])
-    log_entries$transformations[[col]] <- list(type = "categorical", method = "permute")
+    if (is.null(config$project_key)) {
+      out[[col]] <- scramble_vector_obfuscator(out[[col]])
+      log_entries$transformations[[col]] <- list(type = "categorical", method = "permute")
+    } else {
+      res <- scramble_vector_deterministic(out[[col]], config$project_key, col)
+      out[[col]] <- if (is.list(res)) res$data else res
+      log_entries$transformations[[col]] <- list(
+        type = "categorical", 
+        method = "deterministic-permute",
+        mapping = if (is.list(res)) res$mapping else NULL
+      )
+    }
   }
   emit_progress_obfuscator(progress_callback, 55, "Variables categoricas procesadas", sprintf("%s columnas", length(roles$categorical)))
 
@@ -921,6 +1025,21 @@ obfuscate_dataset <- function(df, config = obfuscator_config()) {
   out <- privacy_result$data
   if (!is.null(privacy_result$report)) {
     log_entries$privacy_report <- privacy_result$report
+    
+    # NEW: ID Grouping logic if enabled in privacy_model
+    group_ids <- config$privacy_model$group_ids %||% FALSE
+    if (isTRUE(group_ids) && ".obfuscator_class_id" %in% names(out)) {
+       class_ids <- out$.obfuscator_class_id
+       for (col in roles$id) {
+         # Map each class to a new deterministic ID
+         # We use a combined key to ensure it is different from individual IDs if needed
+         class_mapping <- get_deterministic_id_map(unique(class_ids), paste0(config$id_prefix, "_GRP"), config$project_key)
+         out[[col]] <- unname(class_mapping[as.character(class_ids)])
+       }
+       out$.obfuscator_class_id <- NULL # Clean up
+    } else {
+       if (".obfuscator_class_id" %in% names(out)) out$.obfuscator_class_id <- NULL
+    }
   }
   emit_progress_obfuscator(progress_callback, 95, "Modelo de privacidad aplicado")
 
@@ -938,4 +1057,51 @@ obfuscate_csv <- function(input_path, output_path, config = obfuscator_config())
   out <- obfuscate_dataset(df, config = config)
   readr::write_csv(out, output_path)
   invisible(out)
+}
+
+#' Reversion de Ofuscacion
+#'
+#' Revierte las transformaciones de IDs y Categoricas si el log tiene los mapas.
+#'
+#' @param df Dataframe ofuscado.
+#' @param log Log de ofuscacion (obtenido via attr(df, "obfuscator_log")).
+#' @return Dataframe revertido.
+#' @export
+revert_obfuscation <- function(df, log = NULL) {
+  if (is.null(log)) {
+    log <- attr(df, "obfuscator_log")
+  }
+  
+  if (is.null(log)) {
+    stop("No se encontro el log de ofuscacion. No se puede revertir de forma segura.")
+  }
+  
+  out <- df
+  trans <- log$transformations
+  
+  for (col in names(trans)) {
+    if (is.null(out[[col]])) next
+    
+    entry <- trans[[col]]
+    if (!is.null(entry$mapping)) {
+      # Invert dictionary
+      mapping <- entry$mapping
+      inv_map <- setNames(names(mapping), as.character(mapping))
+      
+      old_values <- as.character(out[[col]])
+      na_mask <- is.na(old_values)
+      
+      reverted <- old_values
+      reverted[!na_mask] <- inv_map[old_values[!na_mask]]
+      
+      # Try to restore type if numeric
+      if (all(grepl("^[0-9.-]+$", reverted[!na_mask]))) {
+        out[[col]] <- as.numeric(reverted)
+      } else {
+        out[[col]] <- reverted
+      }
+    }
+  }
+  
+  out
 }

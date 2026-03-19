@@ -2,6 +2,7 @@ build_default_ui_roles <- function(df) {
   roles <- detect_column_roles(df, obfuscator_config())
   assigned <- unique(unlist(roles, use.names = FALSE))
   roles$available <- setdiff(colnames(df), assigned)
+  if (is.null(roles$preserve)) roles$preserve <- character(0)
   roles
 }
 
@@ -98,7 +99,8 @@ role_column_choices <- function(df, ui_roles) {
     id = intersect(ui_roles$id %||% character(0), colnames(df)),
     date = intersect(ui_roles$date %||% character(0), colnames(df)),
     categorical = intersect(ui_roles$categorical %||% character(0), colnames(df)),
-    numeric = intersect(ui_roles$numeric %||% character(0), colnames(df))
+    numeric = intersect(ui_roles$numeric %||% character(0), colnames(df)),
+    preserve = intersect(ui_roles$preserve %||% character(0), colnames(df))
   )
 }
 
@@ -227,6 +229,7 @@ run_obfuscator_app <- function() {
             shiny::tags$h3("Parametros"),
             shiny::numericInput("seed", "Semilla", value = 123, min = 1),
             shiny::textInput("id_prefix", "Prefijo para IDs", value = "999"),
+            shiny::passwordInput("project_key", "Llave del Proyecto (Opcional)", placeholder = "Sincroniza multiples archivos"),
             shiny::selectInput(
               "numeric_mode",
               "Modo numerico general",
@@ -241,7 +244,8 @@ run_obfuscator_app <- function() {
                 "k_suppression",
                 "Supresion residual",
                 choices = c("Eliminar filas residuales" = "rows", "Conservar filas aunque no alcance" = "none")
-              )
+              ),
+              shiny::checkboxInput("group_ids", "Agrupar IDs por k-clases", value = FALSE)
             ),
             shiny::actionButton("run_obfuscation", "Ofuscar dataset", class = "primary-btn")
           ),
@@ -249,7 +253,11 @@ run_obfuscator_app <- function() {
             class = "panel-card",
             shiny::tags$h3("Salida"),
             shiny::textInput("output_object_name", "Guardar objeto en entorno como", value = "dataset_ofuscado"),
-            shiny::actionButton("save_to_env", "Guardar en entorno"),
+            shiny::tags$div(
+               class = "btn-group-custom",
+               shiny::actionButton("save_to_env", "Guardar en entorno"),
+               shiny::actionButton("revert_btn", "Revertir actual", class = "secondary-btn")
+            ),
             shiny::downloadButton("download_csv", "Descargar CSV")
           )
         ),
@@ -304,7 +312,8 @@ run_obfuscator_app <- function() {
       id = character(0),
       date = character(0),
       categorical = character(0),
-      numeric = character(0)
+      numeric = character(0),
+      preserve = character(0)
     ))
     obfuscated_data <- shiny::reactiveVal(NULL)
     audit_log <- shiny::reactiveVal(NULL)
@@ -370,7 +379,8 @@ run_obfuscator_app <- function() {
         shiny::tags$div(class = "summary-card", shiny::tags$strong("IDs"), length(roles$id)),
         shiny::tags$div(class = "summary-card", shiny::tags$strong("Fechas"), length(roles$date)),
         shiny::tags$div(class = "summary-card", shiny::tags$strong("Categoricas"), length(roles$categorical)),
-        shiny::tags$div(class = "summary-card", shiny::tags$strong("Numericas"), length(roles$numeric))
+        shiny::tags$div(class = "summary-card", shiny::tags$strong("Numericas"), length(roles$numeric)),
+        shiny::tags$div(class = "summary-card", shiny::tags$strong("Para conservar"), length(roles$preserve))
       )
     })
 
@@ -386,9 +396,10 @@ run_obfuscator_app <- function() {
         class = "role-board",
         render_role_zone_ui("Disponibles", "available", roles$available, warning_vars = warning_vars, accent_class = "accent-slate"),
         render_role_zone_ui("Identificadoras", "id", roles$id, warning_vars = warning_vars, accent_class = "accent-red"),
-        render_role_zone_ui("Fechas", "date", roles$date, warning_vars = warning_vars, accent_class = "accent-blue"),
-        render_role_zone_ui("Categoricas", "categorical", roles$categorical, warning_vars = warning_vars, accent_class = "accent-green"),
-        render_role_zone_ui("Numericas", "numeric", roles$numeric, warning_vars = warning_vars, accent_class = "accent-gold")
+        render_role_zone_ui("Fechas", "date", roles$date, warning_vars = warning_vars, accent_class = "accent-blue text-sm"),
+        render_role_zone_ui("Categoricas", "categorical", roles$categorical, warning_vars = warning_vars, accent_class = "accent-green text-sm"),
+        render_role_zone_ui("Numericas", "numeric", roles$numeric, warning_vars = warning_vars, accent_class = "accent-gold text-sm"),
+        render_role_zone_ui("Conservar", "preserve", roles$preserve, warning_vars = warning_vars, accent_class = "accent-gray text-sm")
       )
     })
 
@@ -402,7 +413,8 @@ run_obfuscator_app <- function() {
           seed = input$seed,
           id_prefix = input$id_prefix,
           numeric_mode = input$numeric_mode,
-          col_roles = role_column_choices(df, roles)
+          col_roles = role_column_choices(df, roles),
+          project_key = if (nchar(input$project_key) > 0) input$project_key else NULL
         )
         df <- obfuscate_dataset(utils::head(df, 10), config = config)
       } else {
@@ -428,7 +440,8 @@ run_obfuscator_app <- function() {
           type = "k_anonymity",
           k = input$k_value,
           quasi_identifiers = qis,
-          suppression = input$k_suppression
+          suppression = input$k_suppression,
+          group_ids = input$group_ids
         )
       } else {
         NULL
@@ -439,7 +452,8 @@ run_obfuscator_app <- function() {
         id_prefix = input$id_prefix,
         numeric_mode = input$numeric_mode,
         col_roles = role_column_choices(df, roles),
-        privacy_model = privacy_model
+        privacy_model = privacy_model,
+        project_key = if (nchar(input$project_key) > 0) input$project_key else NULL
       )
       last_percent <- 0
       last_bucket <- -1
@@ -497,6 +511,24 @@ run_obfuscator_app <- function() {
       shiny::validate(shiny::need(nzchar(object_name), "Debes indicar un nombre de objeto valido."))
       assign(object_name, obfuscated_data(), envir = .GlobalEnv)
       shiny::showNotification(sprintf("Objeto `%s` guardado en el entorno global.", object_name), type = "message")
+    })
+
+    shiny::observeEvent(input$revert_btn, {
+      res <- obfuscated_data()
+      shiny::req(res)
+      log <- attr(res, "obfuscator_log")
+      if (is.null(log)) {
+        shiny::showNotification("No hay informacion de auditoria para revertir este dataset.", type = "error")
+        return()
+      }
+      
+      tryCatch({
+        reverted <- revert_obfuscation(res, log)
+        obfuscated_data(reverted)
+        shiny::showNotification("Dataset revertido correctamente.", type = "message")
+      }, error = function(e) {
+        shiny::showNotification(paste("Error al revertir:", e$message), type = "error")
+      })
     })
 
     output$download_csv <- shiny::downloadHandler(

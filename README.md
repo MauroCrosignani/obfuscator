@@ -33,12 +33,14 @@ Puedes usarlo de dos maneras:
 
 La app permite:
 
-- cargar un CSV o RDS
+- cargar un CSV, Excel (`.xls`, `.xlsx`) o RDS
 - seleccionar un `data.frame` o tibble desde el entorno global
 - detectar automaticamente variables candidatas a identificacion
 - revisar visualmente tipos de variables
 - mover variables entre zonas con drag and drop
 - ejecutar la ofuscacion y descargar el resultado
+
+En la carga de CSV y Excel, la deteccion de tipos usa `guess_max = 100000` para mejorar la inferencia de columnas en archivos grandes o heterogeneos.
 
 La carga por navegador tiene ahora un limite aumentado a 300 MB. Para archivos mas grandes o entornos con restricciones del navegador, conviene leer el dataset en R y elegirlo desde el entorno global dentro de la app.
 

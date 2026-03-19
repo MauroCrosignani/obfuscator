@@ -5,7 +5,6 @@
 .httr-oauth
 .Renviron
 .Rprofile
-*.Rproj
 *.Rproj.user
 *.tar.gz
 *.zip
