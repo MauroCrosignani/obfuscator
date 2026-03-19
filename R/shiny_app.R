@@ -243,7 +243,11 @@ run_obfuscator_app <- function() {
               shiny::radioButtons(
                 "k_suppression",
                 "Supresion residual",
-                choices = c("Eliminar filas residuales" = "rows", "Conservar filas aunque no alcance" = "none")
+                choices = c(
+                  "Eliminar filas" = "rows", 
+                  "Agrupar remanentes" = "group", 
+                  "Conservar sin anonimizar" = "none"
+                )
               ),
               shiny::checkboxInput("group_ids", "Agrupar IDs por k-clases", value = FALSE)
             ),
@@ -414,7 +418,16 @@ run_obfuscator_app <- function() {
           id_prefix = input$id_prefix,
           numeric_mode = input$numeric_mode,
           col_roles = role_column_choices(df, roles),
-          project_key = if (nchar(input$project_key) > 0) input$project_key else NULL
+          project_key = if (nchar(input$project_key) > 0) input$project_key else NULL,
+          privacy_model = if (isTRUE(input$enable_k)) {
+            list(
+              type = "k_anonymity", 
+              k = input$k_value,
+              quasi_identifiers = intersect(unique(c(roles$id, roles$date, roles$categorical)), names(df)),
+              suppression = input$k_suppression,
+              group_ids = input$group_ids
+            )
+          } else NULL
         )
         df <- obfuscate_dataset(utils::head(df, 10), config = config)
       } else {

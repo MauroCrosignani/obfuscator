@@ -240,8 +240,8 @@ validate_obfuscator_config <- function(df, config) {
     }
 
     suppression <- config$privacy_model$suppression %||% "rows"
-    if (!suppression %in% c("rows", "none")) {
-      stop("En `privacy_model`, `suppression` debe ser `rows` o `none`.")
+    if (!suppression %in% c("rows", "none", "group")) {
+      stop("En `privacy_model`, `suppression` debe ser `rows`, `none` o `group`.")
     }
   }
 
@@ -302,14 +302,60 @@ detect_column_roles <- function(df, config = obfuscator_config()) {
   auto_categorical <- col_names[vapply(df, function(x) is.character(x) || is.factor(x), logical(1))]
   auto_numeric <- col_names[vapply(df, is.numeric, logical(1))]
 
-  roles$categorical <- unique(c(roles$categorical, setdiff(auto_categorical, c(roles$id, roles$preserve))))
-  roles$numeric <- unique(c(roles$numeric, setdiff(auto_numeric, c(roles$id, roles$preserve))))
+  # Initialize roles with auto-detected and explicitly defined roles
+  # Then refine based on heuristics and explicit overrides
+  inferred_roles <- list(
+    id = character(0),
+    date = character(0),
+    categorical = character(0),
+    numeric = character(0),
+    preserve = character(0)
+  )
 
-  roles$id <- intersect(roles$id, col_names)
-  roles$date <- intersect(setdiff(roles$date, c(roles$id, roles$preserve)), col_names)
-  roles$categorical <- intersect(setdiff(roles$categorical, c(roles$id, roles$date, roles$preserve)), col_names)
-  roles$numeric <- intersect(setdiff(roles$numeric, c(roles$id, roles$date, roles$preserve)), col_names)
-  roles$preserve <- intersect(roles$preserve, col_names)
+  for (col in col_names) {
+    # Check for explicit roles first
+    if (col %in% roles$id) {
+      inferred_roles$id <- c(inferred_roles$id, col)
+    } else if (col %in% roles$date) {
+      inferred_roles$date <- c(inferred_roles$date, col)
+    } else if (col %in% roles$preserve) {
+      inferred_roles$preserve <- c(inferred_roles$preserve, col)
+    } else if (col %in% roles$categorical) {
+      inferred_roles$categorical <- c(inferred_roles$categorical, col)
+    } else if (col %in% roles$numeric) {
+      inferred_roles$numeric <- c(inferred_roles$numeric, col)
+    } else {
+      # Apply heuristics for auto-detection if not explicitly set
+      # Enhanced heuristic: If numeric with few unique values and many repetitions, it is likely categorical
+      is_cat_heuristic <- FALSE
+      if (is.numeric(df[[col]])) {
+        uniq_count <- length(unique(df[[col]]))
+        if (uniq_count > 0 && uniq_count < 100 && uniq_count < (nrow(df) * 0.2)) {
+          is_cat_heuristic <- TRUE
+        }
+      }
+
+      if (col %in% auto_categorical || is_cat_heuristic) {
+        inferred_roles$categorical <- c(inferred_roles$categorical, col)
+      } else if (col %in% auto_numeric) {
+        inferred_roles$numeric <- c(inferred_roles$numeric, col)
+      }
+      # If neither, it remains unassigned, which is fine for now.
+    }
+  }
+
+  # Overwrite initial roles with inferred_roles, ensuring uniqueness and intersection with col_names
+  roles$id <- intersect(unique(inferred_roles$id), col_names)
+  roles$date <- intersect(unique(inferred_roles$date), col_names)
+  roles$categorical <- intersect(unique(inferred_roles$categorical), col_names)
+  roles$numeric <- intersect(unique(inferred_roles$numeric), col_names)
+  roles$preserve <- intersect(unique(inferred_roles$preserve), col_names)
+
+  # Final cleanup: ensure no column is in multiple roles (priority: id > date > preserve > categorical > numeric)
+  roles$date <- setdiff(roles$date, roles$id)
+  roles$preserve <- setdiff(roles$preserve, c(roles$id, roles$date))
+  roles$categorical <- setdiff(roles$categorical, c(roles$id, roles$date, roles$preserve))
+  roles$numeric <- setdiff(roles$numeric, c(roles$id, roles$date, roles$preserve, roles$categorical))
 
   roles
 }
@@ -575,11 +621,14 @@ obfuscate_id_col_obfuscator <- function(col, id_prefix) {
 
 #' Obtiene el mapa de identificadores de forma deterministica si hay project_key
 get_deterministic_id_map <- function(values, prefix, project_key = NULL) {
-  uniq <- sort(unique(as.character(values)))
+  is_num <- is.numeric(values)
+  uniq_original <- if (is_num) sort(unique(values)) else sort(unique(as.character(values)))
+  uniq <- as.character(uniq_original)
+
   if (length(uniq) == 0) return(list())
   
   if (is.null(project_key)) {
-    return(make_id_map_obfuscator(uniq, prefix, prefer_integer = is.numeric(values)))
+    return(make_id_map_obfuscator(uniq_original, prefix, prefer_integer = is_num))
   }
   
   # Deterministic seed based on key and value
@@ -603,17 +652,23 @@ obfuscate_id_col_obfuscator_v2 <- function(col, id_prefix, project_key = NULL) {
   
   original_is_factor <- is.factor(col)
   values_chr <- as.character(col)
-  non_na_values <- values_chr[!na_mask]
+  non_na_values <- col[!na_mask]
   id_map <- get_deterministic_id_map(non_na_values, id_prefix, project_key)
-  
+
   mapped_chr <- values_chr
   mapped_chr[!na_mask] <- unname(id_map[non_na_values])
   
-  if (original_is_factor) return(factor(mapped_chr, exclude = NULL))
+  if (original_is_factor) {
+    mapped_data <- factor(mapped_chr, exclude = NULL)
+  } else if (is.numeric(col) && is.numeric(id_map)) {
+    # Type stable conversion
+    num_vals <- as.numeric(mapped_chr)
+    mapped_data <- if (is.integer(col)) as.integer(round(num_vals)) else num_vals
+  } else {
+    mapped_data <- mapped_chr
+  }
   
-  if (is.numeric(col) && is.numeric(id_map)) return(as.numeric(mapped_chr))
-  
-  return(list(data = mapped_chr, mapping = id_map))
+  return(list(data = mapped_data, mapping = id_map))
 }
 
 summarize_k_anonymity_risk <- function(data, quasi_identifiers, k) {
@@ -865,7 +920,7 @@ apply_k_anonymity_model <- function(data, privacy_model, progress_callback = NUL
   final_risk <- best_risk
   rows_suppressed <- 0L
 
-  if (!final_risk$satisfied && identical(suppression, "rows")) {
+  if (!final_risk$satisfied && suppression != "none") {
     qi_data <- final_data[quasi_identifiers]
     complete_mask <- stats::complete.cases(qi_data)
     keys <- rep(NA_character_, nrow(final_data))
@@ -876,12 +931,24 @@ apply_k_anonymity_model <- function(data, privacy_model, progress_callback = NUL
       )
       counts <- table(keys[complete_mask])
       violating_keys <- names(counts[counts < k])
-      keep_mask <- !(keys %in% violating_keys)
-      rows_suppressed <- sum(!keep_mask, na.rm = TRUE)
-      final_data <- final_data[keep_mask, , drop = FALSE]
+      
+      if (identical(suppression, "rows")) {
+        keep_mask <- !(keys %in% violating_keys)
+        rows_suppressed <- sum(!keep_mask, na.rm = TRUE)
+        final_data <- final_data[keep_mask, , drop = FALSE]
+      } else if (identical(suppression, "group")) {
+        # NEW: Residual grouping into "REMANENTE"
+        violating_mask <- keys %in% violating_keys
+        if (any(violating_mask)) {
+          for (qi in quasi_identifiers) {
+            final_data[violating_mask, qi] <- "REMANENTE"
+          }
+        }
+        rows_suppressed <- 0L
+      }
     }
     final_risk <- summarize_k_anonymity_risk(final_data, quasi_identifiers, k)
-    emit_progress_obfuscator(progress_callback, 90, "Aplicando supresion residual")
+    emit_progress_obfuscator(progress_callback, 95, "Aplicando supresion residual")
   }
 
   applied_steps <- setNames(vapply(quasi_identifiers, function(col) {
@@ -899,11 +966,10 @@ apply_k_anonymity_model <- function(data, privacy_model, progress_callback = NUL
     rows_suppressed = rows_suppressed
   )
 
-  # NEW: Add class IDs to the data for ID grouping
+  # Add class IDs for final record
   qi_data_final <- final_data[quasi_identifiers]
   if (nrow(qi_data_final) > 0) {
     class_keys <- do.call(paste, c(lapply(qi_data_final, as.character), sep = "\r"))
-    # Generate a unique integer for each class
     final_data$.obfuscator_class_id <- as.integer(factor(class_keys))
   }
 
