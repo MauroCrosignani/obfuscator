@@ -1,4 +1,19 @@
 document.addEventListener("DOMContentLoaded", function () {
+  function applyFilter() {
+    const searchInput = document.getElementById("var_search");
+    if (!searchInput) return;
+    
+    const query = searchInput.value.toLowerCase();
+    document.querySelectorAll(".draggable-var").forEach(function (item) {
+      const text = item.dataset.varName.toLowerCase();
+      if (text.includes(query)) {
+        item.classList.remove("hidden-var");
+      } else {
+        item.classList.add("hidden-var");
+      }
+    });
+  }
+
   function bindDragAndDrop() {
     const draggableItems = document.querySelectorAll(".draggable-var");
     const zones = document.querySelectorAll(".role-zone");
@@ -42,7 +57,13 @@ document.addEventListener("DOMContentLoaded", function () {
 
   const observer = new MutationObserver(function () {
     bindDragAndDrop();
+    applyFilter();
   });
+
+  const searchInput = document.getElementById("var_search");
+  if (searchInput) {
+    searchInput.addEventListener("input", applyFilter);
+  }
 
   observer.observe(document.body, { childList: true, subtree: true });
   bindDragAndDrop();

@@ -5,6 +5,48 @@ build_default_ui_roles <- function(df) {
   roles
 }
 
+detect_suspicious_date_character_columns <- function(df) {
+  if (!is.data.frame(df) || ncol(df) == 0) {
+    return(character(0))
+  }
+
+  is_date_like_name <- function(x) {
+    normalized <- toupper(trimws(x))
+    grepl("(^FECHA($|_))|(^FEC($|_))|(_FECHA($|_))|(^DATE($|_))|(_DATE($|_))", normalized)
+  }
+
+  is_date_prefix <- function(x) {
+    grepl(
+      "^(\\d{4}[-/.]\\d{2}[-/.]\\d{2}|\\d{2}[-/.]\\d{2}[-/.]\\d{4})$",
+      x
+    )
+  }
+
+  suspicious <- vapply(names(df), function(col_name) {
+    column <- df[[col_name]]
+    if (!is.character(column)) {
+      return(FALSE)
+    }
+
+    name_looks_like_date <- is_date_like_name(col_name)
+    non_na <- column[!is.na(column) & nzchar(trimws(column))]
+    if (length(non_na) == 0) {
+      return(name_looks_like_date)
+    }
+
+    sample_values <- head(trimws(non_na), 50)
+    first_ten <- substr(sample_values, 1, 10)
+    fully_date_like_text <- mean(is_date_prefix(first_ten), na.rm = TRUE) >= 0.6
+    has_date_prefix_with_extra <- any(
+      nchar(sample_values) > 10 & is_date_prefix(first_ten)
+    )
+
+    name_looks_like_date || has_date_prefix_with_extra || fully_date_like_text
+  }, logical(1))
+
+  names(df)[suspicious]
+}
+
 load_dataset_for_app <- function(source_mode, file_info = NULL, object_name = NULL) {
   if (identical(source_mode, "file")) {
     if (is.null(file_info)) {
@@ -13,7 +55,14 @@ load_dataset_for_app <- function(source_mode, file_info = NULL, object_name = NU
 
     extension <- tolower(tools::file_ext(file_info$name %||% file_info$datapath))
     if (extension == "csv") {
-      return(readr::read_csv(file_info$datapath, show_col_types = FALSE))
+      return(readr::read_csv(
+        file_info$datapath,
+        show_col_types = FALSE,
+        guess_max = 100000
+      ))
+    }
+    if (extension %in% c("xls", "xlsx")) {
+      return(readxl::read_excel(file_info$datapath, guess_max = 100000))
     }
     if (extension == "rds") {
       obj <- readRDS(file_info$datapath)
@@ -23,7 +72,7 @@ load_dataset_for_app <- function(source_mode, file_info = NULL, object_name = NU
       return(obj)
     }
 
-    stop("Formato no soportado. Usa CSV o RDS.")
+    stop("Formato no soportado. Usa CSV, XLS, XLSX o RDS.")
   }
 
   if (identical(source_mode, "environment")) {
@@ -53,20 +102,38 @@ role_column_choices <- function(df, ui_roles) {
   )
 }
 
-render_role_zone_ui <- function(title, role_name, variables, accent_class = "accent-slate") {
+render_role_zone_ui <- function(title, role_name, variables, warning_vars = character(0), accent_class = "accent-slate") {
+  index_width <- if (length(variables) > 99) 3 else 2
+
   shiny::tags$div(
     class = paste("role-zone", accent_class),
     `data-role` = role_name,
     shiny::tags$div(class = "role-zone-header", sprintf("%s (%s)", title, length(variables))),
     shiny::tags$div(
       class = "role-zone-body",
-      lapply(variables, function(var_name) {
+      lapply(seq_along(variables), function(idx) {
+        var_name <- variables[[idx]]
+        is_warning <- var_name %in% warning_vars
         shiny::tags$div(
-          class = "draggable-var",
+          class = paste("draggable-var", if (is_warning) "warning-var" else ""),
           draggable = "true",
           `data-var-name` = var_name,
           `data-from-role` = role_name,
-          var_name
+          shiny::tags$span(
+            class = "var-index-badge",
+            formatC(idx, width = index_width, flag = "0")
+          ),
+          if (is_warning) {
+            shiny::tags$span(
+              class = "var-warning-icon",
+              title = "Posible fecha almacenada como texto",
+              "!"
+            )
+          },
+          shiny::tags$span(
+            class = "var-label",
+            var_name
+          )
         )
       })
     )
@@ -101,11 +168,16 @@ run_obfuscator_app <- function() {
   }
 
   shiny::addResourcePath("obfuscator-www", www_dir)
+  asset_version <- paste0(obfuscator_version(), "-", as.integer(Sys.time()))
 
   ui <- shiny::fluidPage(
     shiny::tags$head(
-      shiny::tags$link(rel = "stylesheet", type = "text/css", href = "obfuscator-www/app.css"),
-      shiny::tags$script(src = "obfuscator-www/app.js")
+      shiny::tags$link(
+        rel = "stylesheet",
+        type = "text/css",
+        href = sprintf("obfuscator-www/app.css?v=%s", asset_version)
+      ),
+      shiny::tags$script(src = sprintf("obfuscator-www/app.js?v=%s", asset_version))
     ),
     shiny::tags$div(
       class = "app-shell",
@@ -137,7 +209,7 @@ run_obfuscator_app <- function() {
             ),
             shiny::conditionalPanel(
               "input.source_mode === 'file'",
-              shiny::fileInput("input_file", "Cargar CSV o RDS", accept = c(".csv", ".rds"))
+              shiny::fileInput("input_file", "Cargar CSV, Excel o RDS", accept = c(".csv", ".xls", ".xlsx", ".rds"))
             ),
             shiny::tags$div(
               class = "help-text",
@@ -192,15 +264,28 @@ run_obfuscator_app <- function() {
             class = "panel-card",
             shiny::tags$div(
               class = "section-header",
-              shiny::tags$h3("Clasificacion visual de variables"),
-              shiny::tags$p("Arrastra variables entre zonas para corregir la deteccion automatica.")
+              shiny::tags$div(
+                shiny::tags$h3("Clasificacion visual de variables"),
+                shiny::tags$p("Arrastra variables entre zonas para corregir la deteccion automatica.")
+              ),
+              shiny::tags$div(
+                class = "search-wrapper",
+                shiny::textInput("var_search", NULL, placeholder = "Filtrar por nombre...", width = "200px")
+              )
             ),
             shiny::uiOutput("role_board_ui")
           ),
           shiny::tags$div(
             class = "panel-card",
-            shiny::tags$h3("Vista previa"),
-            shiny::tableOutput("preview_table")
+            shiny::tags$div(
+              class = "section-header",
+              shiny::tags$h3("Vista previa"),
+              shiny::checkboxInput("live_preview", "Vista previa de ofuscacion (solo 10 filas)", value = FALSE)
+            ),
+            shiny::tags$div(
+              class = "preview-table-wrapper",
+              shiny::tableOutput("preview_table")
+            )
           ),
           shiny::tags$div(
             class = "panel-card",
@@ -296,19 +381,34 @@ run_obfuscator_app <- function() {
       }
 
       roles <- role_state()
+      warning_vars <- detect_suspicious_date_character_columns(df)
       shiny::tags$div(
         class = "role-board",
-        render_role_zone_ui("Disponibles", "available", roles$available, "accent-slate"),
-        render_role_zone_ui("Identificadoras", "id", roles$id, "accent-red"),
-        render_role_zone_ui("Fechas", "date", roles$date, "accent-blue"),
-        render_role_zone_ui("Categoricas", "categorical", roles$categorical, "accent-green"),
-        render_role_zone_ui("Numericas", "numeric", roles$numeric, "accent-gold")
+        render_role_zone_ui("Disponibles", "available", roles$available, warning_vars = warning_vars, accent_class = "accent-slate"),
+        render_role_zone_ui("Identificadoras", "id", roles$id, warning_vars = warning_vars, accent_class = "accent-red"),
+        render_role_zone_ui("Fechas", "date", roles$date, warning_vars = warning_vars, accent_class = "accent-blue"),
+        render_role_zone_ui("Categoricas", "categorical", roles$categorical, warning_vars = warning_vars, accent_class = "accent-green"),
+        render_role_zone_ui("Numericas", "numeric", roles$numeric, warning_vars = warning_vars, accent_class = "accent-gold")
       )
     })
 
     output$preview_table <- shiny::renderTable({
-      df <- obfuscated_data() %||% source_data()
+      df <- source_data()
       shiny::req(df)
+
+      if (isTRUE(input$live_preview)) {
+        roles <- role_state()
+        config <- obfuscator_config(
+          seed = input$seed,
+          id_prefix = input$id_prefix,
+          numeric_mode = input$numeric_mode,
+          col_roles = role_column_choices(df, roles)
+        )
+        df <- obfuscate_dataset(utils::head(df, 10), config = config)
+      } else {
+        df <- obfuscated_data() %||% df
+      }
+
       utils::head(df, 10)
     }, rownames = TRUE)
 

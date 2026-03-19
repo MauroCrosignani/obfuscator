@@ -1,8 +1,6 @@
 body {
-  background:
-    radial-gradient(circle at top left, rgba(209, 233, 255, 0.9), transparent 35%),
-    linear-gradient(180deg, #f6f4ee 0%, #f2efe7 100%);
-  color: #1f2933;
+  background: linear-gradient(180deg, #f7f7f6 0%, #f1f1ef 100%);
+  color: #202124;
   font-family: "Segoe UI", "Trebuchet MS", sans-serif;
 }
 
@@ -20,9 +18,10 @@ body {
   padding: 24px 28px;
   margin-bottom: 18px;
   border-radius: 24px;
-  background: linear-gradient(135deg, #113946 0%, #27548a 55%, #d98324 100%);
-  color: #fffdf7;
-  box-shadow: 0 20px 40px rgba(17, 57, 70, 0.2);
+  background: #ffffff;
+  color: #202124;
+  border: 1px solid #ddddda;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.04);
 }
 
 .hero h1 {
@@ -30,12 +29,13 @@ body {
   margin-bottom: 8px;
   font-size: 34px;
   font-weight: 700;
+  letter-spacing: -0.02em;
 }
 
 .hero-copy p {
   margin: 0;
   max-width: 720px;
-  opacity: 0.92;
+  color: #5f6368;
 }
 
 .hero-meta {
@@ -47,35 +47,57 @@ body {
 .hero-chip {
   padding: 8px 12px;
   border-radius: 999px;
-  background: rgba(255, 253, 247, 0.18);
-  backdrop-filter: blur(8px);
+  background: #f3f4f4;
+  color: #4d5156;
+  border: 1px solid #e0e0de;
 }
 
 .panel-card {
-  background: rgba(255, 252, 246, 0.92);
-  border: 1px solid rgba(17, 57, 70, 0.08);
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid #dfdfdc;
   border-radius: 20px;
   padding: 18px;
   margin-bottom: 16px;
-  box-shadow: 0 14px 28px rgba(31, 41, 51, 0.06);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.035);
 }
 
 .panel-card h3 {
   margin-top: 0;
   margin-bottom: 14px;
+  color: #202124;
 }
 
 .primary-btn {
-  background: linear-gradient(135deg, #d98324 0%, #bb5a14 100%);
-  color: #fff;
+  background: #2f3133;
+  color: #ffffff;
   border: 0;
   border-radius: 12px;
   padding: 10px 16px;
+  transition: background 0.2s ease;
+}
+
+.primary-btn:hover {
+  background: #1a1b1c;
+}
+
+.search-wrapper {
+  margin-bottom: 0;
+}
+
+.search-wrapper .form-group {
+  margin-bottom: 0;
+}
+
+.search-wrapper input {
+  border-radius: 10px;
+  border: 1px solid #dfdfdc;
+  padding: 6px 12px;
+  font-size: 13px;
 }
 
 .help-text {
   margin-top: 10px;
-  color: #52606d;
+  color: #6b7075;
   font-size: 12px;
 }
 
@@ -88,14 +110,14 @@ body {
 .summary-card {
   padding: 14px;
   border-radius: 16px;
-  background: #ffffff;
-  border: 1px solid rgba(17, 57, 70, 0.08);
+  background: #fcfcfb;
+  border: 1px solid #e3e3e0;
 }
 
 .summary-card strong {
   display: block;
   margin-bottom: 6px;
-  color: #102a43;
+  color: #2b2d30;
 }
 
 .section-header {
@@ -106,6 +128,10 @@ body {
   margin-bottom: 12px;
 }
 
+.section-header p {
+  color: #666b70;
+}
+
 .role-board {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -114,49 +140,154 @@ body {
 
 .role-zone {
   min-height: 220px;
-  border: 2px dashed rgba(16, 42, 67, 0.18);
+  border: 1px dashed #cfcfcc;
   border-radius: 18px;
-  background: #ffffff;
+  background: #fbfbfa;
   transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
 }
 
 .role-zone.is-over {
   transform: translateY(-2px);
-  box-shadow: 0 10px 24px rgba(39, 84, 138, 0.12);
-  border-color: #27548a;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.05);
+  border-color: #9a9da1;
 }
 
 .role-zone-header {
   padding: 12px 14px;
   font-weight: 700;
-  border-bottom: 1px solid rgba(16, 42, 67, 0.08);
+  border-bottom: 1px solid #e4e4e2;
+  background: #f1f2f2;
+  color: #2b2d30;
 }
 
-.role-zone-body {
+.role-zone .role-zone-body {
   padding: 12px;
   display: flex;
   flex-direction: column;
   gap: 8px;
+  height: 336px !important;
+  max-height: 336px !important;
+  min-height: 336px !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(80, 84, 88, 0.35) transparent;
 }
 
 .draggable-var {
   padding: 10px 12px;
   border-radius: 12px;
-  background: #f8fafc;
-  border: 1px solid rgba(16, 42, 67, 0.08);
+  background: #f4f5f5;
+  border: 1px solid #dfdfdc;
   cursor: grab;
   font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 56px;
+  color: #202124;
+}
+
+.draggable-var.warning-var {
+  border-color: #e3c65a;
+  background: #faf7ea;
+}
+
+.draggable-var.hidden-var {
+  display: none !important;
 }
 
 .draggable-var:active {
   cursor: grabbing;
 }
 
-.accent-slate .role-zone-header { background: #e8edf2; }
-.accent-red .role-zone-header { background: #fde8e8; }
-.accent-blue .role-zone-header { background: #e1effe; }
-.accent-green .role-zone-header { background: #def7ec; }
-.accent-gold .role-zone-header { background: #fdf6b2; }
+.role-zone-body::-webkit-scrollbar {
+  width: 10px;
+}
+
+.role-zone-body::-webkit-scrollbar-thumb {
+  background: rgba(80, 84, 88, 0.22);
+  border-radius: 999px;
+}
+
+.role-zone .draggable-var .var-index-badge {
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  background: #111111 !important;
+  border: 0 !important;
+  color: #ffffff !important;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+  flex: 0 0 36px;
+  text-indent: 0 !important;
+  padding: 0 !important;
+}
+
+.role-zone .draggable-var.warning-var .var-index-badge {
+  background: #e1b300 !important;
+  color: #ffffff !important;
+}
+
+.var-warning-icon {
+  width: 0;
+  height: 0;
+  border-left: 10px solid transparent;
+  border-right: 10px solid transparent;
+  border-bottom: 18px solid #e1b300;
+  position: relative;
+  flex: 0 0 20px;
+  margin-right: 2px;
+}
+
+.var-warning-icon::after {
+  content: "!";
+  position: absolute;
+  left: -2px;
+  top: 4px;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.var-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.accent-slate .role-zone-header,
+.accent-red .role-zone-header,
+.accent-blue .role-zone-header,
+.accent-green .role-zone-header,
+.accent-gold .role-zone-header {
+  background: #f1f2f2;
+}
+
+.preview-table-wrapper {
+  overflow-x: auto !important;
+  border-radius: 8px;
+  background: #ffffff;
+  border: 1px solid #eee;
+  padding: 4px;
+  margin-top: 4px;
+}
+
+.preview-table-wrapper table {
+  margin-bottom: 0 !important;
+  width: 100%;
+}
 
 @media (max-width: 768px) {
   .hero {
