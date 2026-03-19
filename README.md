@@ -122,9 +122,18 @@ Parametros principales:
 - `k`: tamano minimo de cada grupo equivalente.
 - `quasi_identifiers`: columnas que se consideran sensibles para reidentificacion.
 - `suppression`: `rows` elimina filas residuales si no alcanza con generalizar; `none` conserva todas las filas.
-- `hierarchies`: opcional, permite definir pasos de generalizacion por columna.
+- `hierarchies`: opcional, permite definir pasos de generalizacion por columna. Soporta tanto niveles predefinidos como **Jerarquías Visuales Personalizadas**.
 
-Jerarquias soportadas en esta version:
+### Jerarquías Visuales (Visual Tree UI)
+
+La App Shiny incluye un editor visual potente para variables categóricas y fechas:
+
+1.  **Configuración**: Haz clic en el icono de jerarquía en las filas de variables categóricas/fechas.
+2.  **Agrupación**: Arrastra valores para agruparlos o usa la selección múltiple para crear carpetas instantáneamente.
+3.  **Recursión**: Las jerarquías se aplican de forma incremental. Puedes agrupar grupos ya creados para definir multiniveles.
+4.  **Persistencia**: Las jerarquías se guardan automáticamente en tus plantillas JSON.
+
+Jerarquias predefinidas (strings):
 
 - numericas: `identity`, `interval_5`, `interval_10`, `interval_20`, `global`
 - fechas: `identity`, `month`, `quarter`, `year`
