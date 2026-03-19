@@ -719,7 +719,13 @@ summarize_k_anonymity_risk <- function(data, quasi_identifiers, k) {
 
 build_generalization_plan <- function(column, values, hierarchy = NULL) {
   if (!is.null(hierarchy)) {
-    return(hierarchy)
+    # Si ya es un plan completo (por ejemplo, viene de tests robustos), devolverlo.
+    if (is.list(hierarchy) && length(hierarchy) > 0 && identical(hierarchy[[1]], "identity")) {
+      return(hierarchy)
+    }
+    # El UI envia list(mapping = ..., name = ...). Extraemos solo el mapping como paso.
+    step <- if (is.list(hierarchy) && !is.null(hierarchy$mapping)) hierarchy$mapping else hierarchy
+    return(list("identity", step, "global"))
   }
 
   if (inherits(values, c("Date", "POSIXct", "POSIXlt", "POSIXt"))) {
@@ -827,16 +833,51 @@ generalize_categorical_step <- function(x, step) {
   out
 }
 
-generalize_quasi_identifier <- function(x, step) {
-  if (is.numeric(x)) {
-    return(generalize_numeric_step(x, step))
+generalize_mapping_step <- function(x, step) {
+  # step es una lista con 'mapping' (list) y opcionalmente 'name'
+  mapping <- if (is.list(step) && !is.null(step$mapping)) step$mapping else step
+  
+  values <- as.character(x)
+  out <- values
+  
+  # Construir vector de busqueda
+  lookup_names <- names(mapping)
+  if (is.null(lookup_names)) return(out)
+  
+  for (group_name in lookup_names) {
+    matches <- mapping[[group_name]]
+    out[values %in% matches] <- group_name
   }
+  
+  out
+}
 
-  if (inherits(x, c("Date", "POSIXct", "POSIXlt", "POSIXt"))) {
-    return(generalize_date_step(x, step))
+generalize_quasi_identifier <- function(x, step, original = NULL) {
+  # Si el paso es una lista (mapping definido por el usuario)
+  if (is.list(step)) {
+    # Las jerarquias personalizadas son incrementales: aplicamos sobre x
+    return(generalize_mapping_step(x, step))
   }
-
-  generalize_categorical_step(x, step)
+  
+  # Para pasos predefinidos (strings), preferimos original si esta disponible
+  # para evitar errores de parseo en fechas/numeros
+  val_to_use <- if (!is.null(original)) original else x
+  
+  if (step %in% c("month", "quarter", "year", "decade", "century")) {
+    return(generalize_date_step(val_to_use, step))
+  }
+  
+  if (grepl("^interval_|^round_|^log", step)) {
+    return(generalize_numeric_step(val_to_use, step))
+  }
+  
+  # Categorical default or global
+  if (step == "global") {
+    # Para global ("OTROS"), da igual x o original, usaremos x por consistencia con rare levels
+    return(generalize_categorical_step(x, "global"))
+  }
+  
+  generalize_categorical_step(val_to_use, step)
 }
 
 apply_k_anonymity_model <- function(data, privacy_model, progress_callback = NULL) {
@@ -859,7 +900,7 @@ apply_k_anonymity_model <- function(data, privacy_model, progress_callback = NUL
       suppression = suppression,
       before = before_risk,
       after = before_risk,
-      generalization_steps = setNames(rep("identity", length(quasi_identifiers)), quasi_identifiers),
+      generalization_steps = setNames(as.list(rep("identity", length(quasi_identifiers))), quasi_identifiers),
       rows_suppressed = 0L
     )
     # NEW: Add class IDs even on early return
@@ -912,8 +953,8 @@ apply_k_anonymity_model <- function(data, privacy_model, progress_callback = NUL
     }, integer(1))
     target_col <- next_candidates[which.min(candidate_scores)][1]
     plan_positions[[target_col]] <- plan_positions[[target_col]] + 1L
-    selected_step <- plans[[target_col]][plan_positions[[target_col]]]
-    generalized[[target_col]] <- generalize_quasi_identifier(data[[target_col]], selected_step)
+    selected_step <- plans[[target_col]][[plan_positions[[target_col]]]]
+    generalized[[target_col]] <- generalize_quasi_identifier(generalized[[target_col]], selected_step, data[[target_col]])
   }
 
   final_data <- best_state
@@ -951,9 +992,9 @@ apply_k_anonymity_model <- function(data, privacy_model, progress_callback = NUL
     emit_progress_obfuscator(progress_callback, 95, "Aplicando supresion residual")
   }
 
-  applied_steps <- setNames(vapply(quasi_identifiers, function(col) {
-    plans[[col]][plan_positions[[col]]]
-  }, character(1)), quasi_identifiers)
+  applied_steps <- setNames(lapply(quasi_identifiers, function(col) {
+    plans[[col]][[plan_positions[[col]]]]
+  }), quasi_identifiers)
 
   report <- list(
     type = "k_anonymity",
@@ -1243,6 +1284,13 @@ load_roles_from_json <- function(df, path, threshold = 0.8) {
         }
       }
     }
+  }
+  
+  # New: Restore hierarchies if they exist
+  if (!is.null(saved_roles$hierarchies)) {
+    # No necesitamos fuzzy matching para las jerarquias completas (por ahora)
+    # pero las pasamos para que el UI las recupere si los nombres coinciden
+    result$hierarchies <- saved_roles$hierarchies
   }
   
   result

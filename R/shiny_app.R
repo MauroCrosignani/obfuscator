@@ -143,7 +143,16 @@ render_role_zone_ui <- function(title, role_name, variables, warning_vars = char
           shiny::tags$span(
             class = "var-label",
             var_name
-          )
+          ),
+          # Nuevo: Boton para configurar jerarquia (solo para Categoricas y Fechas)
+          if (role_name %in% c("categorical", "date")) {
+            shiny::tags$button(
+              class = "btn-hierarchy-icon",
+              onclick = sprintf("Shiny.setInputValue('open_hierarchy_editor', '%s', {priority: 'event'})", var_name),
+              title = "Configurar Jerarquia de Anonimizacion",
+              shiny::tags$i(class = "fas fa-sitemap")
+            )
+          }
         )
       })
     )
@@ -187,6 +196,9 @@ run_obfuscator_app <- function() {
         type = "text/css",
         href = sprintf("obfuscator-www/app.css?v=%s", asset_version)
       ),
+      # FontAwesome y SortableJS
+      shiny::tags$link(rel = "stylesheet", href = "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"),
+      shiny::tags$script(src = "https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"),
       shiny::tags$script(src = sprintf("obfuscator-www/app.js?v=%s", asset_version))
     ),
     shiny::tags$div(
@@ -334,6 +346,7 @@ run_obfuscator_app <- function() {
       preserve = character(0)
     ))
     suggested_roles <- shiny::reactiveVal(list()) # New: Para fuzzy matching
+    hierarchies <- shiny::reactiveVal(list())      # New: Para k-anonymity personalizado
     obfuscated_data <- shiny::reactiveVal(NULL)
     audit_log <- shiny::reactiveVal(NULL)
     progress_status <- shiny::reactiveVal("Todavia no se ejecuto ninguna ofuscacion.")
@@ -383,6 +396,7 @@ run_obfuscator_app <- function() {
           }
           role_state(roles)
           suggested_roles(persisted$suggested)
+          hierarchies(persisted$hierarchies %||% list())
           
           msg <- sprintf("Hash %s detectado. Se cargo configuracion previa.", hash_id)
           if (length(persisted$suggested) > 0) {
@@ -400,6 +414,102 @@ run_obfuscator_app <- function() {
       audit_log(NULL)
       progress_status("Dataset cargado. Se busco persistencia por esquema.")
     }, ignoreNULL = TRUE)
+
+    shiny::observeEvent(input$open_hierarchy_editor, {
+      var_name <- input$open_hierarchy_editor
+      df <- source_data()
+      shiny::req(df, var_name)
+      
+      unique_vals <- unique(as.character(df[[var_name]]))
+      current_h <- hierarchies()[[var_name]] %||% list()
+      
+      shiny::showModal(shiny::modalDialog(
+        title = sprintf("Configurar Jerarquia: %s", var_name),
+        size = "l",
+        footer = shiny::tagList(
+          shiny::modalButton("Cancelar"),
+          shiny::actionButton("save_hierarchy", "Guardar Jerarquia", class = "btn-primary")
+        ),
+        shiny::tags$div(
+          class = "hierarchy-editor-container",
+          `data-var` = var_name,
+          # Panel Izquierdo: Valores Disponibles
+          shiny::tags$div(
+            class = "hierarchy-source-panel",
+            shiny::tags$div(class = "hierarchy-header", "Valores Unicos"),
+            shiny::tags$div(
+              id = "hierarchy-source-list",
+              class = "hierarchy-body",
+              lapply(unique_vals, function(v) {
+                shiny::tags$div(class = "hierarchy-item", `data-value` = v, v)
+              })
+            )
+          ),
+          # Panel Derecho: Estructura de Niveles
+          shiny::tags$div(
+            class = "hierarchy-dest-panel",
+            shiny::tags$div(
+              class = "hierarchy-header", 
+              "Grupos (Nivel 1)",
+              shiny::actionButton("add_hierarchy_group", "Nuevo Grupo", icon = shiny::icon("plus"), class = "btn-xs")
+            ),
+            shiny::tags$div(
+              id = "hierarchy-dest-list",
+              class = "hierarchy-body",
+              # Se llenará via JS o renderizado inicial con current_h
+              if (length(current_h) > 0) {
+                 lapply(names(current_h$mapping), function(grp) {
+                    shiny::tags$div(
+                      class = "hierarchy-folder",
+                      `data-group` = grp,
+                      shiny::tags$div(class = "folder-header", shiny::tags$i(class = "fas fa-folder-open"), grp),
+                      shiny::tags$div(
+                        class = "folder-content",
+                        lapply(current_h$mapping[[grp]], function(v) {
+                          shiny::tags$div(class = "hierarchy-item", `data-value` = v, v)
+                        })
+                      )
+                    )
+                 })
+              }
+            )
+          ),
+          # Barra flotante de seleccion
+          shiny::tags$div(
+             class = "hierarchy-floating-bar",
+             id = "hierarchy-selection-bar",
+             style = "display: none;",
+             shiny::tags$span(id = "hierarchy-selection-count", "0 seleccionado(s)"),
+             shiny::actionButton("group_selected", "Agrupar", class = "btn-primary btn-sm")
+          )
+        )
+      ))
+      
+      # Inicializar SortableJS en el modal
+      shiny::insertUI(
+        selector = "body",
+        where = "beforeEnd",
+        ui = shiny::tags$script("initHierarchySortable();"),
+        immediate = TRUE
+      )
+    })
+
+    shiny::observeEvent(input$save_hierarchy, {
+      # Recibir el arbol estructurado desde JS
+      tree_data <- input$hierarchy_tree_state
+      var_name <- input$open_hierarchy_editor
+      
+      if (!is.null(tree_data) && !is.null(var_name)) {
+        h <- hierarchies()
+        h[[var_name]] <- list(
+          mapping = tree_data,
+          name = sprintf("Jerarquia %s", var_name)
+        )
+        hierarchies(h)
+        shiny::showNotification("Jerarquia guardada temporalmente.", type = "message")
+      }
+      shiny::removeModal()
+    })
 
     shiny::observeEvent(input$role_drop, {
       shiny::req(source_data())
@@ -478,7 +588,8 @@ run_obfuscator_app <- function() {
               k = input$k_value,
               quasi_identifiers = intersect(unique(c(roles$id, roles$date, roles$categorical)), names(df)),
               suppression = input$k_suppression,
-              group_ids = input$group_ids
+              group_ids = input$group_ids,
+              hierarchies = hierarchies()
             )
           } else NULL
         )
@@ -507,7 +618,8 @@ run_obfuscator_app <- function() {
           k = input$k_value,
           quasi_identifiers = qis,
           suppression = input$k_suppression,
-          group_ids = input$group_ids
+          group_ids = input$group_ids,
+          hierarchies = hierarchies()
         )
       } else {
         NULL
@@ -570,7 +682,10 @@ run_obfuscator_app <- function() {
       
       roles <- role_state()
       # No guardamos 'available' para no ensuciar, solo asignaciones explicitas
-      save_roles_to_json(roles[names(roles) != "available"], config_path)
+      config_to_save <- roles[names(roles) != "available"]
+      config_to_save$hierarchies <- hierarchies()
+      
+      save_roles_to_json(config_to_save, config_path)
       shiny::showNotification(sprintf("Plantilla guardada para hash %s.", hash_id), type = "message")
     })
 
