@@ -1,0 +1,35 @@
+---
+title: "Persistencia de Clasificación en ObfuscatoR Studio"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Persistencia de Clasificación}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+# Introducción
+
+ObfuscatoR Studio incluye un **Asistente Proactivo** diseñado para eliminar el trabajo manual repetitivo al clasificar variables en datasets que se procesan periódicamente.
+
+## ¿Cómo funciona?
+
+Cuando clasificas las columnas de un dataset (indicando cuáles son IDs, cuáles son fechas, etc.), puedes guardar esa configuración como una **Plantilla**.
+
+### 1. Identificación por Esquema (Hash)
+El sistema genera un identificador único (hash) basado en los nombres de las columnas del dataset. Esto permite que, la próxima vez que cargues el mismo archivo (o uno con las mismas columnas), ObfuscatoR lo reconozca automáticamente.
+
+### 2. Fuzzy Matching Inteligente
+Si el esquema cambia ligeramente (por ejemplo, una columna "FECHA_NACIMIENTO" pasa a llamarse "FEC_NACIM"), el sistema utiliza la **distancia de Levenshtein** para sugerir que esa columna probablemente deba mantener el rol de "Fecha".
+
+## Uso en la App Shiny
+
+1.  **Carga**: Al cargar un dataset, el sistema busca automáticamente si existe una plantilla que coincida con el esquema.
+2.  **Sugerencias**: Las variables que coinciden parcialmente aparecerán con un **borde punteado** y un icono de interrogación.
+3.  **Confirmación**: Haz clic en "Confirmar Todo" para validar las sugerencias automáticas.
+4.  **Guardado**: Usa el botón "Guardar Plantilla" para exportar tu clasificación actual a la carpeta `config/` del proyecto.
+
+## Accesibilidad
+
+El diseño visual ha sido ajustado para cumplir con las normas **WCAG AA** de contraste:
+- **Zonas de Color**: Cada zona tiene un color de alto contraste (mínimo 4.5:1) y un encabezado legible.
+- **Doble Codificación**: Los estados (como advertencias de texto o sugerencias de persistencia) se comunican mediante color **e iconos**, garantizando que la información sea accesible para todos los usuarios.

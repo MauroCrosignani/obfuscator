@@ -38,6 +38,9 @@ La app permite:
 - detectar automaticamente variables candidatas a identificacion
 - revisar visualmente tipos de variables
 - mover variables entre zonas con drag and drop
+- **Persistencia de Clasificación**: Guarda y carga la asignación de roles mediante plantillas JSON basadas en el esquema de datos (hash).
+- **Asistente Proactivo**: Sugiere roles mediante *fuzzy matching* (distancia de Levenshtein) ante cambios menores en los nombres de las columnas.
+- **Accesibilidad (WCAG AA)**: Colores y contraste optimizados para cumplir con el ratio 4.5:1, con indicadores visuales dobles (color + icono).
 - ejecutar la ofuscacion y descargar el resultado
 
 En la carga de CSV y Excel, la deteccion de tipos usa `guess_max = 100000` para mejorar la inferencia de columnas en archivos grandes o heterogeneos.
