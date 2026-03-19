@@ -1171,3 +1171,79 @@ revert_obfuscation <- function(df, log = NULL) {
   
   out
 }
+
+# --- Module: PersistenceManager ---
+
+#' Generar hash del esquema de un dataset
+#' @param df Dataframe o tibble.
+#' @return Un string con el hash MD5 de los nombres de columnas ordenados.
+generate_schema_hash <- function(df) {
+  cols <- sort(colnames(df))
+  # Usamos digest si esta disponible, sino una suma simple de caracteres como fallback deterministico
+  if (requireNamespace("digest", quietly = TRUE)) {
+    return(digest::digest(cols, algo = "md5"))
+  }
+  # Fallback: concatenacion y suma de bytes
+  char_sum <- sum(utf8ToInt(paste(cols, collapse = "|"))) %% 1000000
+  sprintf("hash_%d_%d", length(cols), char_sum)
+}
+
+#' Guardar configuracion de roles a JSON
+#' @param roles Lista de roles obtenida de role_state().
+#' @param path Ruta del archivo destino.
+save_roles_to_json <- function(roles, path) {
+  # Limpiar roles vacios para un JSON mas compacto
+  clean_roles <- Filter(function(x) length(x) > 0, roles)
+  jsonlite::write_json(clean_roles, path, pretty = TRUE)
+}
+
+#' Cargar roles desde JSON con soporte para fuzzy matching
+#' @param df Dataframe actual para validar columnas.
+#' @param path Ruta del JSON.
+#' @param threshold Umbral de similitud (0 a 1) para fuzzy matching.
+#' @return Lista con roles asigados (exactos) y sugeridos (fuzzy).
+load_roles_from_json <- function(df, path, threshold = 0.8) {
+  if (!file.exists(path)) return(NULL)
+  
+  saved_roles <- jsonlite::read_json(path, simplifyVector = TRUE)
+  current_cols <- colnames(df)
+  
+  result <- list(
+    exact = list(id = c(), date = c(), categorical = c(), numeric = c(), preserve = c()),
+    suggested = list() # Lista de listas: list(col_actual, role_sugerido, original_name, score)
+  )
+  
+  for (role_name in names(result$exact)) {
+    cols_in_role <- saved_roles[[role_name]] %||% c()
+    for (col in cols_in_role) {
+      if (col %in% current_cols) {
+        # Match exacto
+        result$exact[[role_name]] <- c(result$exact[[role_name]], col)
+      } else {
+        # Intentar Fuzzy Match si no hay match exacto en ninguna zona
+        distances <- adist(col, current_cols, ignore.case = TRUE)[1, ]
+        max_len <- max(nchar(col), nchar(current_cols))
+        similarity <- 1 - (distances / max_len)
+        
+        best_idx <- which.max(similarity)
+        if (as.numeric(similarity[best_idx]) >= threshold) {
+          suggested_col <- current_cols[best_idx]
+          # Solo sugerir si la columna actual no tiene ya un match exacto asignado
+          already_assigned_exact <- suggested_col %in% unlist(result$exact)
+          if (!already_assigned_exact) {
+             # Tambien verificar si ya fue sugerida (prioridad al primer rol encontrado)
+             if (is.null(result$suggested[[suggested_col]])) {
+                result$suggested[[suggested_col]] <- list(
+                  role = role_name,
+                  original = col,
+                  score = as.numeric(similarity[best_idx])
+                )
+             }
+          }
+        }
+      }
+    }
+  }
+  
+  result
+}

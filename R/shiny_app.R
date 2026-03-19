@@ -104,7 +104,7 @@ role_column_choices <- function(df, ui_roles) {
   )
 }
 
-render_role_zone_ui <- function(title, role_name, variables, warning_vars = character(0), accent_class = "accent-slate") {
+render_role_zone_ui <- function(title, role_name, variables, warning_vars = character(0), suggested_vars = list(), accent_class = "accent-slate") {
   index_width <- if (length(variables) > 99) 3 else 2
 
   shiny::tags$div(
@@ -116,11 +116,19 @@ render_role_zone_ui <- function(title, role_name, variables, warning_vars = char
       lapply(seq_along(variables), function(idx) {
         var_name <- variables[[idx]]
         is_warning <- var_name %in% warning_vars
+        # Sugerencia si esta en la lista y el rol coincide
+        is_suggested <- !is.null(suggested_vars[[var_name]]) && suggested_vars[[var_name]]$role == role_name
+        
         shiny::tags$div(
-          class = paste("draggable-var", if (is_warning) "warning-var" else ""),
+          class = paste("draggable-var", 
+                        if (is_warning) "warning-var" else "",
+                        if (is_suggested) "suggested-var" else ""),
           draggable = "true",
           `data-var-name` = var_name,
           `data-from-role` = role_name,
+          title = if (is_suggested) sprintf("Sugerencia basada en '%s' (%.0f%% match)", 
+                                           suggested_vars[[var_name]]$original, 
+                                           suggested_vars[[var_name]]$score * 100) else NULL,
           shiny::tags$span(
             class = "var-index-badge",
             formatC(idx, width = index_width, flag = "0")
@@ -282,6 +290,12 @@ run_obfuscator_app <- function() {
               ),
               shiny::tags$div(
                 class = "search-wrapper",
+                shiny::tags$div(
+                  class = "btn-group-custom",
+                  shiny::actionButton("confirm_suggestions", "Confirmar Todo", icon = shiny::icon("check"), class = "btn-sm"),
+                  shiny::actionButton("save_template", "Guardar Plantilla", icon = shiny::icon("save"), class = "btn-sm"),
+                  shiny::actionButton("load_template", "Cargar Plantilla", icon = shiny::icon("folder-open"), class = "btn-sm")
+                ),
                 shiny::textInput("var_search", NULL, placeholder = "Filtrar por nombre...", width = "200px")
               )
             ),
@@ -319,6 +333,7 @@ run_obfuscator_app <- function() {
       numeric = character(0),
       preserve = character(0)
     ))
+    suggested_roles <- shiny::reactiveVal(list()) # New: Para fuzzy matching
     obfuscated_data <- shiny::reactiveVal(NULL)
     audit_log <- shiny::reactiveVal(NULL)
     progress_status <- shiny::reactiveVal("Todavia no se ejecuto ninguna ofuscacion.")
@@ -343,10 +358,47 @@ run_obfuscator_app <- function() {
         object_name = input$env_object
       )
       source_data(dataset)
-      role_state(build_default_ui_roles(dataset))
+      
+      # Persistence: Intentar carga automatica basada en hash
+      hash_id <- generate_schema_hash(dataset)
+      config_path <- file.path("config", paste0(hash_id, ".json"))
+      
+      suggested_roles(list())
+      if (file.exists(config_path)) {
+        persisted <- load_roles_from_json(dataset, config_path)
+        if (!is.null(persisted)) {
+          # Mezclamos matches exactos con los demas detectados
+          roles <- build_default_ui_roles(dataset)
+          # Sobrescribir con los exactos
+          for (r in names(persisted$exact)) {
+             cols_to_move <- persisted$exact[[r]]
+             if (length(cols_to_move) > 0) {
+               # Limpiar de cualquier zona previa
+               for (orig_r in names(roles)) {
+                 roles[[orig_r]] <- setdiff(roles[[orig_r]], cols_to_move)
+               }
+               # Asignar a la zona persistida
+               roles[[r]] <- unique(c(roles[[r]], cols_to_move))
+             }
+          }
+          role_state(roles)
+          suggested_roles(persisted$suggested)
+          
+          msg <- sprintf("Hash %s detectado. Se cargo configuracion previa.", hash_id)
+          if (length(persisted$suggested) > 0) {
+            msg <- paste(msg, sprintf("(%d sugerencias fuzzy)", length(persisted$suggested)))
+          }
+          shiny::showNotification(msg, type = "message")
+        } else {
+          role_state(build_default_ui_roles(dataset))
+        }
+      } else {
+        role_state(build_default_ui_roles(dataset))
+      }
+      
       obfuscated_data(NULL)
       audit_log(NULL)
-      progress_status("Dataset cargado. Puedes revisar la clasificacion y ejecutar la ofuscacion.")
+      progress_status("Dataset cargado. Se busco persistencia por esquema.")
     }, ignoreNULL = TRUE)
 
     shiny::observeEvent(input$role_drop, {
@@ -395,15 +447,16 @@ run_obfuscator_app <- function() {
       }
 
       roles <- role_state()
+      sug_roles <- suggested_roles()
       warning_vars <- detect_suspicious_date_character_columns(df)
       shiny::tags$div(
         class = "role-board",
-        render_role_zone_ui("Disponibles", "available", roles$available, warning_vars = warning_vars, accent_class = "accent-slate"),
-        render_role_zone_ui("Identificadoras", "id", roles$id, warning_vars = warning_vars, accent_class = "accent-red"),
-        render_role_zone_ui("Fechas", "date", roles$date, warning_vars = warning_vars, accent_class = "accent-blue text-sm"),
-        render_role_zone_ui("Categoricas", "categorical", roles$categorical, warning_vars = warning_vars, accent_class = "accent-green text-sm"),
-        render_role_zone_ui("Numericas", "numeric", roles$numeric, warning_vars = warning_vars, accent_class = "accent-gold text-sm"),
-        render_role_zone_ui("Conservar", "preserve", roles$preserve, warning_vars = warning_vars, accent_class = "accent-gray text-sm")
+        render_role_zone_ui("Disponibles", "available", roles$available, warning_vars = warning_vars, suggested_vars = sug_roles, accent_class = "accent-slate"),
+        render_role_zone_ui("Identificadoras", "id", roles$id, warning_vars = warning_vars, suggested_vars = sug_roles, accent_class = "accent-red"),
+        render_role_zone_ui("Fechas", "date", roles$date, warning_vars = warning_vars, suggested_vars = sug_roles, accent_class = "accent-blue text-sm"),
+        render_role_zone_ui("Categoricas", "categorical", roles$categorical, warning_vars = warning_vars, suggested_vars = sug_roles, accent_class = "accent-green text-sm"),
+        render_role_zone_ui("Numericas", "numeric", roles$numeric, warning_vars = warning_vars, suggested_vars = sug_roles, accent_class = "accent-gold text-sm"),
+        render_role_zone_ui("Conservar", "preserve", roles$preserve, warning_vars = warning_vars, suggested_vars = sug_roles, accent_class = "accent-gray text-sm")
       )
     })
 
@@ -507,6 +560,39 @@ run_obfuscator_app <- function() {
 
       progress_status("Ofuscacion completada al 100%.")
       shiny::showNotification("Ofuscacion completada.", type = "message")
+    })
+
+    shiny::observeEvent(input$save_template, {
+      df <- source_data()
+      shiny::req(df)
+      hash_id <- generate_schema_hash(df)
+      config_path <- file.path("config", paste0(hash_id, ".json"))
+      
+      roles <- role_state()
+      # No guardamos 'available' para no ensuciar, solo asignaciones explicitas
+      save_roles_to_json(roles[names(roles) != "available"], config_path)
+      shiny::showNotification(sprintf("Plantilla guardada para hash %s.", hash_id), type = "message")
+    })
+
+    shiny::observeEvent(input$confirm_suggestions, {
+      sug <- suggested_roles()
+      if (length(sug) == 0) {
+        shiny::showNotification("No hay sugerencias que confirmar.", type = "warning")
+        return()
+      }
+      
+      roles <- role_state()
+      for (col in names(sug)) {
+        role_name <- sug[[col]]$role
+        # Quitar de donde este ahora (available usualmente)
+        for (r in names(roles)) roles[[r]] <- setdiff(roles[[r]], col)
+        # Poner en el nuevo rol
+        roles[[role_name]] <- unique(c(roles[[role_name]], col))
+      }
+      
+      role_state(roles)
+      suggested_roles(list())
+      shiny::showNotification("Sugerencias confirmadas.", type = "message")
     })
 
     output$audit_log_text <- shiny::renderPrint({

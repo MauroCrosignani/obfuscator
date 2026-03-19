@@ -1,0 +1,4 @@
+{
+  "categorical": ["Sepal.Width", "Petal.Width", "Species", "Sepal.Length"],
+  "numeric": ["Petal.Length"]
+}
