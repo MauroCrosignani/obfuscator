@@ -14,16 +14,50 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
+  // --- Gestion de Temas (Dark/Light) ---
+  function initTheme() {
+    const savedTheme = localStorage.getItem('obfuscator-theme') || 'light';
+    if (savedTheme === 'dark') {
+      document.body.classList.add('dark-theme');
+    } else {
+      document.body.classList.remove('dark-theme');
+    }
+    updateThemeIcon(savedTheme);
+  }
+
+  function updateThemeIcon(theme) {
+    const icon = document.querySelector('#theme-toggle i');
+    if (!icon) return;
+    if (theme === 'dark') {
+      icon.className = 'fas fa-sun';
+    } else {
+      icon.className = 'fas fa-moon';
+    }
+  }
+
+  window.toggleTheme = function() {
+    const isDark = document.body.classList.toggle('dark-theme');
+    const newTheme = isDark ? 'dark' : 'light';
+    localStorage.setItem('obfuscator-theme', newTheme);
+    updateThemeIcon(newTheme);
+  };
+
+  // --- Drag and Drop Enhancements ---
   function bindDragAndDrop() {
     const draggableItems = document.querySelectorAll(".draggable-var");
     const zones = document.querySelectorAll(".role-zone");
 
     draggableItems.forEach(function (item) {
       item.addEventListener("dragstart", function (event) {
+        item.classList.add("dragging");
         event.dataTransfer.setData("text/plain", JSON.stringify({
           var_name: item.dataset.varName,
           from_role: item.dataset.fromRole
         }));
+      });
+
+      item.addEventListener("dragend", function () {
+        item.classList.remove("dragging");
       });
     });
 
@@ -55,9 +89,17 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
+  // Inicializar al cargar
+  initTheme();
+  bindDragAndDrop();
+  applyFilter();
+
   const observer = new MutationObserver(function () {
     bindDragAndDrop();
     applyFilter();
+    // Asegurar que el icono del tema sea correcto tras renders de Shiny
+    const savedTheme = localStorage.getItem('obfuscator-theme') || 'light';
+    updateThemeIcon(savedTheme);
   });
 
   const searchInput = document.getElementById("var_search");
@@ -185,4 +227,24 @@ document.addEventListener("DOMContentLoaded", function () {
 
     window.Shiny.setInputValue("hierarchy_tree_state", mapping);
   }
+
+  // --- Utility: Copy R Code ---
+  window.copyRCodeToClipboard = function() {
+    const codeElement = document.querySelector(".code-container pre");
+    if (!codeElement) return;
+    
+    const code = codeElement.innerText;
+    navigator.clipboard.writeText(code).then(() => {
+      const btn = document.querySelector(".copy-code-btn");
+      const originalHTML = btn.innerHTML;
+      btn.innerHTML = '<i class="fas fa-check"></i> ¡Copiado!';
+      btn.classList.add("success");
+      setTimeout(() => {
+        btn.innerHTML = originalHTML;
+        btn.classList.remove("success");
+      }, 2000);
+    }).catch(err => {
+      console.error('Error at copy:', err);
+    });
+  };
 });

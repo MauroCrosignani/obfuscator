@@ -22,7 +22,9 @@ obfuscator_config <- function(
   locale = "es",
   infer_roles = TRUE,
   progress_callback = NULL,
-  project_key = NULL
+  project_key = NULL,
+  numeric_offsets = list(),
+  exclude_cols = character(0)
 ) {
   config <- list(
     col_roles = col_roles,
@@ -38,7 +40,9 @@ obfuscator_config <- function(
     locale = locale,
     infer_roles = infer_roles,
     progress_callback = progress_callback,
-    project_key = project_key
+    project_key = project_key,
+    numeric_offsets = numeric_offsets,
+    exclude_cols = exclude_cols
   )
 
   class(config) <- c("obfuscator_config", "list")
@@ -131,7 +135,9 @@ validate_obfuscator_config <- function(df, config) {
     "locale",
     "infer_roles",
     "progress_callback",
-    "project_key"
+    "project_key",
+    "numeric_offsets",
+    "exclude_cols"
   )
 
   unknown_keys <- setdiff(names(config), allowed_keys)
@@ -170,7 +176,7 @@ validate_obfuscator_config <- function(df, config) {
     stop("`project_key` debe ser un texto escalar o NULL.")
   }
 
-  valid_numeric_modes <- c("range_random", "preserve_rank", "permute")
+  valid_numeric_modes <- c("range_random", "preserve_rank", "permute", "additive_offset")
   if (!config$numeric_mode %in% valid_numeric_modes) {
     stop(sprintf(
       "`numeric_mode` debe ser uno de: %s",
@@ -193,7 +199,7 @@ validate_obfuscator_config <- function(df, config) {
   }
 
   if (!is.null(config$col_roles)) {
-    valid_role_names <- c("id", "date", "categorical", "numeric", "preserve")
+    valid_role_names <- c("id", "date", "categorical", "numeric", "preserve", "exclude")
     invalid_role_names <- setdiff(names(config$col_roles), valid_role_names)
     if (length(invalid_role_names) > 0) {
       stop(sprintf(
@@ -296,7 +302,8 @@ detect_column_roles <- function(df, config = obfuscator_config()) {
     )),
     categorical = unique(explicit_roles$categorical %||% character(0)),
     numeric = unique(explicit_roles$numeric %||% character(0)),
-    preserve = unique(explicit_roles$preserve %||% character(0))
+    preserve = unique(explicit_roles$preserve %||% character(0)),
+    exclude = unique(explicit_roles$exclude %||% character(0))
   )
 
   auto_categorical <- col_names[vapply(df, function(x) is.character(x) || is.factor(x), logical(1))]
@@ -309,7 +316,8 @@ detect_column_roles <- function(df, config = obfuscator_config()) {
     date = character(0),
     categorical = character(0),
     numeric = character(0),
-    preserve = character(0)
+    preserve = character(0),
+    exclude = character(0)
   )
 
   for (col in col_names) {
@@ -324,6 +332,8 @@ detect_column_roles <- function(df, config = obfuscator_config()) {
       inferred_roles$categorical <- c(inferred_roles$categorical, col)
     } else if (col %in% roles$numeric) {
       inferred_roles$numeric <- c(inferred_roles$numeric, col)
+    } else if (col %in% roles$exclude) {
+      inferred_roles$exclude <- c(inferred_roles$exclude, col)
     } else {
       # Apply heuristics for auto-detection if not explicitly set
       # Enhanced heuristic: If numeric with few unique values and many repetitions, it is likely categorical
@@ -356,6 +366,9 @@ detect_column_roles <- function(df, config = obfuscator_config()) {
   roles$preserve <- setdiff(roles$preserve, c(roles$id, roles$date))
   roles$categorical <- setdiff(roles$categorical, c(roles$id, roles$date, roles$preserve))
   roles$numeric <- setdiff(roles$numeric, c(roles$id, roles$date, roles$preserve, roles$categorical))
+  
+  # Exclude role is separate but should be clean too
+  roles$exclude <- intersect(unique(roles$exclude), col_names)
 
   roles
 }
@@ -547,25 +560,41 @@ obfuscate_numeric_preserve_rank <- function(x, integer_col, preserve_integer_sto
   out
 }
 
-obfuscate_numeric_column <- function(x, mode) {
+obfuscate_numeric_column <- function(x, mode, offset = 0) {
   integer_col <- is_integerish_obfuscator(x)
   preserve_integer_storage <- identical(typeof(x), "integer")
 
+  # 1. Primary Obfuscation
   if (identical(mode, "permute")) {
     out <- x
     finite_mask <- is.finite(x)
     out[finite_mask] <- scramble_vector_obfuscator(x[finite_mask])
-    if (preserve_integer_storage) {
-      out[finite_mask] <- as.integer(round(out[finite_mask]))
-    }
-    return(out)
+    res <- out
+  } else if (identical(mode, "preserve_rank")) {
+    res <- obfuscate_numeric_preserve_rank(x, integer_col, preserve_integer_storage = FALSE)
+  } else if (identical(mode, "additive_offset")) {
+    res <- x
+  } else {
+    res <- obfuscate_numeric_range(x, integer_col, preserve_integer_storage = FALSE)
+  }
+  
+  # 2. Apply Offset (Encryption)
+  if (!is.null(offset) && offset != 0) {
+    finite_mask <- is.finite(res)
+    res[finite_mask] <- res[finite_mask] + offset
+  }
+  
+  # 3. Preservation
+  if (integer_col) {
+    finite_mask <- is.finite(res)
+    res[finite_mask] <- round(res[finite_mask])
+  }
+  if (preserve_integer_storage) {
+    finite_mask <- is.finite(res)
+    res[finite_mask] <- as.integer(res[finite_mask])
   }
 
-  if (identical(mode, "preserve_rank")) {
-    return(obfuscate_numeric_preserve_rank(x, integer_col, preserve_integer_storage = preserve_integer_storage))
-  }
-
-  obfuscate_numeric_range(x, integer_col, preserve_integer_storage = preserve_integer_storage)
+  res
 }
 
 make_id_map_obfuscator <- function(values, prefix, prefer_integer) {
@@ -1046,7 +1075,24 @@ obfuscate_dataset <- function(df, config = obfuscator_config()) {
   }, add = TRUE)
 
   roles <- detect_column_roles(df, config)
+  
+  # EXCLUSION LOGIC: Add columns from 'preserve' that are also in 'exclude'
+  # Actually, the user wants a role for 'Excluir'.
+  cols_to_exclude <- unique(c(config$exclude_cols, roles$exclude))
+  
   out <- if (isTRUE(config$clone)) copy_df(df) else df
+  
+  # Remove excluded columns early to avoid processing them
+  if (length(cols_to_exclude) > 0) {
+    out <- out[, !names(out) %in% cols_to_exclude, drop = FALSE]
+    # Update roles to remove excluded columns from processing loops
+    roles$id <- setdiff(roles$id, cols_to_exclude)
+    roles$date <- setdiff(roles$date, cols_to_exclude)
+    roles$categorical <- setdiff(roles$categorical, cols_to_exclude)
+    roles$numeric <- setdiff(roles$numeric, cols_to_exclude)
+    roles$preserve <- setdiff(roles$preserve, cols_to_exclude)
+  }
+  
   emit_progress_obfuscator(progress_callback, 10, "Roles de columnas detectados")
 
   log_entries <- list(
@@ -1064,13 +1110,26 @@ obfuscate_dataset <- function(df, config = obfuscator_config()) {
   )
 
   for (col in roles$id) {
-    res <- obfuscate_id_col_obfuscator_v2(out[[col]], config$id_prefix, config$project_key)
-    out[[col]] <- if (is.list(res)) res$data else res
-    log_entries$transformations[[col]] <- list(
-      type = "id", 
-      method = "deterministic-map",
-      mapping = if (is.list(res)) res$mapping else NULL
-    )
+    col_offset <- config$numeric_offsets[[col]] %||% 0
+    is_num <- is.numeric(out[[col]])
+    
+    if (is_num && col_offset != 0) {
+      # NUEVO: Cifrado basico por desplazamiento para IDs numericos
+      out[[col]] <- out[[col]] + col_offset
+      log_entries$transformations[[col]] <- list(
+        type = "id-numeric-offset", 
+        method = "additive_offset",
+        offset = "***"
+      )
+    } else {
+      res <- obfuscate_id_col_obfuscator_v2(out[[col]], config$id_prefix, config$project_key)
+      out[[col]] <- if (is.list(res)) res$data else res
+      log_entries$transformations[[col]] <- list(
+        type = "id", 
+        method = "deterministic-map",
+        mapping = if (is.list(res)) res$mapping else NULL
+      )
+    }
   }
   emit_progress_obfuscator(progress_callback, 25, "Identificadores ofuscados", sprintf("%s columnas", length(roles$id)))
 
@@ -1101,8 +1160,12 @@ obfuscate_dataset <- function(df, config = obfuscator_config()) {
   numeric_done <- 0L
   for (col in roles$numeric) {
     col_mode <- per_column_numeric_modes[[col]] %||% config$numeric_mode
-    out[[col]] <- obfuscate_numeric_column(out[[col]], col_mode)
-    log_entries$transformations[[col]] <- list(type = "numeric", method = col_mode)
+    col_offset <- config$numeric_offsets[[col]] %||% 0
+    out[[col]] <- obfuscate_numeric_column(out[[col]], col_mode, col_offset)
+    
+    # Mask offset in log for security
+    masked_offset <- if (col_offset != 0) "***" else 0
+    log_entries$transformations[[col]] <- list(type = "numeric", method = col_mode, offset = masked_offset)
     numeric_done <- numeric_done + 1L
     emit_progress_obfuscator(
       progress_callback,
@@ -1294,4 +1357,19 @@ load_roles_from_json <- function(df, path, threshold = 0.8) {
   }
   
   result
+}
+
+#' Revertir Cifrado Reversible basado en Claves Manuales
+#' @param df Dataframe ofuscado.
+#' @param keys_list Lista nombrada con las claves (desfases) usados (ej: list(ID_A = 500123)).
+#' @return Dataframe con los valores originales recuperados (si no hubo perdida por jerarquias).
+#' @export
+revert_reversible_ids <- function(df, keys_list) {
+  out <- df
+  for (col in names(keys_list)) {
+    if (col %in% names(out) && is.numeric(out[[col]])) {
+      out[[col]] <- out[[col]] - keys_list[[col]]
+    }
+  }
+  return(out)
 }

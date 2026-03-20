@@ -13,13 +13,14 @@ La prioridad de UX es simple:
 
 ## Que hace
 
-- Ofusca identificadores con prefijos evidentes como `999`.
+- Ofusca identificadores con Scrambling o **Cifrado Reversible (Modo Hardened)**.
 - Reordena fechas preservando el conjunto de valores.
 - Permuta variables categoricas preservando frecuencias.
 - Transforma columnas numericas con modos configurables.
 - Permite reglas de consistencia entre columnas.
-- Permite aplicar `k-anonymity` de forma opcional y parametrizable.
-- Adjunta un log de auditoria con configuracion, roles detectados y reglas aplicadas.
+- **k-anonymity 2.0**: Modelo de privacidad parametrizable con **Jerarquías Visuales**.
+- **Studio Grade**: Interfaz optimizada para grandes datasets (Horizontal Hero & Compact Cards).
+- Adjunta un log de auditoria detallado con enmascaramiento de claves sensibles.
 
 ## Estructura de uso
 
@@ -28,6 +29,23 @@ Puedes usarlo de dos maneras:
 1. Como script compatible con flujos existentes.
 2. Como paquete con codigo organizado en `R/`.
 3. Como app Shiny con interfaz grafica.
+
+## ObfuscatoR Studio 2.0 (Premium UX)
+
+La interfaz gráfica permite un control total y visual sobre el proceso:
+
+- **Horizontal Hero Meta**: Layout sintético que ahorra espacio para datasets masivos.
+- **Cifrado Reversible**: Configuración de claves manuales con `passwordInput` y exportación segura.
+- **Manual Integrado**: Ayuda contextual accesible desde cada pantalla.
+- **Copy-to-Clipboard**: Exporta el código R de reproducción a tu portapapeles con un clic.
+- **Persistencia de Clasificación**: Guarda y carga plantillas JSON basadas en el esquema de datos.
+- **Asistente Proactivo**: Sugiere roles mediante *fuzzy matching* (Levenshtein).
+- **Accesibilidad (WCAG AA)**: Contraste optimizado y badges de tipo de dato (#, A, ◷).
+- **Audit Masking**: Las claves y offsets se enmascaran automáticamente como `***` en los reportes.
+
+En la carga de CSV y Excel, la deteccion de tipos usa `guess_max = 100000` para mejorar la inferencia de columnas en archivos grandes o heterogeneos.
+
+La carga por navegador tiene ahora un limite aumentado a 300 MB. Para archivos mas grandes o entornos con restricciones del navegador, conviene leer el dataset en R y elegirlo desde el entorno global dentro de la app.
 
 ## App Shiny
 

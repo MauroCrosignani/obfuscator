@@ -11,3 +11,10 @@
 *.log
 /tmp/
 /tmp/**
+# Agent and IDE metadata
+.agent/
+.agents/
+_agent/
+_agents/
+.code-review-graph/
+.vscode/

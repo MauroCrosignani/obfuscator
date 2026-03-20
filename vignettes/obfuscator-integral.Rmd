@@ -1,0 +1,82 @@
+---
+title: "Introducción a ObfuscatoR: Protección de Datos para Equipos de IA"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Introducción a ObfuscatoR}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+# Bienvenidos a ObfuscatoR
+
+ObfuscatoR es una solución integral en R diseñada para equipos que necesitan compartir conjuntos de datos con herramientas de Inteligencia Artificial (LLMs, analítica externa) sin comprometer la privacidad de los sujetos ni la seguridad de la información sensible.
+
+## Filosofía: Privacidad por Diseño y por Defecto
+
+A diferencia de herramientas de anonimización genéricas, ObfuscatoR se centra en la **trazabilidad Auditoría** y en el **Equilibrio entre Privacidad y Utilidad**.
+
+### Pilares Fundamentales:
+1.  **Detección Inteligente**: Identificación automática de roles de columnas (ID, categórica, numérica, fecha).
+2.  **Ofuscación Determinística**: Capacidad de mantener la coherencia de los datos entre diferentes sesiones mediante el uso de claves de proyecto.
+3.  **Modelos de Privacidad Formales**: Implementación de `k-anonymity` para proporcionar garantías matemáticas de anonimato.
+4.  **ObfuscatoR Studio 2.0**: Una interfaz visual de grado profesional con **Glassmorphism 2.0**, diseñada para facilitar la configuración compleja con feedback en tiempo real (**Privacy Meter**).
+
+## Arquitectura del Paquete
+
+El paquete se organiza en módulos claros para asegurar robustez y mantenibilidad:
+
+-   **Core (`obfuscator_core.R`)**: Contiene el motor de transformación, las reglas de consistencia y la implementación de los modelos de privacidad (incluyendo el nuevo **Cifrado Reversible**).
+-   **UI (`shiny_app.R`)**: Proporciona el **Studio 2.0**, con soporte para temas oscuros persistentes y manual integrado.
+-   **Persistencia**: Gestión de archivos JSON que permiten guardar y cargar "plantillas de ofuscación" basadas en el esquema del dataset. Las claves de cifrado reversible NO se persisten por seguridad.
+
+## Flujo de Trabajo Típico
+
+El uso de ObfuscatoR sigue generalmente estos pasos:
+
+1.  **Carga y Detección**: Se lee el dataset y el sistema sugiere qué columnas son identificadores, cuáles son cuasi-identificadores y cuáles deben preservarse.
+2.  **Configuración de Reglas**:
+    -   Elegir el modo de ofuscación numérica (ej. preservar el rango o el orden).
+    -   Definir jerarquías de generalización para k-anonymity.
+    -   Establecer reglas de consistencia (ej. asegurar que una fecha de inicio siempre sea menor a una de fin).
+3.  **Ejecución y Auditoría**: El sistema genera el dataset ofuscado y un log detallado que describe cada decisión tomada.
+
+## Instalación y Ejecución Rápida
+
+Para lanzar la aplicación visual desde la raíz del proyecto:
+
+```r
+source("R/obfuscator_core.R")
+source("R/shiny_app.R")
+run_obfuscator_app()
+```
+
+Para flujos programáticos:
+
+```r
+source("obfuscator.R") # Carga las funciones core
+
+# Configuración mínima
+cfg <- obfuscator_config(
+  id_cols = c("ID_CLIENTE"),
+  privacy_model = list(type = "k_anonymity", k = 3, quasi_identifiers = c("EDAD", "PROVINCIA"))
+)
+
+# Ofuscación
+resultado <- obfuscate_dataset(mi_tabla, config = cfg)
+```
+
+## Siguientes Pasos
+
+Para profundizar en funcionalidades específicas, consulte las siguientes viñetas:
+-   `obfuscator-id-obfuscation`: Hashing y Prefijos.
+-   `obfuscator-numeric-privacy`: Estrategias para datos numéricos.
+-   `obfuscator-kanonymity`: Teoría y práctica de anonimato k.
+-   `obfuscator-hierarchies`: Editor visual de jerarquías.
+-   `obfuscator-consistency`: Reglas de integridad.

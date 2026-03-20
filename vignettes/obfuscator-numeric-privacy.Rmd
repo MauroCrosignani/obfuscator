@@ -1,0 +1,73 @@
+---
+title: "Ofuscación Numérica: Calidad de Datos vs Privacidad"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Ofuscación Numérica}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+# El Desafío de los Datos Numéricos
+
+A diferencia de los identificadores, los datos numéricos (ej. sueldos, montos de venta, saldos) suelen ser objeto de análisis estadístico. La ofuscación debe proteger la privacidad sin destruir la distribución o el orden de los datos que hace que el análisis sea útil.
+
+## Métodos de Ofuscación en ObfuscatoR
+
+ObfuscatoR ofrece tres modos principales, cada uno con un balance diferente entre utilidad y protección.
+
+### 1. `range_random` (Preservar Rango y Signo)
+Es el método por defecto. Sustituye cada valor por uno aleatorio dentro del mismo rango detectado para ese grupo.
+
+-   **Teoría**: Se basa en la premisa de que el valor individual no es tan importante como el rango en el que se mueve. ObfuscatoR detecta el mínimo y máximo de la columna y genera valores distribuidos uniformemente.
+-   **Propiedad Crítica**: Si una columna tiene positivos y negativos, el algoritmo los trata por separado para **no invertir el sentido económico** de los datos. Se preserva el cero si existe.
+-   **Utilidad**: Alta para promedios globales.
+-   **Privacidad**: Media. Permite ataques de inferencia si el rango es muy estrecho.
+
+### 2. `preserve_rank` (Preservar el Orden Relativo)
+Este método es ideal si tu análisis depende de quién tiene "más o menos" que otro.
+
+-   **Teoría**: Mantiene el orden de los registros pero cambia los valores exactos. El registro con el sueldo más alto seguirá siendo el más alto, pero con una cifra diferente generada a partir de una secuencia con ruido.
+-   **Utilidad**: Máxima para modelos de clasificación o aprendizaje automático basados en orden.
+-   **Privacidad**: Media-Baja. En datasets pequeños, el orden puede ser un fuerte identificador.
+
+### 3. `permute` (Permutación)
+Simplemente baraja los valores existentes entre los registros.
+
+-   **Teoría**: El conjunto de valores observado es idéntico, pero la relación entre columnas se rompe.
+-   **Utilidad**: Perfecta para mantener la distribución exacta (histograma idéntico).
+-   **Privacidad**: Alta si se usa junto con otras técnicas para romper la relación multivariada.
+
+## Ejemplos de Configuración
+
+En la aplicación visual, puedes elegir el modo global o especificarlo por columna en la zona de configuración avanzada.
+
+Programáticamente:
+
+```{r, eval = FALSE}
+library(obfuscator)
+
+# Configuramos modos mixtos
+cfg <- obfuscator_config(
+  numeric_mode = "range_random", # Global por defecto
+  numeric_modes = list(
+    SALARIO = "preserve_rank",  # Priorizamos el orden
+    EDAD = "permute"            # Priorizamos la distribución exacta
+  )
+)
+
+# Ofuscación
+resultado <- obfuscate_dataset(mis_datos, config = cfg)
+```
+
+## Manejo de Tipos (Enteros vs Decimales)
+ObfuscatoR detecta automáticamente si una columna es de tipo entero y asegura que los valores ofuscados también lo sean, evitando generar "sueldos de 20.456,78213 euros" si los originales eran redondos. También preserva la cantidad de decimales original para mantener la verosimilitud del dato.
+
+> [!TIP]
+> Si buscas una garantía matemática de privacidad más allá del simple ruido numérico, considera activar el modelo de **k-anonymity** junto con estas técnicas.

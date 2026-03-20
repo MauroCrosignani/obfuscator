@@ -104,7 +104,7 @@ role_column_choices <- function(df, ui_roles) {
   )
 }
 
-render_role_zone_ui <- function(title, role_name, variables, warning_vars = character(0), suggested_vars = list(), accent_class = "accent-slate") {
+render_role_zone_ui <- function(title, role_name, variables, warning_vars = character(0), suggested_vars = list(), active_hierarchies = character(0), active_offsets = character(0), numeric_cols = character(0), accent_class = "accent-slate") {
   index_width <- if (length(variables) > 99) 3 else 2
 
   shiny::tags$div(
@@ -140,17 +140,40 @@ render_role_zone_ui <- function(title, role_name, variables, warning_vars = char
               "!"
             )
           },
+          # NUEVO: Badge de tipo
+          shiny::tags$span(
+            class = paste0("var-badge var-badge-", if(var_name %in% numeric_cols) "num" else "cat"),
+            if(var_name %in% numeric_cols) "#" else "A"
+          ),
           shiny::tags$span(
             class = "var-label",
             var_name
           ),
-          # Nuevo: Boton para configurar jerarquia (solo para Categoricas y Fechas)
-          if (role_name %in% c("categorical", "date")) {
+          # Nuevo: Boton para ver distribucion
+          shiny::tags$button(
+            class = "btn-dist-icon",
+            onclick = sprintf("Shiny.setInputValue('view_distribution', '%s', {priority: 'event'})", var_name),
+            title = "Ver Distribucion de Datos",
+            shiny::tags$i(class = "fas fa-chart-simple")
+          ),
+          # Nuevo: Boton para configurar jerarquia (solo para Categoricas, Fechas e IDs)
+          if (role_name %in% c("categorical", "date", "id")) {
+            has_h <- var_name %in% active_hierarchies
             shiny::tags$button(
-              class = "btn-hierarchy-icon",
+              class = paste("btn-hierarchy-icon", if (has_h) "has-hierarchy" else ""),
               onclick = sprintf("Shiny.setInputValue('open_hierarchy_editor', '%s', {priority: 'event'})", var_name),
-              title = "Configurar Jerarquia de Anonimizacion",
+              title = if (has_h) "Jerarquia configurada (Click para editar)" else "Configurar Jerarquia de Anonimizacion",
               shiny::tags$i(class = "fas fa-sitemap")
+            )
+          },
+          # NUEVO: Boton para Cifrado/Offset (Solo para Identificadoras que sean Numericas)
+          if (role_name == "id" && var_name %in% numeric_cols) {
+            has_o <- var_name %in% active_offsets
+            shiny::tags$button(
+              class = paste("btn-offset-icon", if (has_o) "has-offset" else ""),
+              onclick = sprintf("Shiny.setInputValue('open_offset_editor', '%s', {priority: 'event'})", var_name),
+              title = if (has_o) "Cifrado Reversible activo (Click para editar)" else "Configurar Cifrado por Desfase (Reversible)",
+              shiny::tags$i(class = "fas fa-key")
             )
           }
         )
@@ -162,6 +185,9 @@ render_role_zone_ui <- function(title, role_name, variables, warning_vars = char
 run_obfuscator_app <- function() {
   if (!requireNamespace("shiny", quietly = TRUE)) {
     stop("La app requiere el paquete `shiny` instalado.")
+  }
+  if (!requireNamespace("ggplot2", quietly = TRUE)) {
+    stop("La app requiere el paquete `ggplot2` instalado para las visualizaciones.")
   }
 
   options(shiny.maxRequestSize = 300 * 1024^2)
@@ -212,10 +238,23 @@ run_obfuscator_app <- function() {
         ),
         shiny::tags$div(
           class = "hero-meta",
-          shiny::tags$div(class = "hero-chip", sprintf("Version %s", obfuscator_version())),
-          shiny::tags$div(class = "hero-chip", "UX en espanol"),
-          shiny::tags$div(class = "hero-chip", "Drag & drop")
-        )
+          shiny::tags$button(
+            id = "theme-toggle",
+            class = "hero-chip theme-btn",
+            onclick = "toggleTheme()",
+            title = "Cambiar Tema (Claro/Oscuro)",
+            shiny::tags$i(class = "fas fa-moon")
+          ),
+          # NUEVO: Boton de Ayuda
+          shiny::tags$button(
+            id = "open_help",
+            class = "hero-chip help-btn",
+            onclick = "Shiny.setInputValue('show_help', Math.random(), {priority: 'event'})",
+            title = "Manual y Ayuda de Studio",
+            shiny::tags$i(class = "fas fa-question-circle")
+          ),
+          shiny::uiOutput("hero_chips_ui", inline = TRUE)
+        ),
       ),
       shiny::fluidRow(
         shiny::column(
@@ -244,6 +283,31 @@ run_obfuscator_app <- function() {
             shiny::actionButton("load_data", "Cargar dataset", class = "primary-btn"),
             shiny::tags$div(class = "help-text", "Si eliges un objeto del entorno, debe ser un data.frame o tibble.")
           ),
+          shiny::tags$aside(
+            class = "sidebar",
+            # NUEVO: Privacy Meter (Dinamico)
+            shiny::tags$div(
+              class = "panel-card privacy-meter-container",
+              shiny::tags$h3(shiny::tags$i(class = "fas fa-gauge-high"), " Nivel de Privacidad"),
+              shiny::uiOutput("privacy_meter_ui"),
+              shiny::tags$p(class = "help-text", "Estimación basada en el k-anonymity y roles asignados.")
+            ),
+            shiny::tags$div(
+              class = "panel-card",
+              shiny::tags$h3(shiny::tags$i(class = "fas fa-sliders"), " Parametros"),
+              shiny::numericInput("k_value", "k-anonymity (k)", value = 3, min = 2, max = 20),
+              
+              # NUEVO: Opciones Avanzadas (Progressive Disclosure)
+              shiny::tags$details(
+                class = "advanced-options",
+                shiny::tags$summary("Opciones Avanzadas"),
+                shiny::tags$br(),
+                shiny::textInput("id_prefix", "Prefijo de IDs", value = "999"),
+                shiny::textInput("project_key", "Llave de Proyecto (Sal)", value = "obfuscator_secret_v1"),
+                shiny::selectInput("numeric_mode", "Modo Numérico", choices = c("Rango Aleatorio" = "range_random", "Permutación" = "permute"))
+              )
+            )
+          ),
           shiny::tags$div(
             class = "panel-card",
             shiny::tags$h3("Parametros"),
@@ -269,7 +333,12 @@ run_obfuscator_app <- function() {
                   "Conservar sin anonimizar" = "none"
                 )
               ),
-              shiny::checkboxInput("group_ids", "Agrupar IDs por k-clases", value = FALSE)
+              shiny::checkboxInput("group_ids", "Agrupar IDs por k-clases", value = FALSE),
+              shiny::tags$div(
+                class = "help-text",
+                style = "margin-top: -10px; margin-bottom: 10px;",
+                shiny::tags$em("Tip: Si 'k' es alto y no ves datos, prueba 'Agrupar remanentes' o usa jerarquías para reducir la diversidad de los quasi-identificadores.")
+              )
             ),
             shiny::actionButton("run_obfuscation", "Ofuscar dataset", class = "primary-btn")
           ),
@@ -282,7 +351,12 @@ run_obfuscator_app <- function() {
                shiny::actionButton("save_to_env", "Guardar en entorno"),
                shiny::actionButton("revert_btn", "Revertir actual", class = "secondary-btn")
             ),
-            shiny::downloadButton("download_csv", "Descargar CSV")
+            shiny::tags$div(
+              class = "btn-group-custom",
+              style = "margin-top: 10px;",
+              shiny::downloadButton("download_csv", "Descargar CSV"),
+              shiny::actionButton("view_r_code", "Ver Código R", icon = shiny::icon("code"))
+            )
           )
         ),
         shiny::column(
@@ -336,17 +410,25 @@ run_obfuscator_app <- function() {
   )
 
   server <- function(input, output, session) {
+    # Reactivos para el estado de la app
     source_data <- shiny::reactiveVal(NULL)
     role_state <- shiny::reactiveVal(list(
       available = character(0),
-      id = character(0),
-      date = character(0),
-      categorical = character(0),
-      numeric = character(0),
-      preserve = character(0)
+      id = character(0), 
+      date = character(0), 
+      categorical = character(0), 
+      numeric = character(0), 
+      preserve = character(0),
+      exclude = character(0) # NUEVO: Zona de exclusion
     ))
-    suggested_roles <- shiny::reactiveVal(list()) # New: Para fuzzy matching
-    hierarchies <- shiny::reactiveVal(list())      # New: Para k-anonymity personalizado
+    suggested_roles <- shiny::reactiveVal(list()) # Para fuzzy matching
+    # Jerarquias (listas de listas: mapping, name)
+    hierarchies <- shiny::reactiveVal(list())
+    
+    # NUEVO: Offsets numericos
+    numeric_offsets <- shiny::reactiveVal(list())
+    
+    dist_var <- shiny::reactiveVal(NULL) # Para el modal de distribucion
     obfuscated_data <- shiny::reactiveVal(NULL)
     audit_log <- shiny::reactiveVal(NULL)
     progress_status <- shiny::reactiveVal("Todavia no se ejecuto ninguna ofuscacion.")
@@ -395,8 +477,9 @@ run_obfuscator_app <- function() {
              }
           }
           role_state(roles)
-          suggested_roles(persisted$suggested)
+          suggested_roles(persisted$suggested %||% list())
           hierarchies(persisted$hierarchies %||% list())
+          numeric_offsets(persisted$numeric_offsets %||% list())
           
           msg <- sprintf("Hash %s detectado. Se cargo configuracion previa.", hash_id)
           if (length(persisted$suggested) > 0) {
@@ -511,6 +594,211 @@ run_obfuscator_app <- function() {
       shiny::removeModal()
     })
 
+    shiny::observeEvent(input$view_distribution, {
+      var_name <- input$view_distribution
+      shiny::req(source_data(), var_name)
+      dist_var(var_name)
+      
+      shiny::showModal(shiny::modalDialog(
+        title = sprintf("Distribucion: %s", var_name),
+        size = "l",
+        easyClose = TRUE,
+        footer = shiny::modalButton("Cerrar"),
+        shiny::tags$div(
+          class = "distribution-container",
+          shiny::plotOutput("dist_plot", height = "400px")
+        )
+      ))
+    })
+
+    output$dist_plot <- shiny::renderPlot({
+      var_name <- dist_var()
+      df <- source_data()
+      roles <- role_state()
+      shiny::req(df, var_name)
+      
+      column_data <- df[[var_name]]
+      is_quasi <- var_name %in% c(roles$id, roles$categorical)
+      
+      p <- ggplot2::ggplot(df, ggplot2::aes(x = .data[[var_name]]))
+      
+      if (is_quasi) {
+        # Si el usuario lo marco como categorico o ID, priorizamos gráfico de barras
+        # incluso si el dato subyacente es numerico (se trata como discreto)
+        counts <- as.data.frame(table(column_data))
+        counts <- counts[order(-counts$Freq), ]
+        top_counts <- utils::head(counts, 15)
+        
+        p <- ggplot2::ggplot(top_counts, ggplot2::aes(x = reorder(column_data, -Freq), y = Freq)) +
+          ggplot2::geom_bar(stat = "identity", fill = "#10b981") +
+          ggplot2::theme_minimal() +
+          ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 45, hjust = 1)) +
+          ggplot2::labs(title = paste("Top 15 valores de", var_name), 
+                        subtitle = "Visualización como variable categórica",
+                        y = "Frecuencia", x = var_name)
+      } else if (is.numeric(column_data)) {
+        p <- p + 
+          ggplot2::geom_histogram(fill = "#eab308", color = "white", bins = 30) +
+          ggplot2::theme_minimal() +
+          ggplot2::labs(title = paste("Histograma de", var_name), y = "Frecuencia", x = var_name)
+      } else if (inherits(column_data, "Date") || inherits(column_data, "POSIXt")) {
+        p <- p + 
+          ggplot2::geom_histogram(fill = "#3b82f6", color = "white", bins = 30) +
+          ggplot2::theme_minimal() +
+          ggplot2::labs(title = paste("Distribucion Temporal de", var_name), y = "Frecuencia", x = var_name)
+      } else {
+        # Categorical / ID: Top 15 categories
+        counts <- as.data.frame(table(column_data))
+        counts <- counts[order(-counts$Freq), ]
+        top_counts <- utils::head(counts, 15)
+        
+        p <- ggplot2::ggplot(top_counts, ggplot2::aes(x = reorder(column_data, -Freq), y = Freq)) +
+          ggplot2::geom_bar(stat = "identity", fill = "#10b981") +
+          ggplot2::theme_minimal() +
+          ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 45, hjust = 1)) +
+          ggplot2::labs(title = paste("Top 15 categorias de", var_name), y = "Frecuencia", x = var_name)
+      }
+      
+      p + ggplot2::theme(
+        plot.title = ggplot2::element_text(face = "bold", size = 16),
+        panel.grid.minor = ggplot2::element_blank()
+      )
+    })
+
+    # --- Lógica de Hero Chips Meta ---
+    output$hero_chips_ui <- shiny::renderUI({
+      df <- source_data()
+      k <- input$k_value %||% 3
+      name <- input$dataset_name %||% "Ninguno"
+      rows <- nrow(df %||% data.frame())
+      
+      shiny::tagList(
+        shiny::tags$div(class = "hero-chip", shiny::tags$i(class = "fas fa-database"), " Dataset: ", shiny::tags$strong(name)),
+        shiny::tags$div(class = "hero-chip", shiny::tags$i(class = "fas fa-table-columns"), " Filas: ", shiny::tags$strong(rows)),
+        shiny::tags$div(class = "hero-chip", shiny::tags$i(class = "fas fa-shield-halved"), " k: ", shiny::tags$strong(k)),
+        shiny::tags$div(class = "hero-chip", sprintf("v%s", obfuscator_version()))
+      )
+    })
+
+    # --- Lógica de Privacy Meter ---
+    output$privacy_meter_ui <- shiny::renderUI({
+      roles <- role_state()
+      k <- input$k_value %||% 3
+      
+      # Calculo heuristico del score (0 a 100)
+      # k=2 es base, cada punto de k suma. Roles de ID y Categorical con jerarquia suman mas.
+      score <- 10 + (k * 4)
+      n_ids <- length(roles$id)
+      n_cat <- length(roles$categorical)
+      n_hierarchies <- length(hierarchies())
+      
+      score <- score + (n_ids * 5) + (n_cat * 2) + (n_hierarchies * 8)
+      score <- min(100, score)
+      
+      color_class <- if(score < 40) "meter-low" else if(score < 75) "meter-med" else "meter-high"
+      label <- if(score < 40) "Bajo" else if(score < 75) "Medio" else "Excelente"
+      
+      shiny::tags$div(
+        class = paste("privacy-meter", color_class),
+        shiny::tags$div(class = "meter-track", 
+          shiny::tags$div(class = "meter-fill", style = sprintf("width: %d%%", score))
+        ),
+        shiny::tags$div(class = "meter-label", 
+          shiny::tags$span(class = "score-val", sprintf("%d%%", score)),
+          shiny::tags$span(class = "score-text", label)
+        )
+      )
+    })
+    
+    # NUEVO: Generador de Codigo R
+    get_obfuscation_code <- function() {
+       df <- source_data()
+       roles <- role_state()
+       h <- hierarchies()
+       o <- numeric_offsets()
+       
+       # Formatear col_roles
+       col_roles_str <- if (length(role_column_choices(df, roles)) > 0) {
+         roles_list <- role_column_choices(df, roles)
+         lines <- vapply(names(roles_list), function(r) {
+            sprintf("    %s = %s", r, paste0("c(", paste0("'", roles_list[[r]], "'", collapse = ", "), ")"))
+         }, character(1))
+         sprintf("list(\n%s\n  )", paste(lines, collapse = ",\n"))
+       } else "list()"
+        # Formatear Offsets (Modo Reversible con Placeholders)
+        offsets_str <- if (length(o) > 0) {
+          lines <- vapply(names(o), function(v) {
+             # CAMBIO: Usar placeholders para NO exportar claves reales en el codigo R
+             sprintf("    '%s' = 0, # [INGRESE_CLAVE_PARA_%s]", v, toupper(v))
+          }, character(1))
+          sprintf("list(\n%s\n  )", paste(lines, collapse = ",\n"))
+        } else "list()"
+       
+       # Note: Hierarchies are complex to serialize in text, we provide a placeholder
+       h_str <- if (length(h) > 0) "hierarchies_obj" else "NULL"
+       
+       code <- sprintf(
+"library(obfuscator)
+
+# 1. Cargar datos
+df <- %s # REEMPLAZAR con el comando de carga (p. ej. read.csv('archivo.csv'))
+
+# 2. Configurar Ofuscacion
+config <- obfuscator_config(
+  seed = %s,
+  id_prefix = '%s',
+  numeric_mode = '%s',
+  project_key = %s,
+  col_roles = %s,
+  numeric_offsets = %s,
+  exclude_cols = %s,
+  privacy_model = %s
+)
+
+# 3. Ejecutar
+resultado <- obfuscate_dataset(df, config = config)
+
+# Ver resultado
+head(resultado)",
+         if (input$source_mode == "environment") input$env_object else "data",
+         input$seed,
+         input$id_prefix,
+         input$numeric_mode,
+         if (nchar(input$project_key) > 0) sprintf("'%s'", input$project_key) else "NULL",
+         col_roles_str,
+         offsets_str,
+         if (length(roles$exclude) > 0) paste0("c(", paste0("'", roles$exclude, "'", collapse = ", "), ")") else "character(0)",
+         if (isTRUE(input$enable_k)) sprintf("list(type = 'k_anonymity', k = %s, suppression = '%s')", input$k_value, input$k_suppression) else "NULL"
+       )
+       
+       code
+    }
+
+    shiny::observeEvent(input$view_r_code, {
+       code <- get_obfuscation_code()
+       shiny::showModal(shiny::modalDialog(
+         title = "Código R para Reproducción",
+         size = "l",
+         easyClose = TRUE,
+         footer = shiny::modalButton("Cerrar"),
+         shiny::tags$div(
+           class = "code-container",
+           shiny::tags$button(
+             id = "copy-code-btn",
+             class = "copy-code-btn",
+             onclick = "copyRCodeToClipboard()",
+             shiny::tags$i(class = "fas fa-clipboard"),
+             " Copiar Código"
+           ),
+           shiny::tags$pre(
+             style = "background: #f8fafc; padding: 25px 15px 15px; border-radius: 12px; border: 1px solid #e2e8f0; white-space: pre-wrap; font-family: monospace; font-size: 13px;",
+             code
+           )
+         ),
+         shiny::tags$p(class = "help-text", "Copia este código en un script de R para automatizar el proceso sin usar la interfaz.")
+       ))
+    })
+
     shiny::observeEvent(input$role_drop, {
       shiny::req(source_data())
       payload <- input$role_drop
@@ -558,15 +846,35 @@ run_obfuscator_app <- function() {
 
       roles <- role_state()
       sug_roles <- suggested_roles()
+      active_h <- names(hierarchies())
+      active_o <- names(numeric_offsets())
+      numeric_cols <- colnames(df)[vapply(df, is.numeric, logical(1))]
       warning_vars <- detect_suspicious_date_character_columns(df)
+      
+      # Filter available variables based on search input
+      all_vars <- colnames(df)
+      available_vars <- setdiff(all_vars, unlist(roles[names(roles) != "available"]))
+      
+      search_term <- tolower(input$var_search)
+      if (nzchar(search_term)) {
+        available_vars <- available_vars[grepl(search_term, tolower(available_vars))]
+        roles$id <- roles$id[grepl(search_term, tolower(roles$id))]
+        roles$date <- roles$date[grepl(search_term, tolower(roles$date))]
+        roles$categorical <- roles$categorical[grepl(search_term, tolower(roles$categorical))]
+        roles$numeric <- roles$numeric[grepl(search_term, tolower(roles$numeric))]
+        roles$preserve <- roles$preserve[grepl(search_term, tolower(roles$preserve))]
+        roles$exclude <- roles$exclude[grepl(search_term, tolower(roles$exclude))] # Filter exclude zone
+      }
+
       shiny::tags$div(
         class = "role-board",
-        render_role_zone_ui("Disponibles", "available", roles$available, warning_vars = warning_vars, suggested_vars = sug_roles, accent_class = "accent-slate"),
-        render_role_zone_ui("Identificadoras", "id", roles$id, warning_vars = warning_vars, suggested_vars = sug_roles, accent_class = "accent-red"),
-        render_role_zone_ui("Fechas", "date", roles$date, warning_vars = warning_vars, suggested_vars = sug_roles, accent_class = "accent-blue text-sm"),
-        render_role_zone_ui("Categoricas", "categorical", roles$categorical, warning_vars = warning_vars, suggested_vars = sug_roles, accent_class = "accent-green text-sm"),
-        render_role_zone_ui("Numericas", "numeric", roles$numeric, warning_vars = warning_vars, suggested_vars = sug_roles, accent_class = "accent-gold text-sm"),
-        render_role_zone_ui("Conservar", "preserve", roles$preserve, warning_vars = warning_vars, suggested_vars = sug_roles, accent_class = "accent-gray text-sm")
+        render_role_zone_ui("Disponibles", "available", available_vars, warning_vars = warning_vars, suggested_vars = sug_roles, active_hierarchies = active_h, active_offsets = active_o, numeric_cols = numeric_cols, accent_class = "accent-slate"),
+        render_role_zone_ui("Identificadoras", "id", roles$id, warning_vars = warning_vars, suggested_vars = sug_roles, active_hierarchies = active_h, active_offsets = active_o, numeric_cols = numeric_cols, accent_class = "accent-red"),
+        render_role_zone_ui("Fechas", "date", roles$date, warning_vars = warning_vars, suggested_vars = sug_roles, active_hierarchies = active_h, active_offsets = active_o, numeric_cols = numeric_cols, accent_class = "accent-blue text-sm"),
+        render_role_zone_ui("Categoricas", "categorical", roles$categorical, warning_vars = warning_vars, suggested_vars = sug_roles, active_hierarchies = active_h, active_offsets = active_o, numeric_cols = numeric_cols, accent_class = "accent-green text-sm"),
+        render_role_zone_ui("Numericas", "numeric", roles$numeric, warning_vars = warning_vars, suggested_vars = sug_roles, active_hierarchies = active_h, active_offsets = active_o, numeric_cols = numeric_cols, accent_class = "accent-gold text-sm"),
+        render_role_zone_ui("Excluir", "exclude", roles$exclude, warning_vars = warning_vars, suggested_vars = sug_roles, active_hierarchies = active_h, active_offsets = active_o, numeric_cols = numeric_cols, accent_class = "accent-gray text-sm"), # NUEVA ZONA
+        render_role_zone_ui("Conservar", "preserve", roles$preserve, warning_vars = warning_vars, suggested_vars = sug_roles, active_hierarchies = active_h, active_offsets = active_o, numeric_cols = numeric_cols, accent_class = "accent-gray text-sm")
       )
     })
 
@@ -582,6 +890,8 @@ run_obfuscator_app <- function() {
           numeric_mode = input$numeric_mode,
           col_roles = role_column_choices(df, roles),
           project_key = if (nchar(input$project_key) > 0) input$project_key else NULL,
+          numeric_offsets = numeric_offsets(),
+          exclude_cols = roles$exclude,
           privacy_model = if (isTRUE(input$enable_k)) {
             list(
               type = "k_anonymity", 
@@ -631,7 +941,9 @@ run_obfuscator_app <- function() {
         numeric_mode = input$numeric_mode,
         col_roles = role_column_choices(df, roles),
         privacy_model = privacy_model,
-        project_key = if (nchar(input$project_key) > 0) input$project_key else NULL
+        project_key = if (nchar(input$project_key) > 0) input$project_key else NULL,
+        numeric_offsets = numeric_offsets(),
+        exclude_cols = roles$exclude
       )
       last_percent <- 0
       last_bucket <- -1
@@ -684,6 +996,7 @@ run_obfuscator_app <- function() {
       # No guardamos 'available' para no ensuciar, solo asignaciones explicitas
       config_to_save <- roles[names(roles) != "available"]
       config_to_save$hierarchies <- hierarchies()
+      config_to_save$numeric_offsets <- numeric_offsets() # NUEVO
       
       save_roles_to_json(config_to_save, config_path)
       shiny::showNotification(sprintf("Plantilla guardada para hash %s.", hash_id), type = "message")
@@ -743,6 +1056,96 @@ run_obfuscator_app <- function() {
       }, error = function(e) {
         shiny::showNotification(paste("Error al revertir:", e$message), type = "error")
       })
+    })
+
+    # --- Lógica de Cifrado Reversible (Manual) ---
+    shiny::observeEvent(input$open_offset_editor, {
+      var_name <- input$open_offset_editor
+      current_val <- numeric_offsets()[[var_name]] %||% 0
+      
+      shiny::showModal(shiny::modalDialog(
+        title = paste("Configurar Cifrado Reversible:", var_name),
+        size = "s",
+        # Usamos passwordInput para que la clave sea secreta al ingresarla
+        shiny::passwordInput("offset_value", "Ingrese Clave Numérica de Desfase:", value = as.character(current_val)),
+        shiny::tags$p(class = "help-text", "Esta clave se sumará al ID original. Es necesaria para el proceso inverso y NO se exporta en el código R."),
+        footer = shiny::tagList(
+          shiny::modalButton("Cancelar"),
+          shiny::actionButton("save_offset_v2", "Guardar Clave", class = "primary-btn")
+        )
+      ))
+    })
+    
+    shiny::observeEvent(input$save_offset_v2, {
+      var_name <- input$open_offset_editor
+      val <- as.numeric(input$offset_value)
+      
+      if (is.na(val)) {
+        shiny::showNotification("Error: Por favor ingrese un número válido.", type = "error")
+        return()
+      }
+      
+      o <- numeric_offsets()
+      o[[var_name]] <- val
+      numeric_offsets(o)
+      shiny::removeModal()
+      shiny::showNotification(sprintf("Cifrado reversible guardado para %s", var_name))
+    })
+
+    # --- Sistema de Ayuda Integrado ---
+    shiny::observeEvent(input$show_help, {
+      shiny::showModal(shiny::modalDialog(
+        title = "Manual de ObfuscatoR Studio 2.0",
+        size = "l",
+        easyClose = TRUE,
+        shiny::tabsetPanel(
+          shiny::tabPanel("Guía Rápida", 
+            shiny::tags$div(style = "padding: 15px;",
+              shiny::tags$h4("Configuración de Roles"),
+              shiny::tags$p("Arrastra las variables de la zona 'Disponibles' a las zonas activas:"),
+              shiny::tags$ul(
+                shiny::tags$li(shiny::tags$strong("Identificadoras:"), " Para IDs, nombres o claves únicas."),
+                shiny::tags$li(shiny::tags$strong("Categorización:"), " Para variables tipo texto que quieras agrupar."),
+                shiny::tags$li(shiny::tags$strong("Fechas:"), " Serán permutadas para mantener el orden pero ocultar el día exacto."),
+                shiny::tags$li(shiny::tags$strong("Conservar:"), " Estas variables no se tocan.")
+              ),
+              shiny::tags$p("Usa el icono de ", shiny::tags$i(class = "fas fa-chart-simple"), " para ver la distribución de los datos.")
+            )
+          ),
+          shiny::tabPanel("Cifrado Reversible", 
+            shiny::tags$div(style = "padding: 15px;",
+              shiny::tags$h4("Cifrado por Desfase (Identificadoras Numéricas)"),
+              shiny::tags$p("Si una variable ID es numérica, verás un icono de llave ", shiny::tags$i(class = "fas fa-key"), "."),
+              shiny::tags$ol(
+                shiny::tags$li("Haz clic en la llave e ingresa un número secreto."),
+                shiny::tags$li("El sistema sumará ese número a todos los registros."),
+                shiny::tags$li("Este proceso es reversible restando la misma clave."),
+                shiny::tags$li(shiny::tags$strong("Seguridad:"), " Las claves NO se exportan en el código R ni se guardan en el servidor.")
+              ),
+              shiny::tags$p("Para revertir programáticamente usa: ", shiny::tags$code("revert_reversible_ids(data, list(Col = CLAVE))"))
+            )
+          ),
+          shiny::tabPanel("Jerarquías", 
+            shiny::tags$div(style = "padding: 15px;",
+              shiny::tags$h4("Jerarquías de Anonimización"),
+              shiny::tags$p("Usa el icono ", shiny::tags$i(class = "fas fa-sitemap"), " para agrupar valores sensibles en categorías más generales (ej: Ciudad -> Provincia)."),
+              shiny::tags$p("Esto es fundamental para el ", shiny::tags$strong("k-anonimato"), ", ya que permite que varios individuos compartan las mismas características.")
+            )
+          ),
+          shiny::tabPanel("Privacidad (k)", 
+            shiny::tags$div(style = "padding: 15px;",
+              shiny::tags$h4("Modelo k-anonymity"),
+              shiny::tags$p("El ", shiny::tags$strong("Privacy Meter"), " estima la seguridad de tu dataset."),
+              shiny::tags$ul(
+                shiny::tags$li(shiny::tags$strong("Score Bajo:"), " Los datos son fáciles de re-identificar."),
+                shiny::tags$li(shiny::tags$strong("Score Alto:"), " Has logrado agrupar a los individuos de forma que es difícil distinguirlos.")
+              ),
+              shiny::tags$p("Aumenta el valor de 'k' o usa más jerarquías para mejorar el puntaje.")
+            )
+          )
+        ),
+        footer = shiny::modalButton("Cerrar")
+      ))
     })
 
     output$download_csv <- shiny::downloadHandler(

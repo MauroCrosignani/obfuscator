@@ -1,0 +1,78 @@
+---
+title: "Reglas de Consistencia: Manteniendo la Integridad de los Datos"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Reglas de Consistencia}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+# La Necesidad de Consistencia
+
+Cuando ofuscamos columnas de forma aislada, corremos el riesgo de romper la lógica de negocio intrínseca del dataset. 
+
+**Ejemplo Crítico:** Si barajamos (scramble) la columna `FECHA_INICIO` y la columna `FECHA_FIN` de forma independiente, es muy probable que en muchos registros la fecha de fin termine siendo anterior a la de inicio. Esto invalidaría cualquier análisis de duración de contratos o procesos.
+
+## Teoría de Reglas Post-Ofuscación
+
+ObfuscatoR aplica una capa de **limpieza de consistencia** después del proceso de transformación primaria. Estas reglas actúan como "guardias" que corrigen anomalías lógicas inyectadas por el azar.
+
+## Reglas Disponibles
+
+### 1. `ordered` (Orden Lógico)
+Asegura que un valor siempre sea menor o igual (o estrictamente menor) que otro en el mismo registro.
+
+-   **Uso común**: `Fecha Inicio` vs `Fecha Fin`, `Gasto Mínimo` vs `Gasto Máximo`, `Latitud` vs `Longitud` (en ciertos contextos).
+-   **Estrategia de corrección**: Si se detecta una violación, ObfuscatoR intercambia (swap) los valores entre las dos columnas para esa fila específica, preservando así los valores originales ofuscados pero restaurando la lógica de orden.
+
+## Uso en la App Shiny
+
+En la pestaña de **Configuración Avanzada**, puedes añadir reglas a una lista:
+
+1.  Elige el tipo de regla (`ordered`).
+2.  Selecciona la columna que debe ser menor (`lower`).
+3.  Selecciona la columna que debe ser mayor (`upper`).
+4.  Marca si permites que sean iguales (`allow_equal`).
+
+## Ejemplo Teórico
+
+| Registro | Fecha Inicio | Fecha Fin | Estado |
+| :--- | :---: | :---: | :--- |
+| A | 2023-01-10 | 2023-01-15 | OK |
+| **Ofuscación (Scramble)** | | | |
+| A (ofuscado) | 2023-01-20 | 2023-01-12 | **ERROR** |
+| **Corrección de Regla** | | | |
+| A (corregido) | 2023-01-12 | 2023-01-20 | **OK** |
+
+## Configuración Programática
+
+```{r, eval=FALSE}
+library(obfuscator)
+
+cfg <- obfuscator_config(
+  consistency_rules = list(
+    list(
+      type = "ordered",
+      lower = "FECHA_INGRESO",
+      upper = "FECHA_EGRESO",
+      allow_equal = TRUE
+    )
+  )
+)
+
+# El motor aplicará la regla automáticamente tras la ofuscación de tipos
+resultado <- obfuscate_dataset(datos, config = cfg)
+```
+
+## Beneficios para la IA
+Mantener estas reglas no es solo una cuestión de estética. Los modelos de machine learning y las IAs de razonamiento lógico detectan anomalías estructurales. Un dataset con inconsistencias temporales puede sesgar los resultados o hacer que los modelos rechacen los datos por considerarlos ruidosos.
+
+> [!IMPORTANT]
+> Las reglas de consistencia de ObfuscatoR se aplican **antes** del cálculo de k-anonymity para asegurar que la privacidad matemática se calcule sobre datos que tienen sentido lógico.

@@ -1,0 +1,96 @@
+---
+title: "Teoría de k-anonymity: Garantías Matemáticas de Anonimato"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Teoría de k-anonymity}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+# ¿Qué es k-anonymity?
+
+Lanzada originalmente por Latanya Sweeney y Pierangela Samarati, la técnica de **k-anonymity** es el estándar de oro para la protección de conjuntos de datos contra ataques de re-identificación por vinculación.
+
+## El Problema de los Quasi-Identificadores
+
+Incluso si eliminamos el Nombre y el DNI de un dataset, la combinación de otros datos (ej. Edad, Código Postal, Sexo) puede ser única para un individuo. En Estados Unidos, se estimó que el 87% de la población podía ser identificada únicamente por esa terna.
+
+Estos atributos se denominan **Quasi-Identificadores (QI)**.
+
+## Definición Formal
+
+Un conjunto de datos satisface **k-anonymity** si cada registro es idéntico a otros al menos $k-1$ registros respecto a un conjunto de quasi-identificadores. Esto forma lo que llamamos **Clases de Equivalencia**.
+
+-   Si $k=5$, cualquier individuo en el dataset está "escondido" entre otros 4 que son iguales a él en las dimensiones sensibles.
+
+## El Algoritmo de ObfuscatoR
+
+La búsqueda del k-anonymity óptimo es un problema NP-duro. ObfuscatoR utiliza una variante de un algoritmo **Greedy (Codicioso)** parecido a Mondrian, pero adaptado para jerarquías predefinidas:
+
+1.  **Evaluación de Riesgo**: Calcula cuántas filas NO cumplen con el criterio $k$.
+2.  **Plan de Generalización**: Crea una lista de "niveles de generalización" para cada columna.
+3.  **Selección de Candidato**: En cada paso, elige la columna que requiere "menos esfuerzo" (generalización más ligera) para mejorar la satisfacción global.
+4.  **Aplicación**: Generaliza el dato (ej. de Fecha exacta a Mes).
+5.  **Criterio de Parada**: Se detiene cuando se alcanza el $k$ para todas las filas o cuando se agotan los niveles de generalización.
+
+## Generalización vs Supresión
+
+A veces, para ocultar a un individuo extremadamente atípico (un "outlier"), tendríamos que generalizar a todos los demás de forma excesiva, destruyendo la utilidad del dataset. 
+
+ObfuscatoR permite la **Supresión Residual**:
+-   **Rows**: Elimina las pocas filas que no cumplieron el criterio tras la generalización.
+-   **Group (REMANENTE)**: Agrupa los casos atípicos finales bajo una etiqueta única ("REMANENTE").
+-   **None**: Conserva las filas aunque no cumplan $k$ (útil para diagnostico).
+
+## Ejemplo Práctico
+
+Si tenemos un dataset de pacientes:
+
+| Edad | Sexo | Enfermedad |
+| :--- | :--- | :--- |
+| 23 | M | Gripe |
+| 24 | M | Asma |
+| 50 | F | Gripe |
+
+Para $k=2$ con Edad y Sexo como QI:
+El sistema generalizará la edad a rangos (ej. 20-30):
+
+| Edad | Sexo | Enfermedad |
+| :--- | :--- | :--- |
+| [20,30] | M | Gripe |
+| [20,30] | M | Asma |
+| [50,55] | F | Gripe | (Esta fila sería suprimida por ser única)
+
+## Configuración en ObfuscatoR
+
+```{r, eval=FALSE}
+library(obfuscator)
+
+# Activamos k-anonymity con k=3
+cfg <- obfuscator_config(
+  privacy_model = list(
+    type = "k_anonymity",
+    k = 3,
+    quasi_identifiers = c("ZIP", "BIRTH_DATE", "SEX"),
+    suppression = "rows" # Limpieza final de outliers
+  )
+)
+
+resultado <- obfuscate_dataset(mis_datos, config = cfg)
+```
+
+## Informe de Privacidad
+Cada ejecución de ObfuscatoR adjunta un informe de riesgo que detalla:
+-   **Row Count**: Registros originales.
+-   **Violating Rows**: Cuántos registros estaban en riesgo antes y después.
+-   **Satisfied**: Si todo el dataset cumple ahora con la garantía matemática.
+
+> [!CAUTION]
+> k-anonymity protege contra la identificación, pero no necesariamente contra la inferencia de valores sensibles si todos los miembros de una clase de equivalencia tienen el mismo atributo sensible (ataque de homogeneidad). Para esos casos, se recomienda combinar con otras técnicas de ObfuscatoR.

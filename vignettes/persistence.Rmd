@@ -28,6 +28,9 @@ Si el esquema cambia ligeramente (por ejemplo, una columna "FECHA_NACIMIENTO" pa
 3.  **Confirmación**: Haz clic en "Confirmar Todo" para validar las sugerencias automáticas.
 4.  **Guardado**: Usa el botón "Guardar Plantilla" para exportar tu clasificación actual a la carpeta `config/` del proyecto.
 
+> [!IMPORTANT]
+> Las **Claves de Cifrado Reversible** (Modo Hardened) NO se guardan en las plantillas por diseño de seguridad (Zero-Knowledge). Debes ingresarlas manualmente en cada sesión para asegurar que la llave nunca se almacene en disco.
+
 ## Accesibilidad
 
 El diseño visual ha sido ajustado para cumplir con las normas **WCAG AA** de contraste:

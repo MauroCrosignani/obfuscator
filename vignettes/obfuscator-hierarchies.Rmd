@@ -1,0 +1,84 @@
+---
+title: "Jerarquías de Generalización: El Editor Visual de Árboles"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Jerarquías de Generalización}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+# El Concepto de Jerarquía
+
+En la anonimización de datos, una jerarquía es una estructura que define cómo un valor específico puede ser "elevado" a una categoría más general. Esto es esencial para alcanzar el criterio **k-anonymity** sin suprimir filas arbitrariamente.
+
+## Tipos de Jerarquías en ObfuscatoR
+
+### 1. Jerarquías de Fechas (Lineales)
+Las fechas tienen una jerarquía natural y predecible:
+`Día Exacto` → `Mes` → `Trimestre` → `Año` → `Global`
+
+-   ObfuscatoR aplica esto automáticamente si marcas una columna como "Fecha" y activas k-anonymity.
+
+### 2. Jerarquías Numéricas (Intervalos)
+Los números se generalizan mediante intervalos:
+`Valor Exacto` → `Intervalo 5` → `Intervalo 10` → `Intervalo 20` → `Global`
+
+### 3. Jerarquías Categóricas (Estructurales/Árbol)
+Para variables como "Ocupación" o "Diagnóstico", no hay un orden natural. Aquí es donde entra el **Editor Visual de Árboles**.
+
+## Funcionamiento del Editor Visual
+
+El editor permite transformar una lista plana de valores en una estructura de carpetas (nodos).
+
+### Agrupamiento Incremental
+Una característica potente de ObfuscatoR es que las jerarquías son **recursivas**. Puedes:
+1.  Agrupar los valores "Manzana", "Pera" y "Banana" en el grupo **FRUTAS**.
+2.  Agrupar el grupo **FRUTAS** y el grupo **VERDURAS** en el nivel superior **VEGETALES**.
+
+El algoritmo k-anonymity probará cada nivel secuencialmente hasta que se cumpla el umbral $k$.
+
+## Guía de Uso paso a paso
+
+1.  **Activación**: En el "Board de Configuración" de la App Shiny, busca el icono de diagrama en las columnas categóricas o de fecha.
+2.  **Creación de Grupos**: 
+    - Selecciona múltiples elementos (usando Ctrl/Shift) y pulsa el botón **Agrupar Selección**. 
+    - Escribe un nombre descriptivo para el nuevo nivel.
+3.  **Refinamiento**: Puedes arrastrar elementos individuales a carpetas existentes o sacar elementos de una carpeta si cambias de opinión.
+
+## Ejemplo Teórico
+
+Supongamos que tenemos los valores de "País": [Argentina, Uruguay, España, Francia]. Queremos $k=2$.
+
+**Estructura Jerárquica:**
+-   **SUDAMÉRICA**: [Argentina, Uruguay]
+-   **EUROPA**: [España, Francia]
+
+Si en el dataset hay 1 uruguayo y 1 argentino, el algoritmo los agrupará bajo "SUDAMÉRICA" para cumplir el $k=2$. Si ya hay 2 argentinos, los dejará como "Argentina" (Nivel de Identidad) para preservar la utilidad máxima.
+
+## Configuración Programática Avanzada
+
+Si prefieres definirlo en código, la estructura JSON/Lista es:
+
+```r
+hierarchies <- list(
+  PAIS = list(
+    mapping = list(
+      "SUDAMERICA" = c("Argentina", "Uruguay"),
+      "EUROPA" = c("España", "Francia")
+    )
+  )
+)
+```
+
+## Persistencia Técnica
+Las jerarquías se almacenan en el campo `hierarchies` de la configuración. Al guardar una plantilla JSON, esta estructura se serializa, permitiendo que equipos diferentes apliquen la misma política de agrupamiento de forma consistente.
+
+> [!TIP]
+> Use nombres de grupos que mantengan el sentido semántico del dato. En lugar de "Grupo 1", use "CIIU - Nivel 2" o "Región Norte", esto facilita enormemente el análisis posterior del dataset ofuscado.

@@ -1,0 +1,85 @@
+---
+title: "Ofuscación de Identificadores: Teoría y Práctica"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Ofuscación de Identificadores}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+# El Rol de los Identificadores
+
+En cualquier dataset, los identificadores (IDs) son las columnas que señalan directamente a una entidad única (ej. DNI, CUIT, Número de Cliente, Email). La protección de estas columnas es el primer paso crítico de la ofuscación.
+
+## Teoría de la Ofuscación Determinística
+
+ObfuscatoR utiliza un enfoque de **mapeo determinístico** basado en hashing si se proporciona una clave de proyecto (`project_key`).
+
+### ¿Por qué determinístico?
+Si ofuscamos un dataset hoy y recibimos una actualización mañana con nuevos registros, queremos que el cliente "A" tenga el mismo ID ofuscado en ambos archivos para poder realizar análisis longitudinales o uniones de tablas sin revelar la identidad real.
+
+### El Concepto de Salt (Project Key)
+Sin un "Salt", un atacante con una lista de IDs reales podría aplicar un hash estándar y comparar los resultados para revertir la ofuscación. ObfuscatoR utiliza el `project_key` como un salt:
+`Hash(ID_Real + project_key) -> ID_Ofuscado`
+
+Esto garantiza que, incluso si el algoritmo es conocido, la identidad está protegida contra ataques de fuerza bruta si el `project_key` se mantiene secreto.
+
+## Estrategias de Ofuscación de IDs
+
+### 1. Prefijos y Secuencias (`999_...`)
+Por defecto, ObfuscatoR reemplaza los IDs con una secuencia numérica precedida por un prefijo (ej. `999`). Esto hace evidente que el dato es ficticio y previene errores humanos al usar el dataset.
+
+### 2. Mapeo Aleatorio
+Si no se usa una clave de proyecto, el mapeo es aleatorio y único para esa sesión. Al cerrar la aplicación, se pierde la relación entre el ID real y el ofuscado, maximizando la privacidad pero perdiendo la capacidad de unir datos futuros.
+
+### 3. Cifrado Reversible (Modo Hardened) [NUEVO]
+Para casos de uso específicos donde se necesita recuperar el ID original (por ejemplo, para que un cliente autorizado genere estadísticas), ObfuscatoR introduce el **Cifrado por Desfase Numérico**.
+
+- **Algoritmo**: `ID_Ofuscado = ID_Real + Clave_Manual`.
+- **Seguridad (Zero-Knowledge)**: A diferencia del hashing, esta clave NO se guarda en el proyecto ni se exporta en el log. El usuario debe ingresarla manualmente en cada sesión.
+- **Implementación**: En la App Shiny, haz clic en el icono de llave en la zona de IDs para activar este modo de forma independiente por variable.
+
+## Ejemplos de Uso
+
+### Configuración Automática (App Shiny)
+1.  Carga tu dataset.
+2.  Mueve las columnas de identificación a la zona **ID**.
+3.  La app generará automáticamente IDs del tipo `999_000001`, `999_000002`, etc.
+
+### Uso Programático
+
+```{r, eval = FALSE}
+library(obfuscator)
+
+# Creamos un dataset de prueba
+df <- data.frame(
+  CLIENTE_ID = c("A123", "B456", "A123"),
+  VENTA = c(100, 200, 150)
+)
+
+# Configuramos con una clave de proyecto para consistencia
+cfg <- obfuscator_config(
+  id_cols = c("CLIENTE_ID"),
+  project_key = "secreto_bancario_2024",
+  id_prefix = "USR"
+)
+
+# Ofuscamos
+ofuscado <- obfuscate_dataset(df, config = cfg)
+
+# Verificamos que la consistencia se mantiene: el primer y tercer registro tienen el mismo ID
+print(ofuscado$CLIENTE_ID)
+```
+
+## Trazabilidad y Auditoría
+ObfuscatoR genera un mapa interno (`id_map`) durante la ejecución. Aunque este mapa no se exporta directamente en el dataset ofuscado para evitar fugas de información, se registra en el log de auditoría el método utilizado y el hash del esquema, permitiendo reconstruir el proceso si fuera legalmente necesario.
+
+> [!IMPORTANT]
+> Nunca compartas el `project_key` junto con el dataset ofuscado. El `project_key` es la llave maestra que permite mantener la consistencia entre archivos relacionados.
