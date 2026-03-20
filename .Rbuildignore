@@ -1,2 +1,6 @@
 ^.*\.Rproj$
 ^\.Rproj\.user$
+^\.agent$
+^\.code-review-graph$
+^lanzar_obfuscator\.bat$
+^docs/superpowers/.*$
