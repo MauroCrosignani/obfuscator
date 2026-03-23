@@ -590,8 +590,7 @@ obfuscate_numeric_column <- function(x, mode, offset = 0) {
     res[finite_mask] <- round(res[finite_mask])
   }
   if (preserve_integer_storage) {
-    finite_mask <- is.finite(res)
-    res[finite_mask] <- as.integer(res[finite_mask])
+    res <- as.integer(round(res))
   }
 
   res
@@ -748,13 +747,25 @@ summarize_k_anonymity_risk <- function(data, quasi_identifiers, k) {
 
 build_generalization_plan <- function(column, values, hierarchy = NULL) {
   if (!is.null(hierarchy)) {
-    # Si ya es un plan completo (por ejemplo, viene de tests robustos), devolverlo.
-    if (is.list(hierarchy) && length(hierarchy) > 0 && identical(hierarchy[[1]], "identity")) {
-      return(hierarchy)
+    # Jerarquia custom tipo UI: se aplica como paso incremental despues de identity.
+    if (is.list(hierarchy) && !is.null(hierarchy$mapping)) {
+      return(list("identity", hierarchy, "global"))
     }
-    # El UI envia list(mapping = ..., name = ...). Extraemos solo el mapping como paso.
-    step <- if (is.list(hierarchy) && !is.null(hierarchy$mapping)) hierarchy$mapping else hierarchy
-    return(list("identity", step, "global"))
+
+    # Si el usuario pasa un vector completo de pasos, se respeta tal cual.
+    if ((is.atomic(hierarchy) || is.list(hierarchy)) && length(hierarchy) > 1) {
+      return(as.list(hierarchy))
+    }
+
+    # Si el usuario pasa solo "identity", se respeta literalmente.
+    if ((is.atomic(hierarchy) || is.list(hierarchy)) && length(hierarchy) == 1 && identical(hierarchy[[1]], "identity")) {
+      return(list("identity"))
+    }
+
+    # Si el usuario pasa un solo paso predefinido, lo tratamos como identity -> paso -> global.
+    if ((is.atomic(hierarchy) || is.list(hierarchy)) && length(hierarchy) == 1) {
+      return(list("identity", hierarchy[[1]], "global"))
+    }
   }
 
   if (inherits(values, c("Date", "POSIXct", "POSIXlt", "POSIXt"))) {
@@ -892,16 +903,16 @@ generalize_quasi_identifier <- function(x, step, original = NULL) {
   # para evitar errores de parseo en fechas/numeros
   val_to_use <- if (!is.null(original)) original else x
   
-  if (step %in% c("month", "quarter", "year", "decade", "century")) {
+  if (length(step) == 1 && step %in% c("month", "quarter", "year", "decade", "century")) {
     return(generalize_date_step(val_to_use, step))
   }
   
-  if (grepl("^interval_|^round_|^log", step)) {
+  if (length(step) == 1 && grepl("^interval_|^round_|^log", step)) {
     return(generalize_numeric_step(val_to_use, step))
   }
   
   # Categorical default or global
-  if (step == "global") {
+  if (length(step) == 1 && step == "global") {
     # Para global ("OTROS"), da igual x o original, usaremos x por consistencia con rare levels
     return(generalize_categorical_step(x, "global"))
   }
