@@ -4,6 +4,8 @@
 
 ObfuscatoR es un paquete y script en `R` pensado para equipos hispanoparlantes que necesitan compartir datos ofuscados con herramientas de IA sin exponer informacion sensible.
 
+Si necesitas llevarlo a GitLab corporativo o a un entorno con restricciones de internet, el repositorio incluye tambien `README_gitlab.md` como variante orientada a ese despliegue.
+
 La prioridad de UX es simple:
 
 - mensajes claros en espanol

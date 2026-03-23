@@ -104,6 +104,38 @@ role_column_choices <- function(df, ui_roles) {
   )
 }
 
+studio_icon <- function(name, label = NULL, extra_class = NULL) {
+  glyphs <- c(
+    chart = "D",
+    hierarchy = "J",
+    key = "R",
+    theme = "T",
+    help = "?",
+    privacy = "k",
+    settings = "=",
+    code = "R",
+    check = "OK",
+    save = "G",
+    open = "C",
+    add = "+",
+    folder = "G",
+    dataset = "DB",
+    rows = "#",
+    shield = "k",
+    copy = "CP"
+  )
+
+  glyph <- glyphs[[name]] %||% toupper(substr(name, 1, 2))
+  title_text <- label %||% name
+
+  shiny::tags$span(
+    class = paste("studio-icon", paste0("studio-icon-", name), extra_class %||% ""),
+    title = title_text,
+    `aria-label` = title_text,
+    glyph
+  )
+}
+
 render_role_zone_ui <- function(title, role_name, variables, warning_vars = character(0), suggested_vars = list(), active_hierarchies = character(0), active_offsets = character(0), numeric_cols = character(0), accent_class = "accent-slate") {
   index_width <- if (length(variables) > 99) 3 else 2
 
@@ -154,7 +186,7 @@ render_role_zone_ui <- function(title, role_name, variables, warning_vars = char
             class = "btn-dist-icon",
             onclick = sprintf("Shiny.setInputValue('view_distribution', '%s', {priority: 'event'})", var_name),
             title = "Ver Distribucion de Datos",
-            shiny::tags$i(class = "fas fa-chart-simple")
+            studio_icon("chart", "Distribucion")
           ),
           # Nuevo: Boton para configurar jerarquia (solo para Categoricas, Fechas e IDs)
           if (role_name %in% c("categorical", "date", "id")) {
@@ -163,7 +195,7 @@ render_role_zone_ui <- function(title, role_name, variables, warning_vars = char
               class = paste("btn-hierarchy-icon", if (has_h) "has-hierarchy" else ""),
               onclick = sprintf("Shiny.setInputValue('open_hierarchy_editor', '%s', {priority: 'event'})", var_name),
               title = if (has_h) "Jerarquia configurada (Click para editar)" else "Configurar Jerarquia de Anonimizacion",
-              shiny::tags$i(class = "fas fa-sitemap")
+              studio_icon("hierarchy", "Jerarquia")
             )
           },
           # NUEVO: Boton para Cifrado/Offset (Solo para Identificadoras que sean Numericas)
@@ -173,7 +205,7 @@ render_role_zone_ui <- function(title, role_name, variables, warning_vars = char
               class = paste("btn-offset-icon", if (has_o) "has-offset" else ""),
               onclick = sprintf("Shiny.setInputValue('open_offset_editor', '%s', {priority: 'event'})", var_name),
               title = if (has_o) "Cifrado Reversible activo (Click para editar)" else "Configurar Cifrado por Desfase (Reversible)",
-              shiny::tags$i(class = "fas fa-key")
+              studio_icon("key", "Reversible")
             )
           }
         )
@@ -222,9 +254,6 @@ run_obfuscator_app <- function() {
         type = "text/css",
         href = sprintf("obfuscator-www/app.css?v=%s", asset_version)
       ),
-      # FontAwesome y SortableJS
-      shiny::tags$link(rel = "stylesheet", href = "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"),
-      shiny::tags$script(src = "https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"),
       shiny::tags$script(src = sprintf("obfuscator-www/app.js?v=%s", asset_version))
     ),
     shiny::tags$div(
@@ -243,7 +272,8 @@ run_obfuscator_app <- function() {
             class = "hero-chip theme-btn",
             onclick = "toggleTheme()",
             title = "Cambiar Tema (Claro/Oscuro)",
-            shiny::tags$i(class = "fas fa-moon")
+            studio_icon("theme", "Tema"),
+            shiny::tags$span(class = "theme-label", "CL")
           ),
           # NUEVO: Boton de Ayuda
           shiny::tags$button(
@@ -251,7 +281,7 @@ run_obfuscator_app <- function() {
             class = "hero-chip help-btn",
             onclick = "Shiny.setInputValue('show_help', Math.random(), {priority: 'event'})",
             title = "Manual y Ayuda de Studio",
-            shiny::tags$i(class = "fas fa-question-circle")
+            studio_icon("help", "Ayuda")
           ),
           shiny::uiOutput("hero_chips_ui", inline = TRUE)
         ),
@@ -288,13 +318,13 @@ run_obfuscator_app <- function() {
             # NUEVO: Privacy Meter (Dinamico)
             shiny::tags$div(
               class = "panel-card privacy-meter-container",
-              shiny::tags$h3(shiny::tags$i(class = "fas fa-gauge-high"), " Nivel de Privacidad"),
+              shiny::tags$h3(studio_icon("privacy", "Privacidad"), " Nivel de Privacidad"),
               shiny::uiOutput("privacy_meter_ui"),
               shiny::tags$p(class = "help-text", "Estimación basada en el k-anonymity y roles asignados.")
             ),
             shiny::tags$div(
               class = "panel-card",
-              shiny::tags$h3(shiny::tags$i(class = "fas fa-sliders"), " Parametros"),
+              shiny::tags$h3(studio_icon("settings", "Parametros"), " Parametros"),
               shiny::numericInput("k_value", "k-anonymity (k)", value = 3, min = 2, max = 20),
               
               # NUEVO: Opciones Avanzadas (Progressive Disclosure)
@@ -355,7 +385,7 @@ run_obfuscator_app <- function() {
               class = "btn-group-custom",
               style = "margin-top: 10px;",
               shiny::downloadButton("download_csv", "Descargar CSV"),
-              shiny::actionButton("view_r_code", "Ver Código R", icon = shiny::icon("code"))
+              shiny::actionButton("view_r_code", shiny::tagList(studio_icon("code", "Codigo R"), " Ver Código R"))
             )
           )
         ),
@@ -378,9 +408,9 @@ run_obfuscator_app <- function() {
                 class = "search-wrapper",
                 shiny::tags$div(
                   class = "btn-group-custom",
-                  shiny::actionButton("confirm_suggestions", "Confirmar Todo", icon = shiny::icon("check"), class = "btn-sm"),
-                  shiny::actionButton("save_template", "Guardar Plantilla", icon = shiny::icon("save"), class = "btn-sm"),
-                  shiny::actionButton("load_template", "Cargar Plantilla", icon = shiny::icon("folder-open"), class = "btn-sm")
+                  shiny::actionButton("confirm_suggestions", shiny::tagList(studio_icon("check", "Confirmar"), " Confirmar Todo"), class = "btn-sm"),
+                  shiny::actionButton("save_template", shiny::tagList(studio_icon("save", "Guardar"), " Guardar Plantilla"), class = "btn-sm"),
+                  shiny::actionButton("load_template", shiny::tagList(studio_icon("open", "Cargar"), " Cargar Plantilla"), class = "btn-sm")
                 ),
                 shiny::textInput("var_search", NULL, placeholder = "Filtrar por nombre...", width = "200px")
               )
@@ -534,7 +564,7 @@ run_obfuscator_app <- function() {
             shiny::tags$div(
               class = "hierarchy-header", 
               "Grupos (Nivel 1)",
-              shiny::actionButton("add_hierarchy_group", "Nuevo Grupo", icon = shiny::icon("plus"), class = "btn-xs")
+              shiny::actionButton("add_hierarchy_group", shiny::tagList(studio_icon("add", "Nuevo grupo"), " Nuevo Grupo"), class = "btn-xs")
             ),
             shiny::tags$div(
               id = "hierarchy-dest-list",
@@ -545,7 +575,7 @@ run_obfuscator_app <- function() {
                     shiny::tags$div(
                       class = "hierarchy-folder",
                       `data-group` = grp,
-                      shiny::tags$div(class = "folder-header", shiny::tags$i(class = "fas fa-folder-open"), grp),
+                      shiny::tags$div(class = "folder-header", studio_icon("folder", "Grupo"), grp),
                       shiny::tags$div(
                         class = "folder-content",
                         lapply(current_h$mapping[[grp]], function(v) {
@@ -568,7 +598,7 @@ run_obfuscator_app <- function() {
         )
       ))
       
-      # Inicializar SortableJS en el modal
+      # Inicializar el editor de jerarquías en el modal
       shiny::insertUI(
         selector = "body",
         where = "beforeEnd",
@@ -673,9 +703,9 @@ run_obfuscator_app <- function() {
       rows <- nrow(df %||% data.frame())
       
       shiny::tagList(
-        shiny::tags$div(class = "hero-chip", shiny::tags$i(class = "fas fa-database"), " Dataset: ", shiny::tags$strong(name)),
-        shiny::tags$div(class = "hero-chip", shiny::tags$i(class = "fas fa-table-columns"), " Filas: ", shiny::tags$strong(rows)),
-        shiny::tags$div(class = "hero-chip", shiny::tags$i(class = "fas fa-shield-halved"), " k: ", shiny::tags$strong(k)),
+        shiny::tags$div(class = "hero-chip", studio_icon("dataset", "Dataset"), " Dataset: ", shiny::tags$strong(name)),
+        shiny::tags$div(class = "hero-chip", studio_icon("rows", "Filas"), " Filas: ", shiny::tags$strong(rows)),
+        shiny::tags$div(class = "hero-chip", studio_icon("shield", "k"), " k: ", shiny::tags$strong(k)),
         shiny::tags$div(class = "hero-chip", sprintf("v%s", obfuscator_version()))
       )
     })
@@ -787,7 +817,7 @@ head(resultado)",
              id = "copy-code-btn",
              class = "copy-code-btn",
              onclick = "copyRCodeToClipboard()",
-             shiny::tags$i(class = "fas fa-clipboard"),
+             studio_icon("copy", "Copiar codigo"),
              " Copiar Código"
            ),
            shiny::tags$pre(
@@ -1109,13 +1139,13 @@ head(resultado)",
                 shiny::tags$li(shiny::tags$strong("Fechas:"), " Serán permutadas para mantener el orden pero ocultar el día exacto."),
                 shiny::tags$li(shiny::tags$strong("Conservar:"), " Estas variables no se tocan.")
               ),
-              shiny::tags$p("Usa el icono de ", shiny::tags$i(class = "fas fa-chart-simple"), " para ver la distribución de los datos.")
+              shiny::tags$p("Usa el boton de distribución ", studio_icon("chart", "Distribucion"), " para ver la distribución de los datos.")
             )
           ),
           shiny::tabPanel("Cifrado Reversible", 
             shiny::tags$div(style = "padding: 15px;",
               shiny::tags$h4("Cifrado por Desfase (Identificadoras Numéricas)"),
-              shiny::tags$p("Si una variable ID es numérica, verás un icono de llave ", shiny::tags$i(class = "fas fa-key"), "."),
+              shiny::tags$p("Si una variable ID es numérica, verás el boton reversible ", studio_icon("key", "Reversible"), "."),
               shiny::tags$ol(
                 shiny::tags$li("Haz clic en la llave e ingresa un número secreto."),
                 shiny::tags$li("El sistema sumará ese número a todos los registros."),
@@ -1128,7 +1158,7 @@ head(resultado)",
           shiny::tabPanel("Jerarquías", 
             shiny::tags$div(style = "padding: 15px;",
               shiny::tags$h4("Jerarquías de Anonimización"),
-              shiny::tags$p("Usa el icono ", shiny::tags$i(class = "fas fa-sitemap"), " para agrupar valores sensibles en categorías más generales (ej: Ciudad -> Provincia)."),
+              shiny::tags$p("Usa el boton de jerarquías ", studio_icon("hierarchy", "Jerarquia"), " para agrupar valores sensibles en categorías más generales (ej: Ciudad -> Provincia)."),
               shiny::tags$p("Esto es fundamental para el ", shiny::tags$strong("k-anonimato"), ", ya que permite que varios individuos compartan las mismas características.")
             )
           ),

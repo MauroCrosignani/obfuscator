@@ -1,6 +1,6 @@
 # Documento de Especificación de Requerimientos: "ObfuscatoR"
-**Versión:** 2.0  
-**Estado:** Vigente y alineado con la implementación observada al 21 de marzo de 2026  
+**Versión:** 2.1 (objetivo corporate-safe previo a implementación)  
+**Estado:** Vigente y alineado con la implementación observada, más el alcance aprobado para la siguiente versión al 22 de marzo de 2026  
 **Autor:** Codex, a partir de la especificación original y de la evolución efectiva del proyecto
 
 ---
@@ -47,6 +47,8 @@ ObfuscatoR existe para resolver esa fricción mediante una plataforma local en R
 * No deben persistirse claves sensibles de cifrado reversible si el diseño las considera secretas.
 * Los logs y artefactos auxiliares que incluyan mappings o claves enmascarables deben tratarse como material restringido.
 * Las dependencias remotas de front-end deben considerarse una deuda o riesgo a explicitar cuando contradigan el ideal de funcionamiento totalmente offline.
+* La capa UI no debe asumir simetría de red entre el proceso R y el navegador: ambos pueden tener capacidades de conectividad distintas.
+* Toda funcionalidad no crítica que dependa de APIs del navegador potencialmente restringidas debe degradarse con fallback explícito, visible y comprensible.
 
 ### 2.5 Hallazgos de Migracion a Entorno Corporativo
 De acuerdo con las pruebas manuales realizadas mediante `pruebas_migracion_gitlab.R`, la siguiente version del producto debe asumir:
@@ -239,6 +241,16 @@ La próxima versión orientada a GitLab corporativo debe:
 * reemplazar o desacoplar badges remotos del `README` por una variante apta para GitLab corporativo;
 * documentar explícitamente qué capacidades requieren navegador moderno y cuáles quedan cubiertas completamente offline.
 
+### 4.15 Decisiones de Diseño para la Siguiente Versión
+Para evitar ambigüedad de alcance, la siguiente versión debe construirse con estas decisiones ya fijadas:
+* la funcionalidad principal de Studio debe seguir operativa sin depender de recursos descargados en tiempo de ejecución desde internet;
+* la iconografía de la app debe resolverse con assets locales o equivalentes locales simples, sin requerir fuentes de iconos remotas;
+* el editor visual de jerarquías debe sostenerse con una solución local bajo control del repositorio, aunque internamente use una librería vendorizada o una implementación propia;
+* el flujo principal a preservar es: carga -> clasificación -> configuración -> ofuscación -> preview -> exportación -> generación de código;
+* `copy-to-clipboard` no puede bloquear la tarea principal: si falla, la app debe ofrecer un camino manual equivalente;
+* la variante para entorno corporativo debe agregar `README_gitlab.md` como artefacto documental previsto, sin romper `README.md` del repositorio público;
+* el endurecimiento corporativo no debe cambiar la semántica del motor de ofuscación ni la API principal ya estabilizada.
+
 ---
 
 ## 5. Especificación Ejecutable (Casos de Prueba)
@@ -298,6 +310,15 @@ Los requerimientos anteriores deben poder validarse mediante una combinación de
 * ejemplos reproducibles en `README` y `vignettes`;
 * revisión de logs y reportes.
 
+### 5.3.b Casos de Verificación Específicos para la Variante Corporate-Safe
+Además de la evidencia general, la siguiente versión debe verificarse explícitamente con estos casos:
+1. **Studio sin CDN:** la app debe abrir y funcionar aunque el host de R no pueda resolver recursos remotos.
+2. **Iconografía local:** los botones principales deben conservar significado visual sin requerir `Font Awesome` remoto.
+3. **Editor de jerarquías sin red:** la configuración de jerarquías debe seguir siendo utilizable con assets enteramente locales.
+4. **Clipboard con fallback:** si el portapapeles programático falla, el usuario debe poder copiar el código manualmente sin pérdida de información.
+5. **README corporativo desacoplado:** debe existir una variante lista para GitLab sin depender de badges de GitHub.
+6. **Compatibilidad con suite existente:** el endurecimiento de UI no debe romper la suite del repositorio ni el parseo de archivos R.
+
 ### 5.4 Estado de Implementación por Área
 Para efectos de control del alcance, cada funcionalidad debe clasificarse como:
 * **Implementada y testeada**
@@ -308,6 +329,11 @@ Aplicación inicial sobre el estado actual:
 * **Implementada y testeada:** core de ofuscación, validación de configuración, modos numéricos, reglas `ordered`, `k-anonymity` base, persistencia por esquema, carga legacy y log enriquecido.
 * **Implementada con validación manual predominante:** gran parte de la UX Shiny, editor visual de jerarquías, flujo visual de persistencia, advertencias visuales, copy-to-clipboard y parte del estudio interactivo.
 * **Documentada pero con evidencia automatizada insuficiente:** algunas capacidades avanzadas del “Studio”, endurecimiento offline total, cobertura integral de accesibilidad y performance formal con umbrales automatizados.
+
+Aplicación objetivo para la siguiente versión:
+* **Debe quedar implementada y validada:** eliminación de dependencia operativa de CDN, fallback de clipboard, compatibilidad principal offline de la UI y documentación GitLab.
+* **Puede seguir con validación manual predominante:** detalles finos de experiencia visual, microinteracciones del Studio y percepción de accesibilidad.
+* **Puede seguir como evolutivo:** cobertura end-to-end automatizada de Shiny, benchmarks formales de performance y endurecimiento multiplataforma adicional.
 
 ---
 
@@ -347,6 +373,8 @@ Se considerará aceptable la variante corporativa cuando:
 * la suite automática del repositorio siga en verde;
 * la app Shiny pueda ejecutarse sin depender de CDN para su funcionalidad principal;
 * el flujo de carga, clasificación, ofuscación y descarga se mantenga operativo en entorno corporativo;
+* el editor visual de jerarquías y la iconografía principal queden cubiertos con recursos locales o lógica local del repositorio;
+* la falla de `navigator.clipboard` no impida obtener ni copiar manualmente el código reproducible;
 * el `README` quede preparado para GitLab corporativo con badges y referencias apropiadas;
 * la nueva documentación deje claro qué funcionalidades tienen fallback y cuáles son completamente autosuficientes.
 
@@ -359,13 +387,14 @@ No debería modificarse la lógica principal de ofuscación, persistencia, priva
 ---
 
 # Anatomía de esta Especificación
-*¿Por qué esta versión 2.0 es necesaria?*
+*¿Por qué esta versión 2.1 es necesaria?*
 
 1. **Respeta el documento original:** conserva la macroestructura estratégica, operativa y ejecutable de la v1.0.
 2. **Refleja el producto real:** ya no describe solo un script, sino una plataforma local con motor, privacidad formal, persistencia, auditoría y Studio Shiny.
 3. **Distingue niveles de madurez:** separa lo testeado, lo validado manualmente y lo que aún requiere endurecimiento contractual.
 4. **Protege contra sobrepromesas:** reconoce límites reales, especialmente en reversibilidad, anonimización formal, accesibilidad y dependencia offline.
 5. **Sirve como documento puente:** permite gobernar roadmap, validación y auditoría sin perder el foco original de utilidad práctica para trabajo con IA.
+6. **Cierra el alcance corporate-safe:** fija las decisiones de diseño necesarias antes de implementar el endurecimiento para GitLab corporativo.
 
 ---
 
@@ -382,11 +411,15 @@ No debería modificarse la lógica principal de ofuscación, persistencia, priva
 | RF-08 | Persistir clasificación por esquema | Obligatorio |
 | RF-09 | Proveer feedback de progreso en la app | Obligatorio |
 | RF-10 | Advertir variables sospechosas de fecha mal tipada | Obligatorio |
+| RF-11 | Mantener Studio operativo sin dependencias de CDN en su flujo principal | Obligatorio |
+| RF-12 | Proveer fallback manual para copy-to-clipboard | Obligatorio |
+| RF-13 | Proveer `README_gitlab.md` para despliegue documental corporativo | Obligatorio |
 | RNF-01 | Operar localmente y en español | Obligatorio |
 | RNF-02 | Mantener compatibilidad con flujos legacy | Obligatorio |
 | RNF-03 | Tratar mappings y claves como artefactos sensibles | Obligatorio |
 | RNF-04 | Mantener pipeline de tests y parseo | Obligatorio |
-| RNF-05 | Mejorar gradualmente validación UI, performance y offline total | Evolutivo |
+| RNF-05 | Endurecer la UI para funcionamiento corporate-safe con offline operativo en el flujo principal | Obligatorio |
+| RNF-06 | Mantener degradación elegante cuando navegador y host tengan capacidades distintas | Obligatorio |
 
 ## Anexo B. Referencias del Repositorio
 Artefactos principales a los que esta especificación se alinea:

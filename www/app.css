@@ -102,7 +102,7 @@ body {
   gap: 5px;
 }
 
-.hero-chip i { font-size: 10px; opacity: 0.8; }
+.hero-chip .studio-icon { opacity: 0.9; }
 
 .theme-btn:hover, .help-btn:hover {
   transform: translateY(-1px);
@@ -411,7 +411,9 @@ body {
   padding: 0;
   margin-left: 4px;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  font-size: 14px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
   border-radius: 8px !important;
   outline: none !important;
   box-sizing: border-box;
@@ -563,23 +565,29 @@ body {
 
 /* Theme Toggle */
 .theme-btn {
-  font-size: 16px;
   border: 1px solid var(--border-primary);
   background: var(--bg-card);
   color: var(--text-primary);
-  border-radius: 50% !important;
-  width: 36px;
+  border-radius: 999px !important;
+  min-width: 56px;
   height: 36px;
-  padding: 0 !important;
+  padding: 0 10px !important;
   display: inline-flex !important;
   align-items: center;
   justify-content: center;
+  gap: 6px;
 }
 
 .theme-btn:hover {
   background: var(--btn-bg);
   color: white;
-  transform: rotate(20deg);
+  transform: translateY(-1px);
+}
+
+.theme-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
 }
 
 /* Advanced Options Disclosure */
@@ -752,4 +760,45 @@ body.dark-theme .distribution-container {
   background: #10b981;
   color: white;
   border-color: #059669;
+}
+
+.copy-code-btn.manual-copy {
+  background: #f59e0b;
+  color: white;
+  border-color: #d97706;
+}
+
+.studio-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 6px;
+  background: rgba(15, 23, 42, 0.08);
+  color: inherit;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.btn-hierarchy-icon .studio-icon,
+.btn-dist-icon .studio-icon,
+.btn-offset-icon .studio-icon,
+.copy-code-btn .studio-icon,
+.folder-header .studio-icon {
+  background: transparent;
+  padding: 0;
+  min-width: auto;
+  height: auto;
+}
+
+.folder-content.is-over,
+.hierarchy-body.is-over {
+  background: rgba(99, 102, 241, 0.06);
+  border-radius: 8px;
 }

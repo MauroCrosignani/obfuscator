@@ -1,53 +1,59 @@
 document.addEventListener("DOMContentLoaded", function () {
+  function safeLocalStorageGet(key, fallbackValue) {
+    try {
+      return localStorage.getItem(key) || fallbackValue;
+    } catch (error) {
+      return fallbackValue;
+    }
+  }
+
+  function safeLocalStorageSet(key, value) {
+    try {
+      localStorage.setItem(key, value);
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
   function applyFilter() {
     const searchInput = document.getElementById("var_search");
     if (!searchInput) return;
-    
+
     const query = searchInput.value.toLowerCase();
     document.querySelectorAll(".draggable-var").forEach(function (item) {
-      const text = item.dataset.varName.toLowerCase();
-      if (text.includes(query)) {
-        item.classList.remove("hidden-var");
-      } else {
-        item.classList.add("hidden-var");
-      }
+      const text = (item.dataset.varName || "").toLowerCase();
+      item.classList.toggle("hidden-var", !text.includes(query));
     });
   }
 
-  // --- Gestion de Temas (Dark/Light) ---
   function initTheme() {
-    const savedTheme = localStorage.getItem('obfuscator-theme') || 'light';
-    if (savedTheme === 'dark') {
-      document.body.classList.add('dark-theme');
-    } else {
-      document.body.classList.remove('dark-theme');
-    }
+    const savedTheme = safeLocalStorageGet("obfuscator-theme", "light");
+    document.body.classList.toggle("dark-theme", savedTheme === "dark");
     updateThemeIcon(savedTheme);
   }
 
   function updateThemeIcon(theme) {
-    const icon = document.querySelector('#theme-toggle i');
-    if (!icon) return;
-    if (theme === 'dark') {
-      icon.className = 'fas fa-sun';
-    } else {
-      icon.className = 'fas fa-moon';
-    }
+    const label = document.querySelector("#theme-toggle .theme-label");
+    if (!label) return;
+    label.textContent = theme === "dark" ? "OS" : "CL";
   }
 
-  window.toggleTheme = function() {
-    const isDark = document.body.classList.toggle('dark-theme');
-    const newTheme = isDark ? 'dark' : 'light';
-    localStorage.setItem('obfuscator-theme', newTheme);
+  window.toggleTheme = function () {
+    const isDark = document.body.classList.toggle("dark-theme");
+    const newTheme = isDark ? "dark" : "light";
+    safeLocalStorageSet("obfuscator-theme", newTheme);
     updateThemeIcon(newTheme);
   };
 
-  // --- Drag and Drop Enhancements ---
   function bindDragAndDrop() {
     const draggableItems = document.querySelectorAll(".draggable-var");
     const zones = document.querySelectorAll(".role-zone");
 
     draggableItems.forEach(function (item) {
+      if (item.dataset.dragBound === "true") return;
+      item.dataset.dragBound = "true";
+
       item.addEventListener("dragstart", function (event) {
         item.classList.add("dragging");
         event.dataTransfer.setData("text/plain", JSON.stringify({
@@ -62,6 +68,9 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     zones.forEach(function (zone) {
+      if (zone.dataset.dropBound === "true") return;
+      zone.dataset.dropBound = "true";
+
       zone.addEventListener("dragover", function (event) {
         event.preventDefault();
         zone.classList.add("is-over");
@@ -89,85 +98,12 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
-  // Inicializar al cargar
-  initTheme();
-  bindDragAndDrop();
-  applyFilter();
-
-  const observer = new MutationObserver(function () {
-    bindDragAndDrop();
-    applyFilter();
-    // Asegurar que el icono del tema sea correcto tras renders de Shiny
-    const savedTheme = localStorage.getItem('obfuscator-theme') || 'light';
-    updateThemeIcon(savedTheme);
-  });
-
-  const searchInput = document.getElementById("var_search");
-  if (searchInput) {
-    searchInput.addEventListener("input", applyFilter);
-  }
-
-  observer.observe(document.body, { childList: true, subtree: true });
-  bindDragAndDrop();
-
-  // --- Logica de Editor de Jerarquias ---
-  
-  window.initHierarchySortable = function() {
-    const sourceList = document.getElementById("hierarchy-source-list");
-    const destList = document.getElementById("hierarchy-dest-list");
-    if (!sourceList || !destList) return;
-
-    // Inicializar lista de origen
-    new Sortable(sourceList, {
-      group: 'hierarchy',
-      animation: 150,
-      onEnd: updateHierarchyState
-    });
-
-    // Inicializar contenedores de carpetas existentes
-    document.querySelectorAll(".folder-content").forEach(el => {
-      initFolderSortable(el);
-    });
-
-    setupHierarchyInteractions();
-  };
-
-  function initFolderSortable(el) {
-    new Sortable(el, {
-      group: 'hierarchy',
-      animation: 150,
-      onEnd: updateHierarchyState,
-      onAdd: updateHierarchyState
-    });
-  }
-
-  function setupHierarchyInteractions() {
-    const container = document.querySelector(".hierarchy-editor-container");
-    if (!container) return;
-
-    // Multiseleccion por click
-    container.addEventListener("click", function(e) {
-      const item = e.target.closest(".hierarchy-item");
-      if (item) {
-        item.classList.toggle("selected");
-        updateSelectionBar();
-      }
-
-      if (e.target.closest("#add_hierarchy_group")) {
-        createNewGroup();
-      }
-
-      if (e.target.closest("#group_selected")) {
-        groupSelectedItems();
-      }
-    });
-  }
-
   function updateSelectionBar() {
     const selected = document.querySelectorAll(".hierarchy-item.selected");
     const bar = document.getElementById("hierarchy-selection-bar");
     const countLabel = document.getElementById("hierarchy-selection-count");
-    
+    if (!bar || !countLabel) return;
+
     if (selected.length > 0) {
       bar.style.display = "flex";
       countLabel.textContent = selected.length + " seleccionado(s)";
@@ -176,75 +112,254 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   }
 
-  function createNewGroup(name) {
-    const groupName = name || prompt("Nombre del nuevo grupo:");
-    if (!groupName) return;
+  function hierarchyDropTargets() {
+    const targets = [];
+    const sourceList = document.getElementById("hierarchy-source-list");
+    if (sourceList) targets.push(sourceList);
 
-    const destList = document.getElementById("hierarchy-dest-list");
+    document.querySelectorAll(".folder-content").forEach(function (el) {
+      targets.push(el);
+    });
+
+    return targets;
+  }
+
+  function bindHierarchyItem(item) {
+    if (!item || item.dataset.hierarchyBound === "true") return;
+    item.dataset.hierarchyBound = "true";
+    item.setAttribute("draggable", "true");
+
+    item.addEventListener("dragstart", function (event) {
+      item.classList.add("dragging");
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.setData("text/plain", item.dataset.value || "");
+    });
+
+    item.addEventListener("dragend", function () {
+      item.classList.remove("dragging");
+    });
+  }
+
+  function bindHierarchyDropTarget(target) {
+    if (!target || target.dataset.hierarchyDropBound === "true") return;
+    target.dataset.hierarchyDropBound = "true";
+
+    target.addEventListener("dragover", function (event) {
+      event.preventDefault();
+      target.classList.add("is-over");
+    });
+
+    target.addEventListener("dragleave", function () {
+      target.classList.remove("is-over");
+    });
+
+    target.addEventListener("drop", function (event) {
+      event.preventDefault();
+      target.classList.remove("is-over");
+      const dragged = document.querySelector(".hierarchy-item.dragging");
+      if (!dragged) return;
+      target.appendChild(dragged);
+      dragged.classList.remove("selected");
+      updateSelectionBar();
+      updateHierarchyState();
+    });
+  }
+
+  function syncHierarchySourceList() {
+    const sourceList = document.getElementById("hierarchy-source-list");
+    if (!sourceList) return;
+
+    const groupedValues = new Set();
+    document.querySelectorAll(".folder-content .hierarchy-item").forEach(function (item) {
+      groupedValues.add(item.dataset.value);
+    });
+
+    sourceList.querySelectorAll(".hierarchy-item").forEach(function (item) {
+      if (groupedValues.has(item.dataset.value)) {
+        item.remove();
+      }
+    });
+  }
+
+  function refreshHierarchyBindings() {
+    document.querySelectorAll(".hierarchy-item").forEach(bindHierarchyItem);
+    hierarchyDropTargets().forEach(bindHierarchyDropTarget);
+  }
+
+  function createFolderElement(groupName) {
     const folder = document.createElement("div");
     folder.className = "hierarchy-folder";
     folder.dataset.group = groupName;
-    folder.innerHTML = `
-      <div class="folder-header"><i class="fas fa-folder-open"></i> ${groupName}</div>
-      <div class="folder-content"></div>
-    `;
+    folder.innerHTML = [
+      '<div class="folder-header">',
+      '<span class="studio-icon studio-icon-folder" title="Grupo" aria-label="Grupo">G</span>',
+      groupName,
+      "</div>",
+      '<div class="folder-content"></div>'
+    ].join("");
+    return folder;
+  }
+
+  function createNewGroup(name) {
+    const groupName = name || prompt("Nombre del nuevo grupo:");
+    if (!groupName) return null;
+
+    const destList = document.getElementById("hierarchy-dest-list");
+    if (!destList) return null;
+
+    const folder = createFolderElement(groupName);
     destList.appendChild(folder);
-    initFolderSortable(folder.querySelector(".folder-content"));
+    refreshHierarchyBindings();
     updateHierarchyState();
+    return folder;
   }
 
   function groupSelectedItems() {
-    const selected = document.querySelectorAll(".hierarchy-item.selected");
+    const selected = Array.from(document.querySelectorAll(".hierarchy-item.selected"));
     if (selected.length === 0) return;
 
     const groupName = prompt("¿Bajo qué nombre agrupar estos " + selected.length + " items?");
     if (!groupName) return;
 
-    // Crear carpeta si no existe (o simplemente crear una nueva siempre con ese nombre)
-    createNewGroup(groupName);
-    const lastFolder = document.querySelector(`.hierarchy-folder[data-group="${groupName}"]:last-child .folder-content`);
-    
-    selected.forEach(item => {
+    const folder = createNewGroup(groupName);
+    if (!folder) return;
+
+    const destination = folder.querySelector(".folder-content");
+    selected.forEach(function (item) {
       item.classList.remove("selected");
-      lastFolder.appendChild(item);
+      destination.appendChild(item);
     });
 
     updateSelectionBar();
     updateHierarchyState();
   }
 
+  function setupHierarchyInteractions() {
+    const container = document.querySelector(".hierarchy-editor-container");
+    if (!container || container.dataset.interactionsBound === "true") return;
+    container.dataset.interactionsBound = "true";
+
+    container.addEventListener("click", function (event) {
+      const item = event.target.closest(".hierarchy-item");
+      if (item) {
+        item.classList.toggle("selected");
+        updateSelectionBar();
+        return;
+      }
+
+      if (event.target.closest("#add_hierarchy_group")) {
+        createNewGroup();
+        return;
+      }
+
+      if (event.target.closest("#group_selected")) {
+        groupSelectedItems();
+      }
+    });
+  }
+
   function updateHierarchyState() {
     if (!window.Shiny) return;
 
     const mapping = {};
-    document.querySelectorAll(".hierarchy-folder").forEach(folder => {
+    document.querySelectorAll(".hierarchy-folder").forEach(function (folder) {
       const groupName = folder.dataset.group;
-      const items = Array.from(folder.querySelectorAll(".hierarchy-item")).map(i => i.dataset.value);
+      const items = Array.from(folder.querySelectorAll(".folder-content .hierarchy-item")).map(function (item) {
+        return item.dataset.value;
+      });
       if (items.length > 0) {
         mapping[groupName] = items;
       }
     });
 
-    window.Shiny.setInputValue("hierarchy_tree_state", mapping);
+    window.Shiny.setInputValue("hierarchy_tree_state", mapping, { priority: "event" });
   }
 
-  // --- Utility: Copy R Code ---
-  window.copyRCodeToClipboard = function() {
-    const codeElement = document.querySelector(".code-container pre");
-    if (!codeElement) return;
-    
-    const code = codeElement.innerText;
-    navigator.clipboard.writeText(code).then(() => {
-      const btn = document.querySelector(".copy-code-btn");
-      const originalHTML = btn.innerHTML;
-      btn.innerHTML = '<i class="fas fa-check"></i> ¡Copiado!';
-      btn.classList.add("success");
-      setTimeout(() => {
-        btn.innerHTML = originalHTML;
-        btn.classList.remove("success");
-      }, 2000);
-    }).catch(err => {
-      console.error('Error at copy:', err);
-    });
+  window.initHierarchySortable = function () {
+    syncHierarchySourceList();
+    refreshHierarchyBindings();
+    setupHierarchyInteractions();
+    updateSelectionBar();
+    updateHierarchyState();
   };
+
+  function flashCopyState(btn, text, stateClass) {
+    if (!btn) return;
+
+    const originalHtml = btn.dataset.originalHtml || btn.innerHTML;
+    btn.dataset.originalHtml = originalHtml;
+    btn.innerHTML = text;
+    btn.classList.remove("success", "manual-copy");
+    if (stateClass) {
+      btn.classList.add(stateClass);
+    }
+
+    if (stateClass === "manual-copy") {
+      return;
+    }
+
+    window.setTimeout(function () {
+      btn.innerHTML = originalHtml;
+      btn.classList.remove("success", "manual-copy");
+    }, 2000);
+  }
+
+  function selectCodeBlock(codeElement) {
+    const selection = window.getSelection();
+    const range = document.createRange();
+    range.selectNodeContents(codeElement);
+    selection.removeAllRanges();
+    selection.addRange(range);
+  }
+
+  function fallbackCopy(codeElement, btn) {
+    selectCodeBlock(codeElement);
+
+    let copied = false;
+    try {
+      copied = document.execCommand("copy");
+    } catch (error) {
+      copied = false;
+    }
+
+    if (copied) {
+      flashCopyState(btn, '<span class="studio-icon studio-icon-check">OK</span> ¡Copiado!', "success");
+    } else {
+      flashCopyState(btn, "Selecciona y copia manualmente", "manual-copy");
+    }
+  }
+
+  window.copyRCodeToClipboard = function () {
+    const codeElement = document.querySelector(".code-container pre");
+    const btn = document.querySelector(".copy-code-btn");
+    if (!codeElement || !btn) return;
+
+    const code = codeElement.innerText;
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+      navigator.clipboard.writeText(code).then(function () {
+        flashCopyState(btn, '<span class="studio-icon studio-icon-check">OK</span> ¡Copiado!', "success");
+      }).catch(function () {
+        fallbackCopy(codeElement, btn);
+      });
+    } else {
+      fallbackCopy(codeElement, btn);
+    }
+  };
+
+  initTheme();
+  bindDragAndDrop();
+  applyFilter();
+
+  const observer = new MutationObserver(function () {
+    bindDragAndDrop();
+    applyFilter();
+    updateThemeIcon(safeLocalStorageGet("obfuscator-theme", "light"));
+  });
+
+  const searchInput = document.getElementById("var_search");
+  if (searchInput) {
+    searchInput.addEventListener("input", applyFilter);
+  }
+
+  observer.observe(document.body, { childList: true, subtree: true });
 });
