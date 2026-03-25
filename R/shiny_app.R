@@ -179,6 +179,8 @@ render_role_zone_ui <- function(title, role_name, variables, warning_vars = char
           ),
           shiny::tags$span(
             class = "var-label",
+            title = var_name,
+            `data-full-label` = var_name,
             var_name
           ),
           # Nuevo: Boton para ver distribucion

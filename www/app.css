@@ -373,6 +373,27 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  position: relative;
+}
+
+.var-label:hover::after {
+  content: attr(data-full-label);
+  position: absolute;
+  left: 0;
+  top: calc(100% + 6px);
+  z-index: 30;
+  max-width: min(480px, 70vw);
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(17, 24, 39, 0.96);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.35;
+  white-space: normal;
+  word-break: break-word;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+  pointer-events: none;
 }
 
 .preview-table-wrapper {

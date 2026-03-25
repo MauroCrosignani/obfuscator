@@ -1,6 +1,7 @@
 library(testthat)
 
 source(file.path("..", "..", "R", "obfuscator_core.R"))
+source(file.path("..", "..", "R", "shiny_app.R"))
 
 test_that("sourcear el script no dispara la CLI", {
   expect_silent(source(file.path("..", "..", "obfuscator.R")))
@@ -188,6 +189,21 @@ test_that("Dataset de una fila no falla ni rompe tipos", {
   expect_s3_class(out$FECHA, "Date")
   expect_type(out$ESTADO, "character")
   expect_type(out$MONTO, "double")
+})
+
+test_that("las etiquetas de variables exponen el nombre completo para tooltip", {
+  ui <- render_role_zone_ui(
+    title = "Disponibles",
+    role_name = "available",
+    variables = "NOMBRE_DE_COLUMNA_DEMASIADO_LARGO_PARA_VERSE_COMPLETO",
+    numeric_cols = character(0)
+  )
+
+  html <- as.character(ui)
+
+  expect_match(html, 'class="var-label"')
+  expect_match(html, 'title="NOMBRE_DE_COLUMNA_DEMASIADO_LARGO_PARA_VERSE_COMPLETO"')
+  expect_match(html, 'data-full-label="NOMBRE_DE_COLUMNA_DEMASIADO_LARGO_PARA_VERSE_COMPLETO"')
 })
 
 test_that("El log de auditoria se adjunta con trazabilidad enriquecida", {
