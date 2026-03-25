@@ -320,7 +320,7 @@ run_obfuscator_app <- function() {
               class = "panel-card privacy-meter-container",
               shiny::tags$h3(studio_icon("privacy", "Privacidad"), " Nivel de Privacidad"),
               shiny::uiOutput("privacy_meter_ui"),
-              shiny::tags$p(class = "help-text", "Estimación basada en el k-anonymity y roles asignados.")
+              shiny::tags$p(class = "help-text", "Estimacion basada en el k-anonymity y roles asignados.")
             ),
             shiny::tags$div(
               class = "panel-card",
@@ -334,7 +334,7 @@ run_obfuscator_app <- function() {
                 shiny::tags$br(),
                 shiny::textInput("id_prefix", "Prefijo de IDs", value = "999"),
                 shiny::textInput("project_key", "Llave de Proyecto (Sal)", value = "obfuscator_secret_v1"),
-                shiny::selectInput("numeric_mode", "Modo Numérico", choices = c("Rango Aleatorio" = "range_random", "Permutación" = "permute"))
+                shiny::selectInput("numeric_mode", "Modo Numerico", choices = c("Rango Aleatorio" = "range_random", "Permutacion" = "permute"))
               )
             )
           ),
@@ -367,7 +367,7 @@ run_obfuscator_app <- function() {
               shiny::tags$div(
                 class = "help-text",
                 style = "margin-top: -10px; margin-bottom: 10px;",
-                shiny::tags$em("Tip: Si 'k' es alto y no ves datos, prueba 'Agrupar remanentes' o usa jerarquías para reducir la diversidad de los quasi-identificadores.")
+                shiny::tags$em("Tip: Si 'k' es alto y no ves datos, prueba 'Agrupar remanentes' o usa jerarquias para reducir la diversidad de los quasi-identificadores.")
               )
             ),
             shiny::actionButton("run_obfuscation", "Ofuscar dataset", class = "primary-btn")
@@ -385,7 +385,7 @@ run_obfuscator_app <- function() {
               class = "btn-group-custom",
               style = "margin-top: 10px;",
               shiny::downloadButton("download_csv", "Descargar CSV"),
-              shiny::actionButton("view_r_code", shiny::tagList(studio_icon("code", "Codigo R"), " Ver Código R"))
+              shiny::actionButton("view_r_code", shiny::tagList(studio_icon("code", "Codigo R"), " Ver Codigo R"))
             )
           )
         ),
@@ -807,7 +807,7 @@ head(resultado)",
     shiny::observeEvent(input$view_r_code, {
        code <- get_obfuscation_code()
        shiny::showModal(shiny::modalDialog(
-         title = "Código R para Reproducción",
+         title = "Codigo R para Reproduccion",
          size = "l",
          easyClose = TRUE,
          footer = shiny::modalButton("Cerrar"),
@@ -818,14 +818,14 @@ head(resultado)",
              class = "copy-code-btn",
              onclick = "copyRCodeToClipboard()",
              studio_icon("copy", "Copiar codigo"),
-             " Copiar Código"
+             " Copiar Codigo"
            ),
            shiny::tags$pre(
              style = "background: #f8fafc; padding: 25px 15px 15px; border-radius: 12px; border: 1px solid #e2e8f0; white-space: pre-wrap; font-family: monospace; font-size: 13px;",
              code
            )
          ),
-         shiny::tags$p(class = "help-text", "Copia este código en un script de R para automatizar el proceso sin usar la interfaz.")
+         shiny::tags$p(class = "help-text", "Copia este codigo en un script de R para automatizar el proceso sin usar la interfaz.")
        ))
     })
 
@@ -1097,8 +1097,8 @@ head(resultado)",
         title = paste("Configurar Cifrado Reversible:", var_name),
         size = "s",
         # Usamos passwordInput para que la clave sea secreta al ingresarla
-        shiny::passwordInput("offset_value", "Ingrese Clave Numérica de Desfase:", value = as.character(current_val)),
-        shiny::tags$p(class = "help-text", "Esta clave se sumará al ID original. Es necesaria para el proceso inverso y NO se exporta en el código R."),
+        shiny::passwordInput("offset_value", "Ingrese Clave Numerica de Desfase:", value = as.character(current_val)),
+        shiny::tags$p(class = "help-text", "Esta clave se sumara al ID original. Es necesaria para el proceso inverso y NO se exporta en el codigo R."),
         footer = shiny::tagList(
           shiny::modalButton("Cancelar"),
           shiny::actionButton("save_offset_v2", "Guardar Clave", class = "primary-btn")
@@ -1111,7 +1111,7 @@ head(resultado)",
       val <- as.numeric(input$offset_value)
       
       if (is.na(val)) {
-        shiny::showNotification("Error: Por favor ingrese un número válido.", type = "error")
+        shiny::showNotification("Error: Por favor ingrese un numero valido.", type = "error")
         return()
       }
       
@@ -1129,37 +1129,37 @@ head(resultado)",
         size = "l",
         easyClose = TRUE,
         shiny::tabsetPanel(
-          shiny::tabPanel("Guía Rápida", 
+          shiny::tabPanel("Guia Rapida", 
             shiny::tags$div(style = "padding: 15px;",
-              shiny::tags$h4("Configuración de Roles"),
+              shiny::tags$h4("Configuracion de Roles"),
               shiny::tags$p("Arrastra las variables de la zona 'Disponibles' a las zonas activas:"),
               shiny::tags$ul(
-                shiny::tags$li(shiny::tags$strong("Identificadoras:"), " Para IDs, nombres o claves únicas."),
-                shiny::tags$li(shiny::tags$strong("Categorización:"), " Para variables tipo texto que quieras agrupar."),
-                shiny::tags$li(shiny::tags$strong("Fechas:"), " Serán permutadas para mantener el orden pero ocultar el día exacto."),
+                shiny::tags$li(shiny::tags$strong("Identificadoras:"), " Para IDs, nombres o claves unicas."),
+                shiny::tags$li(shiny::tags$strong("Categorizacion:"), " Para variables tipo texto que quieras agrupar."),
+                shiny::tags$li(shiny::tags$strong("Fechas:"), " Seran permutadas para mantener el orden pero ocultar el dia exacto."),
                 shiny::tags$li(shiny::tags$strong("Conservar:"), " Estas variables no se tocan.")
               ),
-              shiny::tags$p("Usa el boton de distribución ", studio_icon("chart", "Distribucion"), " para ver la distribución de los datos.")
+              shiny::tags$p("Usa el boton de distribucion ", studio_icon("chart", "Distribucion"), " para ver la distribucion de los datos.")
             )
           ),
           shiny::tabPanel("Cifrado Reversible", 
             shiny::tags$div(style = "padding: 15px;",
-              shiny::tags$h4("Cifrado por Desfase (Identificadoras Numéricas)"),
-              shiny::tags$p("Si una variable ID es numérica, verás el boton reversible ", studio_icon("key", "Reversible"), "."),
+              shiny::tags$h4("Cifrado por Desfase (Identificadoras Numericas)"),
+              shiny::tags$p("Si una variable ID es numerica, veras el boton reversible ", studio_icon("key", "Reversible"), "."),
               shiny::tags$ol(
-                shiny::tags$li("Haz clic en la llave e ingresa un número secreto."),
-                shiny::tags$li("El sistema sumará ese número a todos los registros."),
+                shiny::tags$li("Haz clic en la llave e ingresa un numero secreto."),
+                shiny::tags$li("El sistema sumara ese numero a todos los registros."),
                 shiny::tags$li("Este proceso es reversible restando la misma clave."),
-                shiny::tags$li(shiny::tags$strong("Seguridad:"), " Las claves NO se exportan en el código R ni se guardan en el servidor.")
+                shiny::tags$li(shiny::tags$strong("Seguridad:"), " Las claves NO se exportan en el codigo R ni se guardan en el servidor.")
               ),
-              shiny::tags$p("Para revertir programáticamente usa: ", shiny::tags$code("revert_reversible_ids(data, list(Col = CLAVE))"))
+              shiny::tags$p("Para revertir programaticamente usa: ", shiny::tags$code("revert_reversible_ids(data, list(Col = CLAVE))"))
             )
           ),
-          shiny::tabPanel("Jerarquías", 
+          shiny::tabPanel("Jerarquias", 
             shiny::tags$div(style = "padding: 15px;",
-              shiny::tags$h4("Jerarquías de Anonimización"),
-              shiny::tags$p("Usa el boton de jerarquías ", studio_icon("hierarchy", "Jerarquia"), " para agrupar valores sensibles en categorías más generales (ej: Ciudad -> Provincia)."),
-              shiny::tags$p("Esto es fundamental para el ", shiny::tags$strong("k-anonimato"), ", ya que permite que varios individuos compartan las mismas características.")
+              shiny::tags$h4("Jerarquias de Anonimizacion"),
+              shiny::tags$p("Usa el boton de jerarquias ", studio_icon("hierarchy", "Jerarquia"), " para agrupar valores sensibles en categorias mas generales (ej: Ciudad -> Provincia)."),
+              shiny::tags$p("Esto es fundamental para el ", shiny::tags$strong("k-anonimato"), ", ya que permite que varios individuos compartan las mismas caracteristicas.")
             )
           ),
           shiny::tabPanel("Privacidad (k)", 
@@ -1167,10 +1167,10 @@ head(resultado)",
               shiny::tags$h4("Modelo k-anonymity"),
               shiny::tags$p("El ", shiny::tags$strong("Privacy Meter"), " estima la seguridad de tu dataset."),
               shiny::tags$ul(
-                shiny::tags$li(shiny::tags$strong("Score Bajo:"), " Los datos son fáciles de re-identificar."),
-                shiny::tags$li(shiny::tags$strong("Score Alto:"), " Has logrado agrupar a los individuos de forma que es difícil distinguirlos.")
+                shiny::tags$li(shiny::tags$strong("Score Bajo:"), " Los datos son faciles de re-identificar."),
+                shiny::tags$li(shiny::tags$strong("Score Alto:"), " Has logrado agrupar a los individuos de forma que es dificil distinguirlos.")
               ),
-              shiny::tags$p("Aumenta el valor de 'k' o usa más jerarquías para mejorar el puntaje.")
+              shiny::tags$p("Aumenta el valor de 'k' o usa mas jerarquias para mejorar el puntaje.")
             )
           )
         ),

@@ -221,7 +221,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const selected = Array.from(document.querySelectorAll(".hierarchy-item.selected"));
     if (selected.length === 0) return;
 
-    const groupName = prompt("¿Bajo qué nombre agrupar estos " + selected.length + " items?");
+    const groupName = prompt("Bajo que nombre agrupar estos " + selected.length + " items?");
     if (!groupName) return;
 
     const folder = createNewGroup(groupName);
@@ -326,7 +326,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     if (copied) {
-      flashCopyState(btn, '<span class="studio-icon studio-icon-check">OK</span> ¡Copiado!', "success");
+      flashCopyState(btn, '<span class="studio-icon studio-icon-check">OK</span> Copiado', "success");
     } else {
       flashCopyState(btn, "Selecciona y copia manualmente", "manual-copy");
     }
@@ -340,7 +340,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const code = codeElement.innerText;
     if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
       navigator.clipboard.writeText(code).then(function () {
-        flashCopyState(btn, '<span class="studio-icon studio-icon-check">OK</span> ¡Copiado!', "success");
+        flashCopyState(btn, '<span class="studio-icon studio-icon-check">OK</span> Copiado', "success");
       }).catch(function () {
         fallbackCopy(codeElement, btn);
       });
