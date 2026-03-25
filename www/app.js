@@ -36,7 +36,10 @@ document.addEventListener("DOMContentLoaded", function () {
   function updateThemeIcon(theme) {
     const label = document.querySelector("#theme-toggle .theme-label");
     if (!label) return;
-    label.textContent = theme === "dark" ? "OS" : "CL";
+    const nextValue = theme === "dark" ? "OS" : "CL";
+    if (label.textContent !== nextValue) {
+      label.textContent = nextValue;
+    }
   }
 
   window.toggleTheme = function () {
@@ -353,7 +356,6 @@ document.addEventListener("DOMContentLoaded", function () {
   const observer = new MutationObserver(function () {
     bindDragAndDrop();
     applyFilter();
-    updateThemeIcon(safeLocalStorageGet("obfuscator-theme", "light"));
   });
 
   const searchInput = document.getElementById("var_search");
