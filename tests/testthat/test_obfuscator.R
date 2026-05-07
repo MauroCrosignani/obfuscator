@@ -355,3 +355,20 @@ test_that("k-anonymity respeta jerarquias parametrizadas por columna", {
   expect_true(log_info$privacy_report$after$satisfied)
   expect_true(log_info$privacy_report$generalization_steps[["fecha"]] %in% c("identity", "year"))
 })
+
+test_that("release UI uses one canonical parameter configuration", {
+  cfg <- studio_parameter_defaults()
+
+  expect_equal(cfg$k_value, 5)
+  expect_equal(cfg$id_prefix, "999")
+  expect_null(cfg$project_key)
+  expect_equal(cfg$numeric_mode, "range_random")
+})
+
+test_that("dataset display name comes from the loaded source", {
+  expect_equal(resolve_dataset_display_name("environment", object_name = "iris"), "iris")
+  expect_equal(
+    resolve_dataset_display_name("file", file_name = "personas.xlsx"),
+    "personas.xlsx"
+  )
+})
