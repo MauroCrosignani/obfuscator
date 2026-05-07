@@ -18,3 +18,4 @@ _agent/
 _agents/
 .code-review-graph/
 .vscode/
+.worktrees/
