@@ -13,3 +13,7 @@ No. En datasets anchos o conocidos por el tercero, la identidad puede reconstrui
 ### "¿Por que bloquear exportaciones?"
 
 Porque una herramienta de liberacion segura debe ser defendible. Si no puede justificar la salida, no deberia delegar esa responsabilidad a un clic superficial del usuario.
+
+### "Si la app genera codigo R, ¿no significa que el dataset ya es compartible?"
+
+No. El codigo generado sirve para reproducir transformaciones internas y auditar configuraciones, pero la liberacion externa sigue siendo una decision separada. Poder ejecutar un script no equivale a cumplir automaticamente las condiciones de liberacion segura.
