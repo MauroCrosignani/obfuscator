@@ -372,3 +372,13 @@ test_that("dataset display name comes from the loaded source", {
     "personas.xlsx"
   )
 })
+
+test_that("the main UI renders a single parameters section", {
+  ui_text <- paste(capture.output(print(run_obfuscator_app_ui_for_test())), collapse = "\n")
+
+  expect_equal(sum(gregexpr("studio-icon-settings", ui_text, fixed = TRUE)[[1]] > 0), 1)
+  expect_equal(sum(gregexpr("id=\"k_value\"", ui_text, fixed = TRUE)[[1]] > 0), 1)
+  expect_equal(sum(gregexpr("id=\"id_prefix\"", ui_text, fixed = TRUE)[[1]] > 0), 1)
+  expect_equal(sum(gregexpr("id=\"project_key\"", ui_text, fixed = TRUE)[[1]] > 0), 1)
+  expect_equal(sum(gregexpr("id=\"numeric_mode\"", ui_text, fixed = TRUE)[[1]] > 0), 1)
+})

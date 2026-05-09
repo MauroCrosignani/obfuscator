@@ -160,6 +160,203 @@ build_persistable_role_template <- function(
   persisted_roles
 }
 
+build_release_parameters_card <- function() {
+  defaults <- studio_parameter_defaults()
+
+  shiny::tags$div(
+    class = "panel-card",
+    shiny::tags$h3(studio_icon("settings", "Parametros"), " Parametros"),
+    shiny::numericInput("seed", "Semilla", value = defaults$seed, min = 1),
+    shiny::checkboxInput("enable_k", "Activar k-anonymity", value = FALSE),
+    shiny::conditionalPanel(
+      "input.enable_k === true",
+      shiny::numericInput("k_value", "Valor de k", value = defaults$k_value, min = 2, step = 1),
+      shiny::radioButtons(
+        "k_suppression",
+        "Supresion residual",
+        choices = c(
+          "Eliminar filas" = "rows",
+          "Agrupar remanentes" = "group",
+          "Conservar sin anonimizar" = "none"
+        ),
+        selected = defaults$k_suppression
+      ),
+      shiny::checkboxInput("group_ids", "Agrupar IDs por k-clases", value = defaults$group_ids),
+      shiny::tags$div(
+        class = "help-text",
+        style = "margin-top: -10px; margin-bottom: 10px;",
+        shiny::tags$em("Tip: Si 'k' es alto y no ves datos, prueba 'Agrupar remanentes' o usa jerarquias para reducir la diversidad de los quasi-identificadores.")
+      )
+    ),
+    shiny::tags$details(
+      class = "advanced-options",
+      shiny::tags$summary("Opciones Avanzadas"),
+      shiny::tags$br(),
+      shiny::textInput("id_prefix", "Prefijo para IDs", value = defaults$id_prefix),
+      shiny::passwordInput("project_key", "Llave del Proyecto (Opcional)", placeholder = "Sincroniza multiples archivos"),
+      shiny::selectInput(
+        "numeric_mode",
+        "Modo numerico general",
+        choices = c(
+          "Rango Aleatorio" = "range_random",
+          "Preservar rango" = "preserve_rank",
+          "Permutacion" = "permute"
+        ),
+        selected = defaults$numeric_mode
+      )
+    ),
+    shiny::actionButton("run_obfuscation", "Ofuscar dataset", class = "primary-btn")
+  )
+}
+
+build_obfuscator_app_ui <- function(asset_version) {
+  shiny::fluidPage(
+    shiny::tags$head(
+      shiny::tags$link(
+        rel = "stylesheet",
+        type = "text/css",
+        href = sprintf("obfuscator-www/app.css?v=%s", asset_version)
+      ),
+      shiny::tags$script(src = sprintf("obfuscator-www/app.js?v=%s", asset_version))
+    ),
+    shiny::tags$div(
+      class = "app-shell",
+      shiny::tags$div(
+        class = "hero",
+        shiny::tags$div(
+          class = "hero-copy",
+          shiny::tags$h1("ObfuscatoR Studio"),
+          shiny::tags$p("Interfaz grafica para revisar, clasificar y ofuscar datos con apoyo visual y auditoria.")
+        ),
+        shiny::tags$div(
+          class = "hero-meta",
+          shiny::tags$button(
+            id = "theme-toggle",
+            class = "hero-chip theme-btn",
+            onclick = "toggleTheme()",
+            title = "Cambiar Tema (Claro/Oscuro)",
+            studio_icon("theme", "Tema"),
+            shiny::tags$span(class = "theme-label", "CL")
+          ),
+          shiny::tags$button(
+            id = "open_help",
+            class = "hero-chip help-btn",
+            onclick = "Shiny.setInputValue('show_help', Math.random(), {priority: 'event'})",
+            title = "Manual y Ayuda de Studio",
+            studio_icon("help", "Ayuda")
+          ),
+          shiny::uiOutput("hero_chips_ui", inline = TRUE)
+        )
+      ),
+      shiny::fluidRow(
+        shiny::column(
+          width = 4,
+          shiny::tags$div(
+            class = "panel-card",
+            shiny::tags$h3("Fuente de datos"),
+            shiny::radioButtons(
+              "source_mode",
+              NULL,
+              choices = c("Archivo" = "file", "Entorno global" = "environment"),
+              inline = TRUE
+            ),
+            shiny::conditionalPanel(
+              "input.source_mode === 'file'",
+              shiny::fileInput("input_file", "Cargar CSV, Excel o RDS", accept = c(".csv", ".xls", ".xlsx", ".rds"))
+            ),
+            shiny::tags$div(
+              class = "help-text",
+              "Tamano maximo de carga configurado en esta app: 300 MB. Para archivos aun mayores, conviene usar un objeto del entorno global."
+            ),
+            shiny::conditionalPanel(
+              "input.source_mode === 'environment'",
+              shiny::selectInput("env_object", "Objeto del entorno", choices = character(0))
+            ),
+            shiny::actionButton("load_data", "Cargar dataset", class = "primary-btn"),
+            shiny::tags$div(class = "help-text", "Si eliges un objeto del entorno, debe ser un data.frame o tibble.")
+          ),
+          shiny::tags$aside(
+            class = "sidebar",
+            shiny::tags$div(
+              class = "panel-card privacy-meter-container",
+              shiny::tags$h3(studio_icon("privacy", "Privacidad"), " Nivel de Privacidad"),
+              shiny::uiOutput("privacy_meter_ui"),
+              shiny::tags$p(class = "help-text", "Estimacion basada en el k-anonymity y roles asignados.")
+            ),
+            build_release_parameters_card()
+          ),
+          shiny::tags$div(
+            class = "panel-card",
+            shiny::tags$h3("Salida"),
+            shiny::textInput("output_object_name", "Guardar objeto en entorno como", value = "dataset_ofuscado"),
+            shiny::tags$div(
+              class = "btn-group-custom",
+              shiny::actionButton("save_to_env", "Guardar en entorno"),
+              shiny::actionButton("revert_btn", "Revertir actual", class = "secondary-btn")
+            ),
+            shiny::tags$div(
+              class = "btn-group-custom",
+              style = "margin-top: 10px;",
+              shiny::downloadButton("download_csv", "Descargar CSV"),
+              shiny::actionButton("view_r_code", shiny::tagList(studio_icon("code", "Codigo R"), " Ver Codigo R"))
+            )
+          )
+        ),
+        shiny::column(
+          width = 8,
+          shiny::tags$div(
+            class = "panel-card",
+            shiny::tags$h3("Estado del dataset"),
+            shiny::uiOutput("dataset_summary_ui")
+          ),
+          shiny::tags$div(
+            class = "panel-card",
+            shiny::tags$div(
+              class = "section-header",
+              shiny::tags$div(
+                shiny::tags$h3("Clasificacion visual de variables"),
+                shiny::tags$p("Arrastra variables entre zonas para corregir la deteccion automatica.")
+              ),
+              shiny::tags$div(
+                class = "search-wrapper",
+                shiny::tags$div(
+                  class = "btn-group-custom",
+                  shiny::actionButton("confirm_suggestions", shiny::tagList(studio_icon("check", "Confirmar"), " Confirmar Todo"), class = "btn-sm"),
+                  shiny::actionButton("save_template", shiny::tagList(studio_icon("save", "Guardar"), " Guardar Plantilla"), class = "btn-sm"),
+                  shiny::actionButton("load_template", shiny::tagList(studio_icon("open", "Cargar"), " Cargar Plantilla"), class = "btn-sm")
+                ),
+                shiny::textInput("var_search", NULL, placeholder = "Filtrar por nombre...", width = "200px")
+              )
+            ),
+            shiny::uiOutput("role_board_ui")
+          ),
+          shiny::tags$div(
+            class = "panel-card",
+            shiny::tags$div(
+              class = "section-header",
+              shiny::tags$h3("Vista previa"),
+              shiny::checkboxInput("live_preview", "Vista previa de ofuscacion (solo 10 filas)", value = FALSE)
+            ),
+            shiny::tags$div(
+              class = "preview-table-wrapper",
+              shiny::tableOutput("preview_table")
+            )
+          ),
+          shiny::tags$div(
+            class = "panel-card",
+            shiny::tags$h3("Resumen de auditoria"),
+            shiny::verbatimTextOutput("audit_log_text")
+          )
+        )
+      )
+    )
+  )
+}
+
+run_obfuscator_app_ui_for_test <- function() {
+  build_obfuscator_app_ui(asset_version = "test")
+}
+
 studio_icon <- function(name, label = NULL, extra_class = NULL) {
   glyphs <- c(
     chart = "D",
@@ -305,197 +502,7 @@ run_obfuscator_app <- function() {
   shiny::addResourcePath("obfuscator-www", www_dir)
   asset_version <- paste0(obfuscator_version(), "-", as.integer(Sys.time()))
 
-  ui <- shiny::fluidPage(
-    shiny::tags$head(
-      shiny::tags$link(
-        rel = "stylesheet",
-        type = "text/css",
-        href = sprintf("obfuscator-www/app.css?v=%s", asset_version)
-      ),
-      shiny::tags$script(src = sprintf("obfuscator-www/app.js?v=%s", asset_version))
-    ),
-    shiny::tags$div(
-      class = "app-shell",
-      shiny::tags$div(
-        class = "hero",
-        shiny::tags$div(
-          class = "hero-copy",
-          shiny::tags$h1("ObfuscatoR Studio"),
-          shiny::tags$p("Interfaz grafica para revisar, clasificar y ofuscar datos con apoyo visual y auditoria.")
-        ),
-        shiny::tags$div(
-          class = "hero-meta",
-          shiny::tags$button(
-            id = "theme-toggle",
-            class = "hero-chip theme-btn",
-            onclick = "toggleTheme()",
-            title = "Cambiar Tema (Claro/Oscuro)",
-            studio_icon("theme", "Tema"),
-            shiny::tags$span(class = "theme-label", "CL")
-          ),
-          # NUEVO: Boton de Ayuda
-          shiny::tags$button(
-            id = "open_help",
-            class = "hero-chip help-btn",
-            onclick = "Shiny.setInputValue('show_help', Math.random(), {priority: 'event'})",
-            title = "Manual y Ayuda de Studio",
-            studio_icon("help", "Ayuda")
-          ),
-          shiny::uiOutput("hero_chips_ui", inline = TRUE)
-        ),
-      ),
-      shiny::fluidRow(
-        shiny::column(
-          width = 4,
-          shiny::tags$div(
-            class = "panel-card",
-            shiny::tags$h3("Fuente de datos"),
-            shiny::radioButtons(
-              "source_mode",
-              NULL,
-              choices = c("Archivo" = "file", "Entorno global" = "environment"),
-              inline = TRUE
-            ),
-            shiny::conditionalPanel(
-              "input.source_mode === 'file'",
-              shiny::fileInput("input_file", "Cargar CSV, Excel o RDS", accept = c(".csv", ".xls", ".xlsx", ".rds"))
-            ),
-            shiny::tags$div(
-              class = "help-text",
-              "Tamano maximo de carga configurado en esta app: 300 MB. Para archivos aun mayores, conviene usar un objeto del entorno global."
-            ),
-            shiny::conditionalPanel(
-              "input.source_mode === 'environment'",
-              shiny::selectInput("env_object", "Objeto del entorno", choices = character(0))
-            ),
-            shiny::actionButton("load_data", "Cargar dataset", class = "primary-btn"),
-            shiny::tags$div(class = "help-text", "Si eliges un objeto del entorno, debe ser un data.frame o tibble.")
-          ),
-          shiny::tags$aside(
-            class = "sidebar",
-            # NUEVO: Privacy Meter (Dinamico)
-            shiny::tags$div(
-              class = "panel-card privacy-meter-container",
-              shiny::tags$h3(studio_icon("privacy", "Privacidad"), " Nivel de Privacidad"),
-              shiny::uiOutput("privacy_meter_ui"),
-              shiny::tags$p(class = "help-text", "Estimacion basada en el k-anonymity y roles asignados.")
-            ),
-            shiny::tags$div(
-              class = "panel-card",
-              shiny::tags$h3(studio_icon("settings", "Parametros"), " Parametros"),
-              shiny::numericInput("k_value", "k-anonymity (k)", value = 3, min = 2, max = 20),
-              
-              # NUEVO: Opciones Avanzadas (Progressive Disclosure)
-              shiny::tags$details(
-                class = "advanced-options",
-                shiny::tags$summary("Opciones Avanzadas"),
-                shiny::tags$br(),
-                shiny::textInput("id_prefix", "Prefijo de IDs", value = "999"),
-                shiny::textInput("project_key", "Llave de Proyecto (Sal)", value = "obfuscator_secret_v1"),
-                shiny::selectInput("numeric_mode", "Modo Numerico", choices = c("Rango Aleatorio" = "range_random", "Permutacion" = "permute"))
-              )
-            )
-          ),
-          shiny::tags$div(
-            class = "panel-card",
-            shiny::tags$h3("Parametros"),
-            shiny::numericInput("seed", "Semilla", value = 123, min = 1),
-            shiny::textInput("id_prefix", "Prefijo para IDs", value = "999"),
-            shiny::passwordInput("project_key", "Llave del Proyecto (Opcional)", placeholder = "Sincroniza multiples archivos"),
-            shiny::selectInput(
-              "numeric_mode",
-              "Modo numerico general",
-              choices = c("range_random", "preserve_rank", "permute"),
-              selected = "range_random"
-            ),
-            shiny::checkboxInput("enable_k", "Activar k-anonymity", value = FALSE),
-            shiny::conditionalPanel(
-              "input.enable_k === true",
-              shiny::numericInput("k_value", "Valor de k", value = 5, min = 2, step = 1),
-              shiny::radioButtons(
-                "k_suppression",
-                "Supresion residual",
-                choices = c(
-                  "Eliminar filas" = "rows", 
-                  "Agrupar remanentes" = "group", 
-                  "Conservar sin anonimizar" = "none"
-                )
-              ),
-              shiny::checkboxInput("group_ids", "Agrupar IDs por k-clases", value = FALSE),
-              shiny::tags$div(
-                class = "help-text",
-                style = "margin-top: -10px; margin-bottom: 10px;",
-                shiny::tags$em("Tip: Si 'k' es alto y no ves datos, prueba 'Agrupar remanentes' o usa jerarquias para reducir la diversidad de los quasi-identificadores.")
-              )
-            ),
-            shiny::actionButton("run_obfuscation", "Ofuscar dataset", class = "primary-btn")
-          ),
-          shiny::tags$div(
-            class = "panel-card",
-            shiny::tags$h3("Salida"),
-            shiny::textInput("output_object_name", "Guardar objeto en entorno como", value = "dataset_ofuscado"),
-            shiny::tags$div(
-               class = "btn-group-custom",
-               shiny::actionButton("save_to_env", "Guardar en entorno"),
-               shiny::actionButton("revert_btn", "Revertir actual", class = "secondary-btn")
-            ),
-            shiny::tags$div(
-              class = "btn-group-custom",
-              style = "margin-top: 10px;",
-              shiny::downloadButton("download_csv", "Descargar CSV"),
-              shiny::actionButton("view_r_code", shiny::tagList(studio_icon("code", "Codigo R"), " Ver Codigo R"))
-            )
-          )
-        ),
-        shiny::column(
-          width = 8,
-          shiny::tags$div(
-            class = "panel-card",
-            shiny::tags$h3("Estado del dataset"),
-            shiny::uiOutput("dataset_summary_ui")
-          ),
-          shiny::tags$div(
-            class = "panel-card",
-            shiny::tags$div(
-              class = "section-header",
-              shiny::tags$div(
-                shiny::tags$h3("Clasificacion visual de variables"),
-                shiny::tags$p("Arrastra variables entre zonas para corregir la deteccion automatica.")
-              ),
-              shiny::tags$div(
-                class = "search-wrapper",
-                shiny::tags$div(
-                  class = "btn-group-custom",
-                  shiny::actionButton("confirm_suggestions", shiny::tagList(studio_icon("check", "Confirmar"), " Confirmar Todo"), class = "btn-sm"),
-                  shiny::actionButton("save_template", shiny::tagList(studio_icon("save", "Guardar"), " Guardar Plantilla"), class = "btn-sm"),
-                  shiny::actionButton("load_template", shiny::tagList(studio_icon("open", "Cargar"), " Cargar Plantilla"), class = "btn-sm")
-                ),
-                shiny::textInput("var_search", NULL, placeholder = "Filtrar por nombre...", width = "200px")
-              )
-            ),
-            shiny::uiOutput("role_board_ui")
-          ),
-          shiny::tags$div(
-            class = "panel-card",
-            shiny::tags$div(
-              class = "section-header",
-              shiny::tags$h3("Vista previa"),
-              shiny::checkboxInput("live_preview", "Vista previa de ofuscacion (solo 10 filas)", value = FALSE)
-            ),
-            shiny::tags$div(
-              class = "preview-table-wrapper",
-              shiny::tableOutput("preview_table")
-            )
-          ),
-          shiny::tags$div(
-            class = "panel-card",
-            shiny::tags$h3("Resumen de auditoria"),
-            shiny::verbatimTextOutput("audit_log_text")
-          )
-        )
-      )
-    )
-  )
+  ui <- build_obfuscator_app_ui(asset_version)
 
   server <- function(input, output, session) {
     # Reactivos para el estado de la app
