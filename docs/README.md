@@ -23,6 +23,7 @@ Esta carpeta organiza la documentacion del proyecto para tres usos complementari
   - investigacion normativa, benchmarking, productos comparados y deep research.
 - `06_desarrollo/`
   - cierres de fase, notas de ejecucion, decisiones de implementacion y metodologia operativa.
+  - backlog transversal de continuidad y documentacion.
 - `07_presentacion/`
   - puntos de venta, mensajes clave, objeciones previsibles, evidencia de solidez y futuros materiales Quarto/revealJS.
 - `99_archivo/`
