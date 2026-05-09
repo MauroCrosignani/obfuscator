@@ -94,6 +94,30 @@ load_dataset_for_app <- function(source_mode, file_info = NULL, object_name = NU
   stop("Modo de carga no soportado.")
 }
 
+studio_parameter_defaults <- function() {
+  list(
+    seed = 123,
+    id_prefix = "999",
+    project_key = NULL,
+    numeric_mode = "range_random",
+    k_value = 5,
+    k_suppression = "rows",
+    group_ids = FALSE
+  )
+}
+
+resolve_dataset_display_name <- function(source_mode, object_name = NULL, file_name = NULL) {
+  if (identical(source_mode, "environment") && nzchar(object_name %||% "")) {
+    return(object_name)
+  }
+
+  if (identical(source_mode, "file") && nzchar(file_name %||% "")) {
+    return(file_name)
+  }
+
+  "Ninguno"
+}
+
 role_column_choices <- function(df, ui_roles) {
   list(
     id = intersect(ui_roles$id %||% character(0), colnames(df)),
@@ -102,6 +126,38 @@ role_column_choices <- function(df, ui_roles) {
     numeric = intersect(ui_roles$numeric %||% character(0), colnames(df)),
     preserve = intersect(ui_roles$preserve %||% character(0), colnames(df))
   )
+}
+
+build_persistable_role_template <- function(
+  role_state,
+  hierarchies = list(),
+  numeric_offsets = list(),
+  release_state = NULL,
+  manual_review = NULL,
+  artifact = NULL
+) {
+  persisted_roles <- role_state[intersect(
+    names(role_state),
+    c("id", "date", "categorical", "numeric", "preserve", "exclude")
+  )]
+  persisted_roles <- Filter(function(x) length(x) > 0, persisted_roles)
+
+  if (length(hierarchies) > 0) {
+    persisted_roles$hierarchies <- hierarchies
+  }
+
+  # Only schema-bound classification data is persisted in ordinary templates.
+  # We intentionally do not persist:
+  # - `available`, because it is derived from the current dataset schema.
+  # - `numeric_offsets`, because they are manual secret keys.
+  # - `release_state`, `manual_review`, and `artifact`, because they belong to
+  #   restricted release/review workflow state rather than reusable templates.
+  invisible(numeric_offsets)
+  invisible(release_state)
+  invisible(manual_review)
+  invisible(artifact)
+
+  persisted_roles
 }
 
 studio_icon <- function(name, label = NULL, extra_class = NULL) {
@@ -464,6 +520,7 @@ run_obfuscator_app <- function() {
     obfuscated_data <- shiny::reactiveVal(NULL)
     audit_log <- shiny::reactiveVal(NULL)
     progress_status <- shiny::reactiveVal("Todavia no se ejecuto ninguna ofuscacion.")
+    loaded_dataset_name <- shiny::reactiveVal("Ninguno")
 
     shiny::observe({
       objects <- ls(envir = .GlobalEnv)
@@ -485,6 +542,13 @@ run_obfuscator_app <- function() {
         object_name = input$env_object
       )
       source_data(dataset)
+      loaded_dataset_name(
+        resolve_dataset_display_name(
+          source_mode = input$source_mode,
+          object_name = input$env_object,
+          file_name = input$input_file$name %||% NULL
+        )
+      )
       
       # Persistence: Intentar carga automatica basada en hash
       hash_id <- generate_schema_hash(dataset)
@@ -700,8 +764,9 @@ run_obfuscator_app <- function() {
     # --- Lógica de Hero Chips Meta ---
     output$hero_chips_ui <- shiny::renderUI({
       df <- source_data()
-      k <- input$k_value %||% 3
-      name <- input$dataset_name %||% "Ninguno"
+      defaults <- studio_parameter_defaults()
+      k <- input$k_value %||% defaults$k_value
+      name <- loaded_dataset_name()
       rows <- nrow(df %||% data.frame())
       
       shiny::tagList(
@@ -715,7 +780,7 @@ run_obfuscator_app <- function() {
     # --- Lógica de Privacy Meter ---
     output$privacy_meter_ui <- shiny::renderUI({
       roles <- role_state()
-      k <- input$k_value %||% 3
+      k <- input$k_value %||% studio_parameter_defaults()$k_value
       
       # Calculo heuristico del score (0 a 100)
       # k=2 es base, cada punto de k suma. Roles de ID y Categorical con jerarquia suman mas.
@@ -1024,12 +1089,12 @@ head(resultado)",
       hash_id <- generate_schema_hash(df)
       config_path <- file.path("config", paste0(hash_id, ".json"))
       
-      roles <- role_state()
-      # No guardamos 'available' para no ensuciar, solo asignaciones explicitas
-      config_to_save <- roles[names(roles) != "available"]
-      config_to_save$hierarchies <- hierarchies()
-      config_to_save$numeric_offsets <- numeric_offsets() # NUEVO
-      
+      config_to_save <- build_persistable_role_template(
+        role_state = role_state(),
+        hierarchies = hierarchies(),
+        numeric_offsets = numeric_offsets()
+      )
+
       save_roles_to_json(config_to_save, config_path)
       shiny::showNotification(sprintf("Plantilla guardada para hash %s.", hash_id), type = "message")
     })

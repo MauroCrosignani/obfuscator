@@ -1345,12 +1345,51 @@ generate_schema_hash <- function(df) {
   sprintf("hash_%d_%d", length(cols), char_sum)
 }
 
+persistable_role_template_fields <- function() {
+  c("id", "date", "categorical", "numeric", "preserve", "exclude", "hierarchies")
+}
+
+restricted_role_template_fields <- function() {
+  c("numeric_offsets", "release_state", "manual_review", "artifact")
+}
+
+validate_role_template_for_persistence <- function(roles) {
+  if (!is.list(roles)) {
+    stop("Las plantillas de roles deben persistirse como una lista.")
+  }
+
+  restricted_fields <- intersect(names(roles), restricted_role_template_fields())
+  if (length(restricted_fields) > 0) {
+    stop(sprintf(
+      paste(
+        "Las plantillas comunes solo pueden persistir clasificacion por esquema.",
+        "Estos campos restringidos de release/review no se permiten: %s"
+      ),
+      paste(restricted_fields, collapse = ", ")
+    ))
+  }
+
+  allowed_fields <- persistable_role_template_fields()
+  unknown_fields <- setdiff(names(roles), allowed_fields)
+  if (length(unknown_fields) > 0) {
+    stop(sprintf(
+      "La plantilla contiene campos no soportados: %s",
+      paste(unknown_fields, collapse = ", ")
+    ))
+  }
+
+  invisible(TRUE)
+}
+
 #' Guardar configuracion de roles a JSON
 #' @param roles Lista de roles obtenida de role_state().
 #' @param path Ruta del archivo destino.
 save_roles_to_json <- function(roles, path) {
+  validate_role_template_for_persistence(roles)
+
   # Limpiar roles vacios para un JSON mas compacto
   clean_roles <- Filter(function(x) length(x) > 0, roles)
+  dir.create(dirname(path), recursive = TRUE, showWarnings = FALSE)
   jsonlite::write_json(clean_roles, path, pretty = TRUE)
 }
 
@@ -1366,7 +1405,14 @@ load_roles_from_json <- function(df, path, threshold = 0.8) {
   current_cols <- colnames(df)
   
   result <- list(
-    exact = list(id = c(), date = c(), categorical = c(), numeric = c(), preserve = c()),
+    exact = list(
+      id = c(),
+      date = c(),
+      categorical = c(),
+      numeric = c(),
+      preserve = c(),
+      exclude = c()
+    ),
     suggested = list() # Lista de listas: list(col_actual, role_sugerido, original_name, score)
   )
   
