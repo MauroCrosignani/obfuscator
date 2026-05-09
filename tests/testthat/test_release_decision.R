@@ -232,3 +232,59 @@ test_that("repeated wide signatures do not trigger high-dimensional relinkabilit
 
   expect_equal(length(alerts), 0)
 })
+
+test_that("text fields require active review evidence", {
+  review <- build_manual_review_result(
+    object_id = "observacion",
+    review_type = "text_free",
+    verified = TRUE,
+    evidence = list(unique_values_confirmed = 12)
+  )
+
+  expect_equal(review$object_id, "observacion")
+  expect_equal(review$review_type, "text_free")
+  expect_true(review$verified)
+  expect_equal(review$evidence$unique_values_confirmed, 12)
+})
+
+test_that("manual review alone does not unlock blocked export", {
+  review <- build_manual_review_result(
+    object_id = "observacion",
+    review_type = "text_free",
+    verified = TRUE,
+    evidence = list(unique_values_confirmed = 12)
+  )
+  st <- build_release_state(
+    "Bloqueado",
+    reasons = list("texto libre pendiente"),
+    metadata = list(reviews = list(review))
+  )
+
+  expect_false(can_export_external_release(st))
+})
+
+test_that("release review requirements mark text and combinations as active blockers", {
+  alerts <- list(
+    release_alert(
+      code = "text_like_column",
+      severity = "critical",
+      message = "Texto libre detectado",
+      fields = "observacion",
+      artifact_type = "internal_work"
+    ),
+    release_alert(
+      code = "high_dimensional_relinkability",
+      severity = "critical",
+      message = "Reenlazabilidad alta",
+      fields = c("sexo", "edad", "ocupacion"),
+      artifact_type = "internal_work"
+    )
+  )
+
+  requirements <- build_review_requirements(alerts)
+
+  expect_true(requirements$required)
+  expect_equal(length(requirements$items), 2)
+  expect_true(any(vapply(requirements$items, function(item) identical(item$review_type, "text_free"), logical(1))))
+  expect_true(any(vapply(requirements$items, function(item) identical(item$review_type, "relinkability"), logical(1))))
+})

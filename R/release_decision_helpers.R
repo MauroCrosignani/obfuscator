@@ -360,6 +360,66 @@ detect_high_dimensional_relinkability <- function(
   ))
 }
 
+build_manual_review_result <- function(
+  object_id,
+  review_type,
+  verified = FALSE,
+  evidence = list(),
+  notes = NULL
+) {
+  if (!is.character(object_id) || length(object_id) != 1 || !nzchar(object_id)) {
+    stop("`object_id` must be a non-empty scalar character value.")
+  }
+  if (!is.character(review_type) || length(review_type) != 1 || !nzchar(review_type)) {
+    stop("`review_type` must be a non-empty scalar character value.")
+  }
+
+  review <- list(
+    object_id = object_id,
+    review_type = review_type,
+    verified = isTRUE(verified),
+    evidence = if (is.list(evidence)) evidence else list(value = evidence),
+    notes = notes %||% NA_character_
+  )
+  class(review) <- c("manual_review_result", "list")
+  review
+}
+
+review_type_from_alert <- function(alert) {
+  switch(
+    alert$code,
+    text_like_column = "text_free",
+    high_dimensional_relinkability = "relinkability",
+    combination_below_k = "combination_risk",
+    homogeneous_sensitive_class = "sensitive_homogeneity",
+    precise_linkable_combination = "relinkability",
+    "general_risk"
+  )
+}
+
+build_review_requirements <- function(alerts) {
+  if (length(alerts) == 0) {
+    return(list(required = FALSE, items = list()))
+  }
+
+  critical_alerts <- Filter(function(alert) identical(alert$severity, "critical"), alerts)
+  if (length(critical_alerts) == 0) {
+    return(list(required = FALSE, items = list()))
+  }
+
+  items <- lapply(critical_alerts, function(alert) {
+    list(
+      object_id = paste(alert$fields, collapse = " + "),
+      review_type = review_type_from_alert(alert),
+      reason = alert$message,
+      fields = alert$fields,
+      alert_code = alert$code
+    )
+  })
+
+  list(required = TRUE, items = items)
+}
+
 release_artifact <- function(type, name = NULL) {
   allowed_types <- c("preview", "internal_work", "releasable_external")
   if (!is.character(type) || length(type) != 1 || !(type %in% allowed_types)) {
