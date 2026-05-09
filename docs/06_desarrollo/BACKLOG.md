@@ -8,7 +8,7 @@ Registrar pendientes transversales que no deben perderse entre fases, cambios de
 
 ### 1. Documentacion retrospectiva de tasks ya completados y estables
 
-**Estado:** pendiente  
+**Estado:** parcialmente cumplido  
 **Prioridad:** alta
 
 Debe documentarse retrospectivamente cada task ya cumplido cuyo resultado este suficientemente firme como para no esperar retrabajo estructural por tareas posteriores.
@@ -28,6 +28,16 @@ Alcance inicial recomendado:
 - heuristicas de riesgo y combinaciones pequenas;
 - reenlazabilidad por alta dimensionalidad;
 - requisitos de revision manual auditable.
+
+Avance ya documentado:
+
+- [2026-05-09_retro_bloque_fundacional_release-safe.md](c:/Users/mcros/Documents/obfuscator/docs/06_desarrollo/fases/2026-05-09_retro_bloque_fundacional_release-safe.md)
+- [2026-05-09_retro_bloque_riesgo_y_revision.md](c:/Users/mcros/Documents/obfuscator/docs/06_desarrollo/fases/2026-05-09_retro_bloque_riesgo_y_revision.md)
+
+Pendiente restante:
+
+- decidir si conviene seguir con cierres retrospectivos por task fino o si alcanza con estos bloques para la primera preservacion de contexto;
+- completar retrospectiva adicional si algun task estable requiere mas detalle por valor de demo o auditoria.
 
 Salida esperada:
 
