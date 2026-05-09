@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Premortem Report - ObfuscatoR</title>
+  <style>
+    :root {
+      --bg: #0a0e1a;
+      --panel: #12192b;
+      --panel-2: #18233a;
+      --text: #eef2ff;
+      --muted: #a7b3d1;
+      --border: rgba(255,255,255,0.08);
+      --likely: #f59e0b;
+      --danger: #ef4444;
+      --hidden: #38bdf8;
+      --good: #22c55e;
+      --card-1: #8b5cf6;
+      --card-2: #f97316;
+      --card-3: #10b981;
+      --card-4: #eab308;
+      --card-5: #3b82f6;
+      --card-6: #ec4899;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: radial-gradient(circle at top, #132043 0%, var(--bg) 55%);
+      color: var(--text);
+      line-height: 1.55;
+    }
+    .wrap {
+      max-width: 1320px;
+      margin: 0 auto;
+      padding: 32px 24px 56px;
+    }
+    .hero {
+      background: linear-gradient(135deg, rgba(59,130,246,0.14), rgba(139,92,246,0.12));
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 28px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.28);
+    }
+    h1, h2, h3 { margin: 0 0 12px; }
+    h1 { font-size: 2rem; }
+    h2 { font-size: 1.35rem; margin-top: 28px; }
+    h3 { font-size: 1.05rem; }
+    p, li { color: var(--muted); }
+    .meta { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 16px; }
+    .chip {
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 0.92rem;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+      margin-top: 20px;
+    }
+    .summary-card, .failure-card, .checklist, .raw-list {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 20px;
+      box-shadow: 0 16px 44px rgba(0,0,0,0.22);
+    }
+    .summary-card strong { color: var(--text); display: block; margin-bottom: 8px; }
+    .summary-card.likely { border-left: 5px solid var(--likely); }
+    .summary-card.danger { border-left: 5px solid var(--danger); }
+    .summary-card.hidden { border-left: 5px solid var(--hidden); }
+    .summary-card.revised { border-left: 5px solid var(--good); }
+    .badge-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin: 8px 0 12px;
+    }
+    .badge {
+      border-radius: 999px;
+      padding: 5px 10px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #081120;
+    }
+    .sev-high { background: #fca5a5; }
+    .sev-med { background: #fde68a; }
+    .like-high { background: #fdba74; }
+    .like-med { background: #93c5fd; }
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(310px, 1fr));
+      gap: 18px;
+      margin-top: 18px;
+    }
+    .failure-card { position: relative; overflow: hidden; }
+    .failure-card::before {
+      content: "";
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 6px;
+    }
+    .failure-card:nth-child(1)::before { background: var(--card-1); }
+    .failure-card:nth-child(2)::before { background: var(--card-2); }
+    .failure-card:nth-child(3)::before { background: var(--card-3); }
+    .failure-card:nth-child(4)::before { background: var(--card-4); }
+    .failure-card:nth-child(5)::before { background: var(--card-5); }
+    .failure-card:nth-child(6)::before { background: var(--card-6); }
+    ul { padding-left: 20px; }
+    .footer {
+      margin-top: 28px;
+      color: var(--muted);
+      font-size: 0.92rem;
+      text-align: center;
+    }
+    code {
+      background: rgba(255,255,255,0.06);
+      padding: 0.1rem 0.35rem;
+      border-radius: 6px;
+      color: #dbeafe;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <h1>Premortem: Implementation Plan de Liberacion Segura a Terceros</h1>
+      <p>Premisa: estamos seis meses en el futuro y este plan ya fracaso. Este informe explica como murio, cual es la suposicion mas peligrosa que hoy seguimos dando por hecha y que cambios conviene hacer antes de ejecutar una sola tarea.</p>
+      <div class="meta">
+        <span class="chip">Plan: 2026-05-06-liberacion-segura-a-terceros-implementation-plan.md</span>
+        <span class="chip">Spec base: v3.0</span>
+        <span class="chip">Agentes profundizando: 6</span>
+        <span class="chip">Timestamp: 2026-05-07 00:18:33</span>
+      </div>
+    </section>
+
+    <h2>Sintesis</h2>
+    <div class="grid">
+      <article class="summary-card likely">
+        <strong>La falla mas probable</strong>
+        <p>Que la capa de liberacion quede atrapada en la complejidad reactiva de <code>R/shiny_app.R</code> y termine divergendo de la API y del codigo generado. El riesgo no es un bug puntual: es que cada camino del producto diga una verdad distinta sobre si algo es interno, revisable o liberable.</p>
+      </article>
+      <article class="summary-card danger">
+        <strong>La falla mas peligrosa</strong>
+        <p>Construir una herramienta que parece estricta y auditable, pero que no demuestra con datasets realistas que sus transformaciones alcanzan para una liberacion defendible. Eso es peor que fallar ruidosamente, porque crea falsa confianza institucional.</p>
+      </article>
+      <article class="summary-card hidden">
+        <strong>La suposicion oculta</strong>
+        <p>Que se puede superponer una capa defendible de decision de liberacion sobre la app y el core actuales sin extraer primero un contrato compartido de estado, evidencia y semantica de salida.</p>
+      </article>
+      <article class="summary-card revised">
+        <strong>La revision mas importante</strong>
+        <p>Agregar una Fase 0 de contrato comun antes de tocar UI: modelo puro de <em>release state</em>, alertas, evidencia de revision, tipos de artefacto y tests que exijan el mismo veredicto en UI, codigo generado y API.</p>
+      </article>
+    </div>
+
+    <h2>Razones crudas de fracaso</h2>
+    <section class="raw-list">
+      <ul>
+        <li>La implementacion colapso bajo complejidad de estado porque demasiada logica de decision quedo dentro de <code>R/shiny_app.R</code>.</li>
+        <li>Las heuristicas generales y las reglas de bloqueo generaron demasiados falsos positivos.</li>
+        <li>Se rompio persistencia JSON, fuzzy matching y continuidad de plantillas.</li>
+        <li>La revision manual y la auditabilidad quedaron superficiales.</li>
+        <li>UI, codigo generado y API quedaron con semanticas contradictorias.</li>
+        <li>Se probaron mas estados y etiquetas que adecuacion real de transformaciones sobre datasets serios.</li>
+      </ul>
+    </section>
+
+    <h2>Deep Dives</h2>
+    <section class="cards">
+      <article class="failure-card">
+        <h3>1. Complejidad de estado en <code>R/shiny_app.R</code></h3>
+        <div class="badge-row">
+          <span class="badge sev-high">Severidad alta</span>
+          <span class="badge like-high">Probabilidad alta</span>
+        </div>
+        <p>El equipo agrego reactividad para estado de liberacion, razones de bloqueo, revisiones, persistencia y fuzzy recovery directamente dentro del servidor. Una misma accion terminaba disparando clasificacion, recalculo de riesgo, recomputo de estado, refresco de persistencia y render de UI. El orden de eventos paso a importar tanto como las reglas mismas.</p>
+        <p>Cuando intentaron preservar persistencia y fuzzy matching, las revisiones se asociaban a columnas equivocadas o el estado quedaba bloqueado tras arreglos validos. El equipo gasto semanas corrigiendo cadenas de <code>observeEvent()</code> en vez de cerrar un modelo estable.</p>
+        <p><strong>Supuesto:</strong> Shiny reactivity alcanzaba como arquitectura para orquestar politica de liberacion.</p>
+        <ul>
+          <li>Cada nueva regla entra como mas <code>reactiveVal()</code> y <code>observeEvent()</code>.</li>
+          <li>El mismo caso cambia de estado segun el orden de acciones del usuario.</li>
+        </ul>
+      </article>
+
+      <article class="failure-card">
+        <h3>2. Falsos positivos y fatiga de bloqueo</h3>
+        <div class="badge-row">
+          <span class="badge sev-high">Severidad alta</span>
+          <span class="badge like-high">Probabilidad alta</span>
+        </div>
+        <p>La politica general conservadora termino siendo demasiado tosca para datasets institucionales corrientes. Patrones nominales, fechas y combinaciones saltaban todos juntos y convertian la app en una fabrica de <code>Bloqueado</code> incluso para flujos rutinarios.</p>
+        <p>Las plantillas JSON ya no reducian de verdad el esfuerzo de revision, porque pequenos cambios de esquema reabrían alertas y confirmaciones una y otra vez. Los equipos empezaron a ver a ObfuscatoR como una liturgia de cumplimiento, no como una herramienta de trabajo.</p>
+        <p><strong>Supuesto:</strong> Una unica politica general conservadora podia ser defendible sin volverse insoportablemente ruidosa.</p>
+        <ul>
+          <li>Mas de la mitad de los datasets piloto quedan bloqueados tras una primera pasada completa.</li>
+          <li>Los usuarios recurrentes siguen resolviendo las mismas alertas pese a usar plantillas.</li>
+        </ul>
+      </article>
+
+      <article class="failure-card">
+        <h3>3. Regresion de persistencia y fuzzy matching</h3>
+        <div class="badge-row">
+          <span class="badge sev-high">Severidad alta</span>
+          <span class="badge like-med">Probabilidad media</span>
+        </div>
+        <p>La continuidad operativa se trato como una alineacion tardia y no como un contrato central. Cambiaron defaults y semanticas, pero no se cerro temprano una historia de migracion para plantillas ni para el acople con metadatos nuevos de revision.</p>
+        <p>El resultado fue una nueva version mas lenta para los casos recurrentes: plantillas que reabren como <code>En revision</code>, flags reseteados y sugerencias fuzzy que ya no reconstruyen un flujo continuo. La mejora conceptual se percibio como una degradacion operativa.</p>
+        <p><strong>Supuesto:</strong> Persistencia y fuzzy matching eran una comodidad periferica y no parte del contrato central del producto.</p>
+        <ul>
+          <li>Plantillas viejas cargan con estados degradados o incompletos.</li>
+          <li>Un dataset recurrente tarda casi lo mismo que uno nuevo.</li>
+        </ul>
+      </article>
+
+      <article class="failure-card">
+        <h3>4. Auditabilidad superficial</h3>
+        <div class="badge-row">
+          <span class="badge sev-high">Severidad alta</span>
+          <span class="badge like-med">Probabilidad media</span>
+        </div>
+        <p>La revision manual quedo reducida a metadatos livianos: aprobado, comentario, tratamiento elegido. Eso puede servir para una demo, pero no para sostener una liberacion cuestionada por auditoria, legal o un colega que quiera reconstruir el caso.</p>
+        <p>Cuando se pidio el rastro de una liberacion, el sistema podia explicar la conclusion, pero no demostrar como se resolvio cada alerta, con que verificacion activa y con que reevaluacion posterior. La defendibilidad se desarmo justo donde mas importaba.</p>
+        <p><strong>Supuesto:</strong> Con algunos campos estructurados y exportacion bloqueada la evidencia resultante seria automaticamente defendible.</p>
+        <ul>
+          <li>Los registros de revision no tienen alert IDs, datos verificables ni before/after.</li>
+          <li>Un informe de liberacion no permite reproducir la decision completa.</li>
+        </ul>
+      </article>
+
+      <article class="failure-card">
+        <h3>5. Divergencia entre UI, codigo generado y API</h3>
+        <div class="badge-row">
+          <span class="badge sev-high">Severidad alta</span>
+          <span class="badge like-high">Probabilidad alta</span>
+        </div>
+        <p>La UI paso a hablar de artefactos internos y liberables, pero el codigo generado y la API siguieron viendose como caminos de transformacion mas permisivos. Un usuario podia encontrar la UI bloqueada y, aun asi, ejecutar un script generado o usar <code>obfuscate_dataset()</code> de forma directa y tratar esa salida como si ya estuviera aprobada.</p>
+        <p>Sin un veredicto compartido entre los tres caminos, ObfuscatoR termina con tres verdades paralelas. Eso destruye confianza institucional porque nadie sabe que salida gobierna realmente la decision de liberacion.</p>
+        <p><strong>Supuesto:</strong> Al corregir primero la semantica de la UI, los otros caminos quedarían alineados casi por arrastre.</p>
+        <ul>
+          <li>Una sesion bloqueada sigue generando codigo ejecutable sin marca explicita de <code>internal-only</code>.</li>
+          <li>No hay tests transversales UI/API/codigo generado con el mismo veredicto esperado.</li>
+        </ul>
+      </article>
+
+      <article class="failure-card">
+        <h3>6. Mucha gobernanza, poca prueba de transformacion real</h3>
+        <div class="badge-row">
+          <span class="badge sev-high">Severidad alta</span>
+          <span class="badge like-med">Probabilidad media</span>
+        </div>
+        <p>El plan puede llegar a producir una herramienta muy buena para decir <code>Bloqueado</code>, pero insuficiente para demostrar cuando un dataset complejo si se vuelve defendiblemente liberable. Si el esfuerzo de desarrollo y test se va casi todo a estados, heuristicas y reportes, la revision seria va a encontrar una carcasa de gobernanza con un motor poco validado.</p>
+        <p>Esa es la falla mas peligrosa porque da falsa confianza. No solo frustra al usuario: puede dejar a la organizacion creyendo que tiene un proceso seguro cuando en realidad solo tiene un proceso prolijo.</p>
+        <p><strong>Supuesto:</strong> Estados fuertes, heuristicas y auditabilidad pueden compensar no haber probado a fondo la adecuacion del motor con datasets realistas.</p>
+        <ul>
+          <li>Casi todos los tests nuevos son de helpers y transiciones de estado.</li>
+          <li>No hay 2-3 demos credibles que terminen en <code>Liberable</code> con evidencia realista.</li>
+        </ul>
+      </article>
+    </section>
+
+    <h2>Plan revisado</h2>
+    <div class="grid">
+      <article class="summary-card revised">
+        <strong>Revision 1</strong>
+        <p>Agregar una Fase 0 de contrato comun: <code>release_state</code>, <code>release_verdict</code>, alert objects, evidencia de revision y tipos de artefacto.</p>
+      </article>
+      <article class="summary-card revised">
+        <strong>Revision 2</strong>
+        <p>Subir persistencia y fuzzy matching al principio del plan. No dejarlos como limpieza de Fase 4.</p>
+      </article>
+      <article class="summary-card revised">
+        <strong>Revision 3</strong>
+        <p>Forzar que toda regla nueva nazca en helpers puros con test antes de tocar el servidor Shiny.</p>
+      </article>
+      <article class="summary-card revised">
+        <strong>Revision 4</strong>
+        <p>Definir fixtures realistas que prueben tanto un caso liberable como uno no liberable sin rediseño.</p>
+      </article>
+      <article class="summary-card revised">
+        <strong>Revision 5</strong>
+        <p>Endurecer auditabilidad: no hay informe de liberacion sin alert ID, verificacion activa, accion, reevaluacion y before/after.</p>
+      </article>
+      <article class="summary-card revised">
+        <strong>Revision 6</strong>
+        <p>Agregar una puerta de ruido operativo: medir bloqueos persistentes, revisiones repetidas y tiempo real de reuso con plantillas.</p>
+      </article>
+    </div>
+
+    <h2>Checklist previo a ejecutar</h2>
+    <section class="checklist">
+      <ul>
+        <li>Existe un contrato puro compartido para estado, evidencia, alertas y tipos de artefacto.</li>
+        <li>Hay al menos un test que exige el mismo veredicto de liberacion en UI, codigo generado y API.</li>
+        <li>Hay fixtures realistas para un caso <code>Liberable</code> y otro <code>No liberable sin rediseno</code>.</li>
+        <li>Persistencia JSON y fuzzy matching pasan pruebas de continuidad antes de rearmar el flujo principal de parametros.</li>
+        <li>Una revision manual deja evidencia suficiente para reconstruir toda la decision sin depender de la sesion viva.</li>
+      </ul>
+    </section>
+
+    <div class="footer">
+      Premortem generado para el plan de implementacion de liberacion segura a terceros. Transcript completo: <code>premortem-transcript-20260507-001833.md</code>
+    </div>
+  </div>
+</body>
+</html>
