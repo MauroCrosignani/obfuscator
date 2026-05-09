@@ -1,28 +1,38 @@
 # ObfuscatoR
 
-Este README está pensado para una clonación en GitLab corporativo o en entornos con restricciones parciales de internet.
+Este README esta pensado para una clonacion en GitLab corporativo o en entornos con restricciones parciales de internet.
 
-## Qué es
+## Que es
 
-ObfuscatoR es un paquete y script en `R` para ofuscar datasets sensibles y seguir trabajando con ellos de forma analítica, auditable y local.
+ObfuscatoR es una herramienta en `R` para preparar datasets sensibles para su liberacion controlada a terceros, manteniendo el procesamiento local, la auditabilidad y un criterio conservador de bloqueo cuando la salida no es defendible.
 
 La variante corporate-safe prioriza:
 
 - funcionamiento local de la app Shiny sin depender de CDN en el flujo principal
-- mensajes y documentación en español
-- fallback visible cuando una capacidad del navegador no está garantizada
+- mensajes y documentacion en espanol
+- fallback visible cuando una capacidad del navegador no esta garantizada
 - compatibilidad con `source("obfuscator.R")` y con el paquete en `R/`
+- una semantica clara de liberacion externa frente a artefactos internos de trabajo
 
-## Qué hace
+## Que hace
 
 - ofusca identificadores
 - permuta fechas preservando estructura operativa
-- transforma variables categóricas y numéricas
+- transforma variables categoricas y numericas
 - soporta reglas de consistencia
-- permite `k-anonymity` con jerarquías configurables
-- genera código R reproducible desde la app
+- permite `k-anonymity` con jerarquias configurables
+- genera codigo R reproducible desde la app
+- bloquea la exportacion externa salvo estado `Liberable`
+- muestra reportes legibles de liberacion o no liberacion
 
-## Uso rápido
+## Advertencias importantes
+
+- La IA debe tratarse como un tercero mas, no como un destinatario con reglas mas blandas.
+- No todo dataset llega a ser liberable.
+- Ejecutar un script o generar codigo R no equivale a aprobar una liberacion externa.
+- Si la app bloquea la salida, ese bloqueo debe interpretarse como una restriccion metodologica real, no como un detalle opcional de UX.
+
+## Uso rapido
 
 ```r
 source("obfuscator.R")
@@ -38,7 +48,7 @@ ofuscado <- obfuscate_dataset(mi_tabla, config = cfg)
 
 ## App Shiny
 
-Para lanzarla desde la raíz del proyecto:
+Para lanzarla desde la raiz del proyecto:
 
 ```r
 source("R/obfuscator_core.R")
@@ -46,7 +56,7 @@ source("R/shiny_app.R")
 run_obfuscator_app()
 ```
 
-O por línea de comandos:
+O por linea de comandos:
 
 ```sh
 Rscript -e "source('R/obfuscator_core.R'); source('R/shiny_app.R'); run_obfuscator_app()"
@@ -55,13 +65,14 @@ Rscript -e "source('R/obfuscator_core.R'); source('R/shiny_app.R'); run_obfuscat
 ## Nota para entorno corporativo
 
 - La funcionalidad principal de Studio debe operar con assets locales del repositorio.
-- Si el portapapeles programático falla, la app debe permitir copia manual del código reproducible.
+- Si el portapapeles programatico falla, la app debe permitir copia manual del codigo reproducible.
 - Si tu instancia GitLab expone badges propios, sustituye este encabezado por el badge institucional correspondiente.
 - Si prefieres un README sin badges remotos, puedes dejar este archivo tal cual o adaptarlo a un badge local.
+- Si la organizacion necesita evidencia de por que una salida fue bloqueada, el flujo de auditoria de la app debe usarse como insumo y no reemplazarse por juicio informal.
 
 ## Tests
 
-Desde la raíz del proyecto:
+Desde la raiz del proyecto:
 
 ```sh
 Rscript tests/testthat.R

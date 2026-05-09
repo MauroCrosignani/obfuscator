@@ -2,70 +2,65 @@
 
 [![Checks](https://github.com/MauroCrosignani/obfuscator/actions/workflows/checks.yml/badge.svg)](https://github.com/MauroCrosignani/obfuscator/actions/workflows/checks.yml)
 
-ObfuscatoR es un paquete y script en `R` pensado para equipos hispanoparlantes que necesitan compartir datos ofuscados con herramientas de IA sin exponer informacion sensible.
+ObfuscatoR es una herramienta en `R` para preparar datasets sensibles para su liberacion controlada a terceros. Su prioridad es reducir riesgo de reidentificacion, dejar evidencia auditable y bloquear exportaciones cuando la salida no es defendible.
 
-Si necesitas llevarlo a GitLab corporativo o a un entorno con restricciones de internet, el repositorio incluye tambien `README_gitlab.md` como variante orientada a ese despliegue.
+La IA se trata como un tercero mas. El objetivo del proyecto no es "pasar datos a modelos" con una capa cosmetica de ofuscacion, sino sostener una decision de liberacion segura cuando sea posible y explicar por que se bloquea cuando no lo es.
 
-La prioridad de UX es simple:
+Si necesitas llevarlo a GitLab corporativo o a un entorno con restricciones parciales de internet, el repositorio incluye tambien [README_gitlab.md](c:/Users/mcros/Documents/obfuscator/README_gitlab.md) como variante orientada a ese despliegue.
+
+## Prioridades del producto
 
 - mensajes claros en espanol
-- configuracion explicita pero amigable
-- compatibilidad con `source("obfuscator.R")`
-- trazabilidad para auditoria
+- configuracion explicita pero usable
+- compatibilidad con script, paquete y app Shiny
+- trazabilidad y auditabilidad
+- conservadurismo frente a terceros
 
-## Que hace
+## Que hace hoy
 
-- Ofusca identificadores con Scrambling o **Cifrado Reversible (Modo Hardened)**.
-- Reordena fechas preservando el conjunto de valores.
-- Permuta variables categoricas preservando frecuencias.
-- Transforma columnas numericas con modos configurables.
-- Permite reglas de consistencia entre columnas.
-- **k-anonymity 2.0**: Modelo de privacidad parametrizable con **Jerarquías Visuales**.
-- **Studio Grade**: Interfaz optimizada para grandes datasets (Horizontal Hero & Compact Cards).
-- Adjunta un log de auditoria detallado con enmascaramiento de claves sensibles.
+- ofusca identificadores con scrambling o cifrado reversible endurecido
+- permuta fechas preservando estructura operativa
+- transforma variables categoricas y numericas
+- permite reglas de consistencia
+- soporta `k-anonymity` con jerarquias configurables
+- mantiene un estado explicito de liberacion en la app
+- bloquea exportacion externa salvo estado `Liberable`
+- muestra reportes legibles de liberacion o no liberacion
 
-## Estructura de uso
+## Lo que no promete
 
-Puedes usarlo de dos maneras:
+- no promete que todo dataset sensible pueda volverse compartible
+- no promete que cumplir `k-anonymity` alcance por si solo para liberar
+- no promete que generar codigo R equivalga a aprobar una liberacion externa
+- no promete un camino mas permisivo para IA que para otros terceros
 
-1. Como script compatible con flujos existentes.
-2. Como paquete con codigo organizado en `R/`.
-3. Como app Shiny con interfaz grafica.
+## Formas de uso
 
-## ObfuscatoR Studio 2.0 (Premium UX)
+Puedes usarlo de tres maneras:
 
-La interfaz gráfica permite un control total y visual sobre el proceso:
+1. como script compatible con flujos existentes
+2. como paquete con codigo organizado en `R/`
+3. como app Shiny con interfaz grafica
 
-- **Horizontal Hero Meta**: Layout sintético que ahorra espacio para datasets masivos.
-- **Cifrado Reversible**: Configuración de claves manuales con `passwordInput` y exportación segura.
-- **Manual Integrado**: Ayuda contextual accesible desde cada pantalla.
-- **Copy-to-Clipboard**: Exporta el código R de reproducción a tu portapapeles con un clic.
-- **Persistencia de Clasificación**: Guarda y carga plantillas JSON basadas en el esquema de datos.
-- **Asistente Proactivo**: Sugiere roles mediante *fuzzy matching* (Levenshtein).
-- **Accesibilidad (WCAG AA)**: Contraste optimizado y badges de tipo de dato (#, A, ◷).
-- **Audit Masking**: Las claves y offsets se enmascaran automáticamente como `***` en los reportes.
+## ObfuscatoR Studio
 
-En la carga de CSV y Excel, la deteccion de tipos usa `guess_max = 100000` para mejorar la inferencia de columnas en archivos grandes o heterogeneos.
+La app Shiny ofrece:
 
-La carga por navegador tiene ahora un limite aumentado a 300 MB. Para archivos mas grandes o entornos con restricciones del navegador, conviene leer el dataset en R y elegirlo desde el entorno global dentro de la app.
+- carga de CSV, Excel (`.xls`, `.xlsx`) o RDS
+- seleccion de `data.frame` o tibble desde el entorno global
+- clasificacion visual de variables
+- drag and drop de roles
+- persistencia de clasificacion con plantillas JSON basadas en esquema
+- sugerencias por fuzzy matching para recuperacion por nombres parecidos
+- editor visual de jerarquias
+- resumen de auditoria legible
+- exportacion CSV solo cuando el estado es `Liberable`
+
+En la carga de CSV y Excel, la deteccion de tipos usa `guess_max = 100000` para mejorar la inferencia en archivos grandes o heterogeneos.
+
+La carga por navegador tiene un limite configurado de 300 MB. Para archivos mas grandes o navegadores restringidos, conviene leer el dataset en R y elegirlo desde el entorno global dentro de la app.
 
 ## App Shiny
-
-La app permite:
-
-- cargar un CSV, Excel (`.xls`, `.xlsx`) o RDS
-- seleccionar un `data.frame` o tibble desde el entorno global
-- detectar automaticamente variables candidatas a identificacion
-- revisar visualmente tipos de variables
-- mover variables entre zonas con drag and drop
-- **Persistencia de Clasificación**: Guarda y carga la asignación de roles mediante plantillas JSON basadas en el esquema de datos (hash).
-- **Asistente Proactivo**: Sugiere roles mediante *fuzzy matching* (distancia de Levenshtein) ante cambios menores en los nombres de las columnas.
-- **Accesibilidad (WCAG AA)**: Colores y contraste optimizados para cumplir con el ratio 4.5:1, con indicadores visuales dobles (color + icono).
-- ejecutar la ofuscacion y descargar el resultado
-
-En la carga de CSV y Excel, la deteccion de tipos usa `guess_max = 100000` para mejorar la inferencia de columnas en archivos grandes o heterogeneos.
-
-La carga por navegador tiene ahora un limite aumentado a 300 MB. Para archivos mas grandes o entornos con restricciones del navegador, conviene leer el dataset en R y elegirlo desde el entorno global dentro de la app.
 
 Para lanzarla desde la raiz del proyecto:
 
@@ -75,7 +70,7 @@ source("R/shiny_app.R")
 run_obfuscator_app()
 ```
 
-O directamente:
+O por linea de comandos:
 
 ```sh
 Rscript -e "source('R/obfuscator_core.R'); source('R/shiny_app.R'); run_obfuscator_app()"
@@ -119,9 +114,9 @@ cfg <- obfuscator_config(
 )
 ```
 
-## Modelo de privacidad opcional
+## Modelo de privacidad
 
-Si necesitas una capa adicional de anonimizacion, puedes activar `k-anonymity`.
+Actualmente el control formal principal disponible para liberacion externa es `k-anonymity`.
 
 Ejemplo:
 
@@ -138,26 +133,11 @@ cfg <- obfuscator_config(
 
 Parametros principales:
 
-- `type = "k_anonymity"`: activa el modelo.
-- `k`: tamano minimo de cada grupo equivalente.
-- `quasi_identifiers`: columnas que se consideran sensibles para reidentificacion.
-- `suppression`: `rows` elimina filas residuales si no alcanza con generalizar; `none` conserva todas las filas.
-- `hierarchies`: opcional, permite definir pasos de generalizacion por columna. Soporta tanto niveles predefinidos como **Jerarquías Visuales Personalizadas**.
-
-### Jerarquías Visuales (Visual Tree UI)
-
-La App Shiny incluye un editor visual potente para variables categóricas y fechas:
-
-1.  **Configuración**: Haz clic en el icono de jerarquía en las filas de variables categóricas/fechas.
-2.  **Agrupación**: Arrastra valores para agruparlos o usa la selección múltiple para crear carpetas instantáneamente.
-3.  **Recursión**: Las jerarquías se aplican de forma incremental. Puedes agrupar grupos ya creados para definir multiniveles.
-4.  **Persistencia**: Las jerarquías se guardan automáticamente en tus plantillas JSON.
-
-Jerarquias predefinidas (strings):
-
-- numericas: `identity`, `interval_5`, `interval_10`, `interval_20`, `global`
-- fechas: `identity`, `month`, `quarter`, `year`
-- categoricas: `identity`, `rare_2`, `rare_5`, `rare_10`, `global`
+- `type = "k_anonymity"`: activa el modelo
+- `k`: tamano minimo de cada grupo equivalente
+- `quasi_identifiers`: columnas que se consideran sensibles para reidentificacion
+- `suppression`: `rows`, `group` o `none`
+- `hierarchies`: pasos de generalizacion por columna
 
 El log incluye un `privacy_report` con:
 
@@ -166,15 +146,31 @@ El log incluye un `privacy_report` con:
 - cantidad de filas suprimidas
 - confirmacion de si el criterio `k` quedo satisfecho
 
-Si no lo haces, ObfuscatoR intenta inferirlos.
+Importante:
+
+- satisfacer `k` es una condicion necesaria dentro del flujo actual, pero no debe interpretarse como garantia suficiente en cualquier contexto
+- la decision de liberacion externa debe considerar tambien el estado de release, los bloqueos detectados y el reporte de auditoria
+
+## Exportacion y uso por terceros
+
+En la app Shiny:
+
+- guardar en entorno se considera uso interno
+- la exportacion CSV queda bloqueada salvo estado `Liberable`
+- si la salida no es defendible, la app debe explicar por que y que acciones faltan
+
+En uso programatico:
+
+- puedes ejecutar transformaciones y reproducir configuraciones
+- eso no equivale por si solo a una aprobacion de liberacion externa
 
 ## Modos numericos
 
 `numeric_mode` acepta:
 
-- `range_random`: preserva signo, rango y tipo.
-- `preserve_rank`: intenta conservar el orden relativo.
-- `permute`: reordena los valores observados.
+- `range_random`
+- `preserve_rank`
+- `permute`
 
 Tambien puedes definir un modo por columna:
 
