@@ -10,3 +10,4 @@ Registrar explicaciones breves y tecnicamente defendibles para audiencia interna
 - remover nombre o documento no basta cuando el tercero ya conoce muchas variables descriptivas.
 - una herramienta seria debe poder bloquear y explicar por que bloquea.
 - la utilidad analitica se preserva solo dentro del margen compatible con la proteccion de datos.
+- el resumen de auditoria debe traducir evidencia tecnica a una conclusion operativa defendible, no limitarse a imprimir un log interno.

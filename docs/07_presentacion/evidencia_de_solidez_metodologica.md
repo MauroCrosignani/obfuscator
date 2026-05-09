@@ -11,3 +11,4 @@ Reunir ejemplos, pruebas y decisiones que demuestran que el producto no fue cons
 - pruebas para riesgo residual incluso cuando `k` se cumple;
 - pruebas para reenlazabilidad por alta dimensionalidad;
 - requisitos de revision manual auditable.
+- reportes legibles de liberacion y no liberacion en lugar de exponer solo logs tecnicos.
