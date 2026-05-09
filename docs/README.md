@@ -57,6 +57,8 @@ Cuando corresponda, cada documento deberia distinguir explicitamente:
   - [ESPECIFICACION_DE_REQUERIMIENTOS_v3.1.md](c:/Users/mcros/Documents/obfuscator/docs/01_especificaciones/ESPECIFICACION_DE_REQUERIMIENTOS_v3.1.md)
 - plan vigente de implementacion:
   - [2026-05-06-liberacion-segura-a-terceros-implementation-plan.md](c:/Users/mcros/Documents/obfuscator/docs/03_planes/2026-05-06-liberacion-segura-a-terceros-implementation-plan.md)
+- plan vigente de pruebas manuales:
+  - [manual_testing_plan.md](c:/Users/mcros/Documents/obfuscator/docs/03_planes/manual_testing_plan.md)
 - diseno principal:
   - [2026-05-06-liberacion-segura-a-terceros-design.md](c:/Users/mcros/Documents/obfuscator/docs/02_diseno/2026-05-06-liberacion-segura-a-terceros-design.md)
 

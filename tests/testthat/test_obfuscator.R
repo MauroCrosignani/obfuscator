@@ -73,6 +73,16 @@ test_that("IDs se mapean de forma consistente y determinista", {
   expect_equal(length(unique(out1$ID)), 3)
 })
 
+test_that("IDs numericos con duplicados se ofuscan sin warnings de longitud", {
+  df <- data.frame(ID = c(101, 205, 101, 330, 205), stringsAsFactors = FALSE)
+
+  expect_no_warning({
+    out <- obfuscate_dataset(df, config = obfuscator_config(seed = 321, id_cols = "ID"))
+    expect_equal(length(out$ID), nrow(df))
+    expect_equal(length(unique(out$ID)), length(unique(df$ID)))
+  })
+})
+
 test_that("IDs alfanumericos se ofuscan sin perder cardinalidad ni NAs", {
   df <- data.frame(ID = c("A-001", NA, "B-002", "A-001"), stringsAsFactors = FALSE)
   out <- obfuscate_dataset(df, config = obfuscator_config(seed = 99, id_cols = "ID"))
@@ -371,6 +381,22 @@ test_that("dataset display name comes from the loaded source", {
     resolve_dataset_display_name("file", file_name = "personas.xlsx"),
     "personas.xlsx"
   )
+})
+
+test_that("studio demo datasets include built-ins and a mixed synthetic case", {
+  demo_sets <- studio_demo_datasets()
+
+  expect_true(all(c("iris", "mtcars", "airquality", "obfuscator_demo_personas") %in% names(demo_sets)))
+  expect_true(all(c(
+    "persona_id",
+    "fecha_alta",
+    "tramo",
+    "departamento",
+    "edad",
+    "ingreso",
+    "indicador_privado",
+    "observacion"
+  ) %in% names(demo_sets$obfuscator_demo_personas)))
 })
 
 test_that("the main UI renders a single parameters section", {

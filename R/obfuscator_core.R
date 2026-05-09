@@ -672,7 +672,7 @@ obfuscate_id_col_obfuscator <- function(col, id_prefix) {
   id_map <- get_deterministic_id_map(non_na_values, id_prefix, project_key = NULL) # Placeholder, will be passed from top
 
   mapped_chr <- values_chr
-  mapped_chr[!na_mask] <- unname(id_map[non_na_values])
+  mapped_chr[!na_mask] <- unname(id_map[as.character(non_na_values)])
 
   if (original_is_factor) {
     return(factor(mapped_chr, exclude = NULL))
@@ -726,7 +726,7 @@ obfuscate_id_col_obfuscator_v2 <- function(col, id_prefix, project_key = NULL) {
   id_map <- get_deterministic_id_map(non_na_values, id_prefix, project_key)
 
   mapped_chr <- values_chr
-  mapped_chr[!na_mask] <- unname(id_map[non_na_values])
+  mapped_chr[!na_mask] <- unname(id_map[as.character(non_na_values)])
   
   if (original_is_factor) {
     mapped_data <- factor(mapped_chr, exclude = NULL)

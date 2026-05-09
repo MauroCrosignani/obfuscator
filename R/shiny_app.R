@@ -118,6 +118,61 @@ resolve_dataset_display_name <- function(source_mode, object_name = NULL, file_n
   "Ninguno"
 }
 
+build_demo_personas_dataset <- function() {
+  n <- 20L
+  data.frame(
+    persona_id = sprintf("P%03d", seq_len(n)),
+    fecha_alta = as.Date("2024-01-01") + seq(0, by = 14, length.out = n),
+    tramo = rep(c("A", "B", "C", "D"), length.out = n),
+    departamento = rep(c("Montevideo", "Canelones", "Maldonado", "Salto", "Paysandu"), length.out = n),
+    edad = c(23, 24, 25, 31, 32, 33, 40, 41, 42, 50, 51, 52, 60, 61, 62, 28, 29, 30, 45, 46),
+    ingreso = round(seq(18000, 56000, length.out = n), 0),
+    indicador_privado = rep(c("alto", "medio", "bajo", "medio"), length.out = n),
+    observacion = c(
+      "Seguimiento local con notas internas",
+      "Caso derivado con informacion sensible",
+      "Revision manual requerida por texto libre",
+      "Observacion administrativa extendida",
+      "Seguimiento local con notas internas",
+      "Caso derivado con informacion sensible",
+      "Revision manual requerida por texto libre",
+      "Observacion administrativa extendida",
+      "Seguimiento local con notas internas",
+      "Caso derivado con informacion sensible",
+      "Revision manual requerida por texto libre",
+      "Observacion administrativa extendida",
+      "Seguimiento local con notas internas",
+      "Caso derivado con informacion sensible",
+      "Revision manual requerida por texto libre",
+      "Observacion administrativa extendida",
+      "Seguimiento local con notas internas",
+      "Caso derivado con informacion sensible",
+      "Revision manual requerida por texto libre",
+      "Observacion administrativa extendida"
+    ),
+    stringsAsFactors = FALSE
+  )
+}
+
+studio_demo_datasets <- function() {
+  list(
+    iris = datasets::iris,
+    mtcars = datasets::mtcars,
+    airquality = datasets::airquality,
+    obfuscator_demo_personas = build_demo_personas_dataset()
+  )
+}
+
+ensure_studio_demo_datasets <- function(target_env = .GlobalEnv) {
+  demo_sets <- studio_demo_datasets()
+  for (nm in names(demo_sets)) {
+    if (!exists(nm, envir = target_env, inherits = FALSE)) {
+      assign(nm, demo_sets[[nm]], envir = target_env)
+    }
+  }
+  invisible(names(demo_sets))
+}
+
 build_obfuscation_code_snippet <- function(
   data_reference,
   seed,
@@ -615,6 +670,7 @@ run_obfuscator_app <- function() {
 
   server <- function(input, output, session) {
     # Reactivos para el estado de la app
+    ensure_studio_demo_datasets(.GlobalEnv)
     source_data <- shiny::reactiveVal(NULL)
     role_state <- shiny::reactiveVal(list(
       available = character(0),
