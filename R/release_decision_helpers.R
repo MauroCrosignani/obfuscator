@@ -99,6 +99,229 @@ derive_release_state_from_obfuscation <- function(
   )
 }
 
+normalize_risk_name <- function(x) {
+  normalized <- iconv(as.character(x), to = "ASCII//TRANSLIT")
+  normalized[is.na(normalized)] <- as.character(x)[is.na(normalized)]
+  tolower(normalized)
+}
+
+high_risk_name_patterns <- function() {
+  c(
+    "nombre",
+    "apellido",
+    "documento",
+    "cedula",
+    "rut",
+    "pers_id",
+    "pers_identificador",
+    "nro_int",
+    "nie",
+    "nic",
+    "contribuyente",
+    "contrib",
+    "emp",
+    "empresa",
+    "telefono",
+    "mail",
+    "correo",
+    "direccion",
+    "comentario",
+    "observacion",
+    "fecha_nac",
+    "nacimiento",
+    "expediente",
+    "tramite"
+  )
+}
+
+detect_high_risk_name_patterns <- function(cols) {
+  normalized_cols <- normalize_risk_name(cols)
+  patterns <- high_risk_name_patterns()
+
+  cols[vapply(normalized_cols, function(col) {
+    any(vapply(patterns, function(pattern) grepl(pattern, col, fixed = TRUE), logical(1)))
+  }, logical(1))]
+}
+
+looks_like_text_free_field <- function(x) {
+  if (!(is.character(x) || is.factor(x))) {
+    return(FALSE)
+  }
+
+  values <- as.character(stats::na.omit(x))
+  if (length(values) == 0) {
+    return(FALSE)
+  }
+
+  mean(nchar(values), na.rm = TRUE) >= 25
+}
+
+looks_like_high_cardinality_identifier <- function(x) {
+  values <- stats::na.omit(as.character(x))
+  if (length(values) == 0) {
+    return(FALSE)
+  }
+
+  unique_ratio <- length(unique(values)) / length(values)
+  unique_ratio >= 0.8
+}
+
+detect_high_risk_columns <- function(df, artifact_type = "internal_work") {
+  stopifnot(is.data.frame(df))
+
+  alerts <- list()
+  risky_names <- detect_high_risk_name_patterns(colnames(df))
+
+  add_alert <- function(code, severity, message, fields, evidence = list()) {
+    alerts[[length(alerts) + 1L]] <<- release_alert(
+      code = code,
+      severity = severity,
+      message = message,
+      fields = fields,
+      artifact_type = artifact_type,
+      evidence = evidence
+    )
+  }
+
+  for (col in colnames(df)) {
+    values <- df[[col]]
+    normalized_col <- normalize_risk_name(col)
+
+    if (looks_like_text_free_field(values)) {
+      add_alert(
+        code = "text_like_column",
+        severity = "critical",
+        message = sprintf("La columna `%s` parece texto libre y requiere revision manual.", col),
+        fields = col,
+        evidence = list(mean_length = mean(nchar(as.character(stats::na.omit(values))), na.rm = TRUE))
+      )
+    }
+
+    if (col %in% risky_names && looks_like_high_cardinality_identifier(values)) {
+      add_alert(
+        code = "high_cardinality_identifier",
+        severity = "critical",
+        message = sprintf("La columna `%s` combina patron nominal de riesgo con alta cardinalidad.", col),
+        fields = col,
+        evidence = list(unique_ratio = length(unique(stats::na.omit(as.character(values)))) / max(1, length(stats::na.omit(as.character(values)))))
+      )
+    } else if (col %in% risky_names) {
+      add_alert(
+        code = "high_risk_name_pattern",
+        severity = "warning",
+        message = sprintf("La columna `%s` coincide con patrones nominales de alto riesgo.", col),
+        fields = col,
+        evidence = list(pattern_source = normalized_col)
+      )
+    }
+  }
+
+  alerts
+}
+
+combination_sets_up_to_three <- function(cols) {
+  unique(unlist(lapply(1:min(3, length(cols)), function(size) {
+    combn(cols, size, simplify = FALSE)
+  }), recursive = FALSE), recursive = FALSE)
+}
+
+combination_min_class_size <- function(df, cols) {
+  groups <- interaction(df[cols], drop = TRUE, lex.order = TRUE)
+  min(table(groups))
+}
+
+detect_risky_combinations <- function(df, cols, k, artifact_type = "internal_work") {
+  stopifnot(is.data.frame(df))
+  if (length(cols) == 0) {
+    return(list())
+  }
+
+  alerts <- list()
+  for (combo in combination_sets_up_to_three(cols)) {
+    min_class <- combination_min_class_size(df, combo)
+    if (is.finite(min_class) && min_class < k) {
+      alerts[[length(alerts) + 1L]] <- release_alert(
+        code = "combination_below_k",
+        severity = "critical",
+        message = sprintf(
+          "La combinacion `%s` genera clases de equivalencia menores a k.",
+          paste(combo, collapse = " + ")
+        ),
+        fields = combo,
+        artifact_type = artifact_type,
+        evidence = list(
+          min_class_size = unname(min_class),
+          k = k,
+          combination_size = length(combo)
+        )
+      )
+    }
+  }
+
+  alerts
+}
+
+is_high_precision_linkable_name <- function(cols) {
+  normalized <- normalize_risk_name(cols)
+  any(grepl("fecha", normalized, fixed = TRUE)) &&
+    any(grepl("localidad", normalized, fixed = TRUE) | grepl("zona", normalized, fixed = TRUE)) &&
+    any(grepl("evento", normalized, fixed = TRUE) | grepl("sector", normalized, fixed = TRUE) | grepl("actividad", normalized, fixed = TRUE))
+}
+
+detect_residual_risk_combinations <- function(df, quasi_cols, sensitive_cols = character(0), k, artifact_type = "internal_work") {
+  stopifnot(is.data.frame(df))
+  if (length(quasi_cols) == 0) {
+    return(list())
+  }
+
+  alerts <- list()
+  groups <- interaction(df[quasi_cols], drop = TRUE, lex.order = TRUE)
+  class_sizes <- table(groups)
+
+  if (length(sensitive_cols) > 0) {
+    for (sens in sensitive_cols) {
+      homogeneous <- tapply(df[[sens]], groups, function(values) length(unique(values)) == 1)
+      qualifying_groups <- names(class_sizes)[class_sizes >= k]
+      if (any(homogeneous[qualifying_groups], na.rm = TRUE)) {
+        alerts[[length(alerts) + 1L]] <- release_alert(
+          code = "homogeneous_sensitive_class",
+          severity = "critical",
+          message = sprintf(
+            "La clase de equivalencia definida por `%s` mantiene homogeneidad sensible en `%s`.",
+            paste(quasi_cols, collapse = " + "),
+            sens
+          ),
+          fields = c(quasi_cols, sens),
+          artifact_type = artifact_type,
+          evidence = list(
+            k = k,
+            qualifying_groups = qualifying_groups[homogeneous[qualifying_groups] %in% TRUE]
+          )
+        )
+      }
+    }
+  }
+
+  if (all(class_sizes >= k) && length(class_sizes) == 1 && is_high_precision_linkable_name(quasi_cols)) {
+    alerts[[length(alerts) + 1L]] <- release_alert(
+      code = "precise_linkable_combination",
+      severity = "critical",
+      message = sprintf(
+        "La combinacion `%s` sigue siendo demasiado precisa y vinculable externamente aunque cumpla k.",
+        paste(quasi_cols, collapse = " + ")
+      ),
+      fields = quasi_cols,
+      artifact_type = artifact_type,
+      evidence = list(
+        k = k,
+        class_size = unname(class_sizes[[1]])
+      )
+    )
+  }
+
+  alerts
+}
+
 release_artifact <- function(type, name = NULL) {
   allowed_types <- c("preview", "internal_work", "releasable_external")
   if (!is.character(type) || length(type) != 1 || !(type %in% allowed_types)) {

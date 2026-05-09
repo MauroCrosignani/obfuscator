@@ -97,3 +97,91 @@ test_that("internal obfuscation output is not automatically marked releasable", 
   expect_false(can_export_external_release(blocked))
   expect_true(can_export_external_release(releasable))
 })
+
+test_that("nominal high-risk detector includes approved patterns", {
+  cols <- c("pers_id", "emp", "telefono", "comentario", "monto")
+  flagged <- detect_high_risk_name_patterns(cols)
+
+  expect_true(all(c("pers_id", "emp", "telefono", "comentario") %in% flagged))
+  expect_false("monto" %in% flagged)
+})
+
+test_that("text-like long fields are flagged for review", {
+  df <- data.frame(
+    observacion = c(
+      "Paciente derivado por cuadro raro con seguimiento externo",
+      "Empresa con nota libre y referencia a expediente interno"
+    ),
+    stringsAsFactors = FALSE
+  )
+
+  alerts <- detect_high_risk_columns(df)
+
+  expect_true(any(vapply(alerts, function(alert) identical(alert$code, "text_like_column"), logical(1))))
+  expect_true(any(vapply(alerts, function(alert) "observacion" %in% alert$fields, logical(1))))
+})
+
+test_that("high-cardinality identifier-like columns are flagged for review", {
+  df <- data.frame(
+    pers_identificador = sprintf("ID-%03d", 1:10),
+    monto = seq(100, 1000, by = 100),
+    stringsAsFactors = FALSE
+  )
+
+  alerts <- detect_high_risk_columns(df)
+
+  expect_true(any(vapply(alerts, function(alert) identical(alert$code, "high_cardinality_identifier"), logical(1))))
+  expect_true(any(vapply(alerts, function(alert) "pers_identificador" %in% alert$fields, logical(1))))
+})
+
+test_that("combinations below k are flagged", {
+  df <- data.frame(
+    edad = c("40-49", "40-49", "50-59"),
+    zona = c("A", "A", "B"),
+    sector = c("x", "x", "y"),
+    stringsAsFactors = FALSE
+  )
+
+  alerts <- detect_risky_combinations(df, cols = c("edad", "zona", "sector"), k = 2)
+
+  expect_true(length(alerts) > 0)
+  expect_true(any(vapply(alerts, function(alert) identical(alert$code, "combination_below_k"), logical(1))))
+})
+
+test_that("meeting k does not automatically clear homogeneous sensitive classes", {
+  df <- data.frame(
+    edad = c("40-49", "40-49", "40-49", "40-49"),
+    zona = c("A", "A", "A", "A"),
+    diagnostico = c("raro", "raro", "raro", "raro"),
+    stringsAsFactors = FALSE
+  )
+
+  alerts <- detect_residual_risk_combinations(
+    df,
+    quasi_cols = c("edad", "zona"),
+    sensitive_cols = "diagnostico",
+    k = 4
+  )
+
+  expect_true(length(alerts) > 0)
+  expect_true(any(vapply(alerts, function(alert) identical(alert$code, "homogeneous_sensitive_class"), logical(1))))
+})
+
+test_that("precise linkable combinations remain blocked even when k passes", {
+  df <- data.frame(
+    fecha = c("2026-01-03", "2026-01-03", "2026-01-03", "2026-01-03"),
+    localidad = c("Pueblo Chico", "Pueblo Chico", "Pueblo Chico", "Pueblo Chico"),
+    evento = c("operativo", "operativo", "operativo", "operativo"),
+    stringsAsFactors = FALSE
+  )
+
+  alerts <- detect_residual_risk_combinations(
+    df,
+    quasi_cols = c("fecha", "localidad", "evento"),
+    sensitive_cols = character(0),
+    k = 4
+  )
+
+  expect_true(length(alerts) > 0)
+  expect_true(any(vapply(alerts, function(alert) identical(alert$code, "precise_linkable_combination"), logical(1))))
+})
