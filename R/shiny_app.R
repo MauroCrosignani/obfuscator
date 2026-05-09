@@ -118,6 +118,115 @@ resolve_dataset_display_name <- function(source_mode, object_name = NULL, file_n
   "Ninguno"
 }
 
+build_obfuscation_code_snippet <- function(
+  data_reference,
+  seed,
+  id_prefix,
+  numeric_mode,
+  project_key = NULL,
+  col_roles = list(),
+  numeric_offsets = list(),
+  hierarchies = list(),
+  exclude_cols = character(0),
+  privacy_model = NULL
+) {
+  col_roles_str <- if (length(col_roles) > 0) {
+    lines <- vapply(names(col_roles), function(role_name) {
+      sprintf(
+        "    %s = c(%s)",
+        role_name,
+        paste0(sprintf("'%s'", col_roles[[role_name]]), collapse = ", ")
+      )
+    }, character(1))
+    sprintf("list(\n%s\n  )", paste(lines, collapse = ",\n"))
+  } else {
+    "list()"
+  }
+
+  offsets_str <- if (length(numeric_offsets) > 0) {
+    lines <- vapply(names(numeric_offsets), function(variable) {
+      sprintf("    '%s' = 0, # [INGRESE_CLAVE_PARA_%s]", variable, toupper(variable))
+    }, character(1))
+    sprintf("list(\n%s\n  )", paste(lines, collapse = ",\n"))
+  } else {
+    "list()"
+  }
+
+  has_hierarchies <- length(hierarchies) > 0 || length(privacy_model$hierarchies %||% list()) > 0
+  hierarchies_str <- if (has_hierarchies) "hierarchies_obj" else "NULL"
+
+  privacy_model_str <- if (is.null(privacy_model)) {
+    "NULL"
+  } else {
+    quasi_identifiers <- privacy_model$quasi_identifiers %||% character(0)
+    suppression <- privacy_model$suppression %||% "rows"
+    group_ids <- isTRUE(privacy_model$group_ids)
+    sprintf(
+      paste(
+        "list(",
+        "type = 'k_anonymity',",
+        "k = %s,",
+        "quasi_identifiers = c(%s),",
+        "suppression = '%s',",
+        "group_ids = %s,",
+        "hierarchies = %s",
+        ")"
+      ),
+      privacy_model$k,
+      paste0(sprintf("'%s'", quasi_identifiers), collapse = ", "),
+      suppression,
+      if (group_ids) "TRUE" else "FALSE",
+      hierarchies_str
+    )
+  }
+
+  exclude_cols_str <- if (length(exclude_cols) > 0) {
+    paste0("c(", paste0(sprintf("'%s'", exclude_cols), collapse = ", "), ")")
+  } else {
+    "character(0)"
+  }
+
+  sprintf(
+"library(obfuscator)
+
+# 1. Cargar datos
+df <- %s # REEMPLAZAR con el comando de carga (p. ej. read.csv('archivo.csv'))
+
+# Nota importante:
+# Este script reproduce transformaciones internas, pero NO implica que el dataset sea liberable hacia terceros.
+# La decision de liberacion externa requiere revisar el reporte de privacidad y el estado de release por separado.
+
+# 2. Configurar ofuscacion
+config <- obfuscator_config(
+  seed = %s,
+  id_prefix = '%s',
+  numeric_mode = '%s',
+  project_key = %s,
+  col_roles = %s,
+  numeric_offsets = %s,
+  exclude_cols = %s,
+  privacy_model = %s
+)
+
+# Si usas jerarquias, define `hierarchies_obj` antes de ejecutar la configuracion.
+
+# 3. Ejecutar
+resultado <- obfuscate_dataset(df, config = config)
+
+# Ver resultado
+head(resultado)",
+    data_reference,
+    seed,
+    id_prefix,
+    numeric_mode,
+    if (nchar(project_key %||% "") > 0) sprintf("'%s'", project_key) else "NULL",
+    col_roles_str,
+    offsets_str,
+    exclude_cols_str,
+    privacy_model_str
+  )
+}
+
 role_column_choices <- function(df, ui_roles) {
   list(
     id = intersect(ui_roles$id %||% character(0), colnames(df)),
@@ -829,62 +938,31 @@ run_obfuscator_app <- function() {
        roles <- role_state()
        h <- hierarchies()
        o <- numeric_offsets()
-       
-       # Formatear col_roles
-       col_roles_str <- if (length(role_column_choices(df, roles)) > 0) {
-         roles_list <- role_column_choices(df, roles)
-         lines <- vapply(names(roles_list), function(r) {
-            sprintf("    %s = %s", r, paste0("c(", paste0("'", roles_list[[r]], "'", collapse = ", "), ")"))
-         }, character(1))
-         sprintf("list(\n%s\n  )", paste(lines, collapse = ",\n"))
-       } else "list()"
-        # Formatear Offsets (Modo Reversible con Placeholders)
-        offsets_str <- if (length(o) > 0) {
-          lines <- vapply(names(o), function(v) {
-             # CAMBIO: Usar placeholders para NO exportar claves reales en el codigo R
-             sprintf("    '%s' = 0, # [INGRESE_CLAVE_PARA_%s]", v, toupper(v))
-          }, character(1))
-          sprintf("list(\n%s\n  )", paste(lines, collapse = ",\n"))
-        } else "list()"
-       
-       # Note: Hierarchies are complex to serialize in text, we provide a placeholder
-       h_str <- if (length(h) > 0) "hierarchies_obj" else "NULL"
-       
-       code <- sprintf(
-"library(obfuscator)
+       privacy_model <- if (isTRUE(input$enable_k)) {
+         list(
+           type = "k_anonymity",
+           k = input$k_value,
+           quasi_identifiers = intersect(unique(c(roles$id, roles$date, roles$categorical)), names(df)),
+           suppression = input$k_suppression,
+           group_ids = input$group_ids,
+           hierarchies = h
+         )
+       } else {
+         NULL
+       }
 
-# 1. Cargar datos
-df <- %s # REEMPLAZAR con el comando de carga (p. ej. read.csv('archivo.csv'))
-
-# 2. Configurar Ofuscacion
-config <- obfuscator_config(
-  seed = %s,
-  id_prefix = '%s',
-  numeric_mode = '%s',
-  project_key = %s,
-  col_roles = %s,
-  numeric_offsets = %s,
-  exclude_cols = %s,
-  privacy_model = %s
-)
-
-# 3. Ejecutar
-resultado <- obfuscate_dataset(df, config = config)
-
-# Ver resultado
-head(resultado)",
-         if (input$source_mode == "environment") input$env_object else "data",
-         input$seed,
-         input$id_prefix,
-         input$numeric_mode,
-         if (nchar(input$project_key) > 0) sprintf("'%s'", input$project_key) else "NULL",
-         col_roles_str,
-         offsets_str,
-         if (length(roles$exclude) > 0) paste0("c(", paste0("'", roles$exclude, "'", collapse = ", "), ")") else "character(0)",
-         if (isTRUE(input$enable_k)) sprintf("list(type = 'k_anonymity', k = %s, suppression = '%s')", input$k_value, input$k_suppression) else "NULL"
+       build_obfuscation_code_snippet(
+         data_reference = if (input$source_mode == "environment") input$env_object else "data",
+         seed = input$seed,
+         id_prefix = input$id_prefix,
+         numeric_mode = input$numeric_mode,
+         project_key = if (nchar(input$project_key) > 0) input$project_key else NULL,
+         col_roles = role_column_choices(df, roles),
+         numeric_offsets = o,
+         hierarchies = h,
+         exclude_cols = roles$exclude,
+         privacy_model = privacy_model
        )
-       
-       code
     }
 
     shiny::observeEvent(input$view_r_code, {

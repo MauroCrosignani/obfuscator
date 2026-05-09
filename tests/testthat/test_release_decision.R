@@ -370,3 +370,31 @@ test_that("audit summary uses release controls when the dataset is releasable", 
   expect_match(summary_text, "identificadores transformados")
   expect_match(summary_text, "supresion residual aplicada")
 })
+
+test_that("api results can be evaluated with the same release semantics as the UI", {
+  df <- data.frame(
+    edad = c(21, 22, 23, 90),
+    sexo = c("F", "F", "M", "X"),
+    region = c("Norte", "Norte", "Sur", "Exterior"),
+    stringsAsFactors = FALSE
+  )
+
+  result <- obfuscate_dataset(
+    df,
+    config = obfuscator_config(
+      seed = 11,
+      privacy_model = list(
+        type = "k_anonymity",
+        k = 2,
+        quasi_identifiers = c("edad", "sexo", "region"),
+        suppression = "none"
+      )
+    )
+  )
+
+  state <- derive_release_state_from_result(result, privacy_enabled = TRUE)
+
+  expect_equal(state$status, "Bloqueado")
+  expect_false(can_export_external_release(state))
+  expect_true(any(grepl("k-anonymity", unlist(state$reasons, use.names = FALSE), fixed = TRUE)))
+})

@@ -99,6 +99,42 @@ derive_release_state_from_obfuscation <- function(
   )
 }
 
+derive_release_state_from_result <- function(
+  result,
+  privacy_enabled,
+  artifact_type = "internal_work",
+  has_internal_preview = TRUE
+) {
+  log_info <- attr(result, "obfuscator_log")
+  privacy_report <- log_info$privacy_report %||% list()
+  privacy_satisfied <- isTRUE(privacy_report$after$satisfied)
+
+  if (!identical(artifact_type, "releasable_external")) {
+    reasons <- if (isTRUE(privacy_satisfied)) {
+      list("k-anonymity satisfecha, pero la ejecucion programatica no equivale a liberacion externa aprobada.")
+    } else if (isTRUE(privacy_enabled)) {
+      list("La configuracion actual no satisface k-anonymity para liberacion externa.")
+    } else {
+      list("La liberacion externa requiere activar k-anonymity.")
+    }
+
+    return(build_release_state(
+      "Bloqueado",
+      reasons = reasons,
+      metadata = list(
+        has_internal_preview = isTRUE(has_internal_preview),
+        artifact = release_artifact(artifact_type)
+      )
+    ))
+  }
+
+  derive_release_state_from_obfuscation(
+    privacy_enabled = isTRUE(privacy_enabled),
+    privacy_satisfied = privacy_satisfied,
+    has_internal_preview = has_internal_preview
+  )
+}
+
 normalize_risk_name <- function(x) {
   normalized <- iconv(as.character(x), to = "ASCII//TRANSLIT")
   normalized[is.na(normalized)] <- as.character(x)[is.na(normalized)]

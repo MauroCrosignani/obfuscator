@@ -382,3 +382,35 @@ test_that("the main UI renders a single parameters section", {
   expect_equal(sum(gregexpr("id=\"project_key\"", ui_text, fixed = TRUE)[[1]] > 0), 1)
   expect_equal(sum(gregexpr("id=\"numeric_mode\"", ui_text, fixed = TRUE)[[1]] > 0), 1)
 })
+
+test_that("generated R code reflects release privacy inputs and warns about approval", {
+  code <- build_obfuscation_code_snippet(
+    data_reference = "iris",
+    seed = 123,
+    id_prefix = "999",
+    numeric_mode = "range_random",
+    project_key = NULL,
+    col_roles = list(
+      id = "id_persona",
+      date = "fecha_evento",
+      categorical = "tramo",
+      exclude = "observacion"
+    ),
+    numeric_offsets = list(id_persona = 17),
+    hierarchies = list(tramo = c("identity", "global")),
+    privacy_model = list(
+      type = "k_anonymity",
+      k = 5,
+      quasi_identifiers = c("id_persona", "fecha_evento", "tramo"),
+      suppression = "group",
+      group_ids = TRUE,
+      hierarchies = list(tramo = c("identity", "global"))
+    )
+  )
+
+  expect_match(code, "quasi_identifiers")
+  expect_match(code, "group_ids = TRUE")
+  expect_match(code, "suppression = 'group'")
+  expect_match(code, "hierarchies_obj")
+  expect_match(code, "NO implica que el dataset sea liberable")
+})
