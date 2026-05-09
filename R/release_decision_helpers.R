@@ -322,6 +322,44 @@ detect_residual_risk_combinations <- function(df, quasi_cols, sensitive_cols = c
   alerts
 }
 
+detect_high_dimensional_relinkability <- function(
+  df,
+  known_source_cols,
+  min_dimensions = 6,
+  uniqueness_threshold = 0.8,
+  artifact_type = "internal_work"
+) {
+  stopifnot(is.data.frame(df))
+  cols <- intersect(known_source_cols, colnames(df))
+  if (length(cols) < min_dimensions) {
+    return(list())
+  }
+
+  signature_df <- df[cols]
+  signature_keys <- apply(signature_df, 1, function(row) paste(row, collapse = "||"))
+  unique_ratio <- length(unique(signature_keys)) / max(1, length(signature_keys))
+
+  if (unique_ratio < uniqueness_threshold) {
+    return(list())
+  }
+
+  list(release_alert(
+    code = "high_dimensional_relinkability",
+    severity = "critical",
+    message = paste(
+      "El dataset conserva demasiadas firmas descriptivas unicas o casi unicas",
+      "cuando el tercero ya conoce las columnas fuente."
+    ),
+    fields = cols,
+    artifact_type = artifact_type,
+    evidence = list(
+      dimensions = length(cols),
+      uniqueness_ratio = unique_ratio,
+      threshold = uniqueness_threshold
+    )
+  ))
+}
+
 release_artifact <- function(type, name = NULL) {
   allowed_types <- c("preview", "internal_work", "releasable_external")
   if (!is.character(type) || length(type) != 1 || !(type %in% allowed_types)) {

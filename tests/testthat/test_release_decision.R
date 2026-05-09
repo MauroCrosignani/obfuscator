@@ -185,3 +185,50 @@ test_that("precise linkable combinations remain blocked even when k passes", {
   expect_true(length(alerts) > 0)
   expect_true(any(vapply(alerts, function(alert) identical(alert$code, "precise_linkable_combination"), logical(1))))
 })
+
+test_that("high-dimensional source-known data is flagged as relinkable", {
+  df <- data.frame(
+    sexo = c("F", "M", "F", "M", "F", "M"),
+    edad = c("34", "45", "29", "52", "41", "38"),
+    departamento = c("A", "B", "C", "D", "E", "F"),
+    ocupacion = c("docente", "medico", "abogado", "contador", "arquitecta", "ingeniero"),
+    tam_hogar = c("2", "4", "1", "3", "5", "2"),
+    nivel_edu = c("terciaria", "secundaria", "terciaria", "primaria", "terciaria", "secundaria"),
+    antiguedad = c("11", "7", "2", "19", "13", "5"),
+    tramo_ingreso = c("alto", "medio", "bajo", "alto", "medio", "bajo"),
+    stringsAsFactors = FALSE
+  )
+
+  alerts <- detect_high_dimensional_relinkability(
+    df,
+    known_source_cols = colnames(df),
+    min_dimensions = 6,
+    uniqueness_threshold = 0.8
+  )
+
+  expect_true(length(alerts) > 0)
+  expect_true(any(vapply(alerts, function(alert) identical(alert$code, "high_dimensional_relinkability"), logical(1))))
+})
+
+test_that("repeated wide signatures do not trigger high-dimensional relinkability by default", {
+  df <- data.frame(
+    sexo = c("F", "F", "M", "M", "F", "F"),
+    edad = c("30-39", "30-39", "40-49", "40-49", "30-39", "30-39"),
+    departamento = c("A", "A", "B", "B", "A", "A"),
+    ocupacion = c("admin", "admin", "admin", "admin", "admin", "admin"),
+    tam_hogar = c("2", "2", "3", "3", "2", "2"),
+    nivel_edu = c("sec", "sec", "sec", "sec", "sec", "sec"),
+    antiguedad = c("0-5", "0-5", "6-10", "6-10", "0-5", "0-5"),
+    tramo_ingreso = c("medio", "medio", "medio", "medio", "medio", "medio"),
+    stringsAsFactors = FALSE
+  )
+
+  alerts <- detect_high_dimensional_relinkability(
+    df,
+    known_source_cols = colnames(df),
+    min_dimensions = 6,
+    uniqueness_threshold = 0.8
+  )
+
+  expect_equal(length(alerts), 0)
+})
