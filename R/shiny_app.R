@@ -291,7 +291,7 @@ build_obfuscator_app_ui <- function(asset_version) {
             shiny::textInput("output_object_name", "Guardar objeto en entorno como", value = "dataset_ofuscado"),
             shiny::tags$div(
               class = "btn-group-custom",
-              shiny::actionButton("save_to_env", "Guardar en entorno"),
+              shiny::actionButton("save_to_env", "Guardar en entorno (uso interno)"),
               shiny::actionButton("revert_btn", "Revertir actual", class = "secondary-btn")
             ),
             shiny::tags$div(
@@ -528,6 +528,7 @@ run_obfuscator_app <- function() {
     audit_log <- shiny::reactiveVal(NULL)
     progress_status <- shiny::reactiveVal("Todavia no se ejecuto ninguna ofuscacion.")
     loaded_dataset_name <- shiny::reactiveVal("Ninguno")
+    release_state <- shiny::reactiveVal(initial_release_state())
 
     shiny::observe({
       objects <- ls(envir = .GlobalEnv)
@@ -599,6 +600,14 @@ run_obfuscator_app <- function() {
       obfuscated_data(NULL)
       audit_log(NULL)
       progress_status("Dataset cargado. Se busco persistencia por esquema.")
+      release_state(transition_release_state(
+        release_state(),
+        "material_change",
+        context = list(metadata = list(
+          trigger = "dataset_loaded",
+          dataset_name = loaded_dataset_name()
+        ))
+      ))
     }, ignoreNULL = TRUE)
 
     shiny::observeEvent(input$open_hierarchy_editor, {
@@ -1020,6 +1029,11 @@ head(resultado)",
       shiny::req(df)
 
       roles <- role_state()
+      release_state(transition_release_state(
+        release_state(),
+        "start_review",
+        context = list(metadata = list(trigger = "run_obfuscation"))
+      ))
       privacy_model <- if (isTRUE(input$enable_k)) {
         qis <- unique(c(roles$id, roles$date, roles$categorical))
         if (length(qis) == 0) {
@@ -1084,6 +1098,13 @@ head(resultado)",
         result <- obfuscate_dataset(df, config = config)
         obfuscated_data(result)
         audit_log(attr(result, "obfuscator_log"))
+
+        privacy_report <- attr(result, "obfuscator_log")$privacy_report %||% list()
+        release_state(derive_release_state_from_obfuscation(
+          privacy_enabled = isTRUE(input$enable_k),
+          privacy_satisfied = isTRUE(privacy_report$after$satisfied),
+          has_internal_preview = TRUE
+        ))
       })
 
       progress_status("Ofuscacion completada al 100%.")
@@ -1258,6 +1279,9 @@ head(resultado)",
       },
       content = function(file) {
         shiny::req(obfuscated_data())
+        if (!can_export_external_release(release_state())) {
+          stop("El dataset no esta en estado Liberable para exportacion externa.")
+        }
         readr::write_csv(obfuscated_data(), file)
       }
     )
