@@ -420,6 +420,196 @@ build_review_requirements <- function(alerts) {
   list(required = TRUE, items = items)
 }
 
+collapse_lines <- function(lines) {
+  paste(unlist(lines, recursive = TRUE, use.names = FALSE), collapse = "\n")
+}
+
+build_release_report <- function(status, controls_passed = list(), reviews = list(), metadata = list()) {
+  artifact_type <- metadata$artifact$type %||% "desconocido"
+  review_lines <- if (length(reviews) == 0) {
+    "- Sin revisiones manuales requeridas."
+  } else {
+    vapply(reviews, function(review) {
+      sprintf(
+        "- `%s` [%s]: verificado=%s",
+        review$object_id,
+        review$review_type,
+        if (isTRUE(review$verified)) "si" else "no"
+      )
+    }, character(1))
+  }
+
+  collapse_lines(c(
+    sprintf("Estado de liberacion: %s", status),
+    sprintf("Tipo de artefacto: %s", artifact_type),
+    "",
+    "Controles superados:",
+    if (length(controls_passed) == 0) "- Sin controles registrados." else paste0("- ", unlist(controls_passed, use.names = FALSE)),
+    "",
+    "Revisiones manuales:",
+    review_lines
+  ))
+}
+
+build_non_release_report <- function(status, reasons = list(), next_steps = list(), reviews = list(), metadata = list()) {
+  privacy_note <- if (isTRUE(metadata$privacy_satisfied)) {
+    "Nota: k-anonymity puede haberse satisfecho, pero persiste riesgo residual inaceptable."
+  } else {
+    "Nota: k-anonymity no alcanza o no fue satisfecha para la liberacion externa."
+  }
+
+  review_lines <- if (length(reviews) == 0) {
+    "- Sin revisiones manuales concluyentes."
+  } else {
+    vapply(reviews, function(review) {
+      sprintf(
+        "- `%s` [%s]: verificado=%s",
+        review$object_id,
+        review$review_type,
+        if (isTRUE(review$verified)) "si" else "no"
+      )
+    }, character(1))
+  }
+
+  collapse_lines(c(
+    sprintf("Estado de liberacion: %s", status),
+    privacy_note,
+    "",
+    "Bloqueos no resueltos:",
+    if (length(reasons) == 0) "- Sin razones registradas." else paste0("- ", unlist(reasons, use.names = FALSE)),
+    "",
+    "Revisiones manuales:",
+    review_lines,
+    "",
+    "Acciones recomendadas:",
+    if (length(next_steps) == 0) "- Sin acciones propuestas." else paste0("- ", unlist(next_steps, use.names = FALSE))
+  ))
+}
+
+release_controls_from_log <- function(log_info = list()) {
+  if (is.null(log_info)) {
+    return(character(0))
+  }
+
+  privacy_report <- log_info$privacy_report %||% list()
+  roles <- log_info$roles %||% list()
+  transformations <- log_info$transformations %||% list()
+  controls <- character(0)
+
+  if (isTRUE(privacy_report$after$satisfied)) {
+    controls <- c(controls, "k-anonymity satisfecha")
+  }
+
+  if (!is.null(privacy_report$k)) {
+    controls <- c(controls, sprintf("valor de k evaluado: %s", privacy_report$k))
+  }
+
+  id_cols <- roles$id %||% character(0)
+  if (length(id_cols) > 0) {
+    controls <- c(controls, sprintf("identificadores transformados: %s columna(s)", length(id_cols)))
+  }
+
+  if (is.numeric(privacy_report$rows_suppressed) && length(privacy_report$rows_suppressed) == 1 && privacy_report$rows_suppressed > 0) {
+    controls <- c(controls, sprintf("supresion residual aplicada: %s fila(s)", privacy_report$rows_suppressed))
+  }
+
+  if (length(transformations) > 0) {
+    controls <- c(controls, sprintf("transformaciones registradas: %s", length(transformations)))
+  }
+
+  unique(controls)
+}
+
+release_next_steps_from_state <- function(state, log_info = list()) {
+  reasons <- unlist(state$reasons %||% list(), use.names = FALSE)
+  privacy_report <- log_info$privacy_report %||% list()
+  steps <- character(0)
+
+  if (identical(state$status, "No evaluado")) {
+    steps <- c(steps, "ejecutar la ofuscacion para evaluar la liberacion externa")
+  }
+
+  if (identical(state$status, "En revision")) {
+    steps <- c(steps, "completar la evaluacion de riesgo antes de exportar")
+  }
+
+  if (any(grepl("activar k-anonymity", reasons, fixed = TRUE))) {
+    steps <- c(steps, "activar k-anonymity y definir quasi-identificadores relevantes")
+  }
+
+  if (any(grepl("no satisface k-anonymity", reasons, fixed = TRUE)) || (!is.null(privacy_report$after) && !isTRUE(privacy_report$after$satisfied))) {
+    steps <- c(steps, "aumentar k o generalizar los quasi-identificadores")
+  }
+
+  if (isTRUE(privacy_report$after$satisfied) && identical(state$status, "Bloqueado")) {
+    steps <- c(steps, "resolver el riesgo residual antes de habilitar la liberacion")
+  }
+
+  if (length(steps) == 0 && identical(state$status, "No liberable sin rediseno")) {
+    steps <- c(steps, "redisenar el dataset o el criterio de liberacion antes de reintentar")
+  }
+
+  if (length(steps) == 0 && identical(state$status, "Bloqueado")) {
+    steps <- c(steps, "revisar los bloqueos detectados y aplicar una resolucion segura")
+  }
+
+  unique(steps)
+}
+
+build_release_audit_summary <- function(state, log_info = NULL, reviews = list()) {
+  if (is.null(state) || !inherits(state, "release_state")) {
+    state <- initial_release_state()
+  }
+
+  if (length(reviews) == 0) {
+    reviews <- state$metadata$reviews %||% list()
+  }
+
+  metadata <- state$metadata %||% list()
+  privacy_report <- log_info$privacy_report %||% list()
+
+  if (is.null(metadata$artifact)) {
+    metadata$artifact <- release_artifact(if (can_export_external_release(state)) "releasable_external" else "internal_work")
+  }
+  metadata$privacy_satisfied <- isTRUE(privacy_report$after$satisfied)
+
+  if (identical(state$status, "No evaluado")) {
+    return(collapse_lines(c(
+      "Estado de liberacion: No evaluado",
+      "Accion recomendada: ejecutar la ofuscacion para evaluar si el dataset puede liberarse."
+    )))
+  }
+
+  if (identical(state$status, "En revision")) {
+    return(collapse_lines(c(
+      "Estado de liberacion: En revision",
+      "Accion recomendada: completar la evaluacion de riesgo y las revisiones requeridas antes de exportar."
+    )))
+  }
+
+  if (identical(state$status, "Liberable")) {
+    return(build_release_report(
+      status = state$status,
+      controls_passed = as.list(release_controls_from_log(log_info)),
+      reviews = reviews,
+      metadata = metadata
+    ))
+  }
+
+  reasons <- unlist(state$reasons %||% list(), use.names = FALSE)
+  if (length(reasons) == 0 && !isTRUE(privacy_report$after$satisfied)) {
+    reasons <- c(reasons, "La configuracion actual no satisface k-anonymity para liberacion externa.")
+  }
+
+  build_non_release_report(
+    status = state$status,
+    reasons = as.list(unique(reasons)),
+    next_steps = as.list(release_next_steps_from_state(state, log_info = log_info)),
+    reviews = reviews,
+    metadata = metadata
+  )
+}
+
 release_artifact <- function(type, name = NULL) {
   allowed_types <- c("preview", "internal_work", "releasable_external")
   if (!is.character(type) || length(type) != 1 || !(type %in% allowed_types)) {

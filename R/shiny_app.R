@@ -1150,11 +1150,11 @@ head(resultado)",
 
     output$audit_log_text <- shiny::renderPrint({
       log_info <- audit_log()
-      if (is.null(log_info)) {
-        cat(progress_status(), "\n")
-      } else {
-        print(log_info)
-      }
+      report_text <- build_release_audit_summary(
+        release_state(),
+        log_info = log_info
+      )
+      cat(report_text, "\n")
     })
 
     shiny::observeEvent(input$save_to_env, {

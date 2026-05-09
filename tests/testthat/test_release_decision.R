@@ -288,3 +288,85 @@ test_that("release review requirements mark text and combinations as active bloc
   expect_true(any(vapply(requirements$items, function(item) identical(item$review_type, "text_free"), logical(1))))
   expect_true(any(vapply(requirements$items, function(item) identical(item$review_type, "relinkability"), logical(1))))
 })
+
+test_that("non-release report explains unresolved blockers", {
+  report <- build_non_release_report(
+    status = "Bloqueado",
+    reasons = list("texto libre", "combinacion singular"),
+    next_steps = list("excluir observacion", "generalizar fecha"),
+    reviews = list(),
+    metadata = list(privacy_satisfied = TRUE)
+  )
+
+  expect_match(report, "Bloqueado")
+  expect_match(report, "texto libre")
+  expect_match(report, "generalizar fecha")
+  expect_match(report, "k-anonymity")
+})
+
+test_that("release report includes status controls and reviews", {
+  review <- build_manual_review_result(
+    object_id = "observacion",
+    review_type = "text_free",
+    verified = TRUE,
+    evidence = list(unique_values_confirmed = 12)
+  )
+
+  report <- build_release_report(
+    status = "Liberable",
+    controls_passed = list("k-anonymity satisfecha", "sin identificadores directos"),
+    reviews = list(review),
+    metadata = list(artifact = release_artifact("releasable_external"))
+  )
+
+  expect_match(report, "Liberable")
+  expect_match(report, "k-anonymity satisfecha")
+  expect_match(report, "observacion")
+  expect_match(report, "releasable_external")
+})
+
+test_that("audit summary adapts blocked states into actionable non-release guidance", {
+  state <- build_release_state(
+    "Bloqueado",
+    reasons = list("La configuracion actual no satisface k-anonymity para liberacion externa.")
+  )
+
+  summary_text <- build_release_audit_summary(
+    state,
+    log_info = list(
+      privacy_report = list(
+        k = 5,
+        after = list(satisfied = FALSE)
+      )
+    )
+  )
+
+  expect_match(summary_text, "Bloqueado")
+  expect_match(summary_text, "no satisface k-anonymity")
+  expect_match(summary_text, "aumentar k o generalizar")
+})
+
+test_that("audit summary uses release controls when the dataset is releasable", {
+  state <- build_release_state(
+    "Liberable",
+    metadata = list(artifact = release_artifact("releasable_external"))
+  )
+
+  summary_text <- build_release_audit_summary(
+    state,
+    log_info = list(
+      roles = list(id = "ID"),
+      transformations = list(ID = list(method = "deterministic-map"), edad = list(method = "range_random")),
+      privacy_report = list(
+        k = 5,
+        rows_suppressed = 2,
+        after = list(satisfied = TRUE)
+      )
+    )
+  )
+
+  expect_match(summary_text, "Liberable")
+  expect_match(summary_text, "k-anonymity satisfecha")
+  expect_match(summary_text, "identificadores transformados")
+  expect_match(summary_text, "supresion residual aplicada")
+})
