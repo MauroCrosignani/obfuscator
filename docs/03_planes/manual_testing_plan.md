@@ -441,6 +441,14 @@ Resultado esperado:
 - debe explicar por que el dataset queda bloqueado o liberable;
 - debe sugerir pasos siguientes cuando no se puede liberar.
 
+Caso bloqueado sugerido:
+
+- cargar `obfuscator_demo_bloqueado`;
+- marcar `persona_id`, `fecha_alta`, `localidad` y `edad` como variables relevantes;
+- activar `k-anonymity` con `k = 2`;
+- usar `Eliminar filas`;
+- si quieres forzar un bloqueo mas claro, limitar la generalizacion dejando solo jerarquias `identity` en las variables cuasi-identificadoras.
+
 Registrar:
 - si la redaccion es clara para un tecnico que no conoce el codigo;
 - si parece un log interno o una conclusion defendible.

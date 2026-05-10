@@ -139,7 +139,7 @@ body {
 
 .primary-btn {
   background: var(--btn-bg);
-  color: #ffffff;
+  color: #f6f3ea;
   border: 0;
   border-radius: 12px;
   padding: 10px 16px;
@@ -147,6 +147,7 @@ body {
 
 .primary-btn:hover {
   background: var(--btn-hover);
+  color: #f2eee5;
 }
 
 .search-wrapper {
@@ -269,9 +270,16 @@ body {
 
 .release-workbench {
   display: flex;
-  align-items: flex-start;
+  flex-direction: column;
+  align-items: stretch;
   gap: 18px;
+}
+
+.release-primary-actions {
+  display: flex;
   flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
 }
 
 .release-variable-table-wrapper {
@@ -472,10 +480,8 @@ body {
 }
 
 .release-variable-detail {
-  flex: 0 1 340px;
-  min-width: 280px;
-  position: sticky;
-  top: 18px;
+  width: 100%;
+  position: static;
   padding: 18px;
   border-radius: 20px;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(246, 249, 251, 0.96));

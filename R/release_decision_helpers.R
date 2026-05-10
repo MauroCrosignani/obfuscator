@@ -472,7 +472,15 @@ release_artifact_label <- function(type) {
 
 build_release_report <- function(status, controls_passed = list(), reviews = list(), metadata = list()) {
   artifact_type <- metadata$artifact$type %||% "desconocido"
-  review_lines <- if (length(reviews) == 0) {
+  has_sensitive <- isTRUE(metadata$has_sensitive)
+  has_private <- isTRUE(metadata$has_private)
+
+  review_lines <- if (length(reviews) == 0 && (has_sensitive || has_private)) {
+    c(
+      "- No se registraron revisiones manuales formales en esta ejecucion.",
+      "- Antes de compartir el resultado, verifica explicitamente si las variables sensibles o privadas son aceptables para el destinatario."
+    )
+  } else if (length(reviews) == 0) {
     "- Sin revisiones manuales requeridas."
   } else {
     vapply(reviews, function(review) {
@@ -662,11 +670,14 @@ build_release_audit_summary <- function(state, log_info = NULL, reviews = list()
 
   metadata <- state$metadata %||% list()
   privacy_report <- log_info$privacy_report %||% list()
+  release_context <- log_info$release_safe %||% list()
 
   if (is.null(metadata$artifact)) {
     metadata$artifact <- release_artifact(if (can_export_external_release(state)) "releasable_external" else "internal_work")
   }
   metadata$privacy_satisfied <- isTRUE(privacy_report$after$satisfied)
+  metadata$has_sensitive <- length(release_context$sensitive %||% character(0)) > 0
+  metadata$has_private <- length(release_context$private %||% character(0)) > 0
 
   if (identical(state$status, "No evaluado")) {
     return(collapse_lines(c(

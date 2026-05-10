@@ -275,7 +275,7 @@ test_that("las definiciones release-safe explican cada rol con lenguaje minimo c
   expect_match(release_safe_role_definition("PRIV"), "texto libre|riesgos", ignore.case = TRUE)
 })
 
-test_that("la guia release-safe expone flujo breve y definiciones de roles", {
+test_that("la guia de liberacion controlada expone flujo breve y definiciones de roles", {
   html <- as.character(render_release_workflow_guide_for_test())
 
   expect_match(html, "Guia breve de trabajo")
@@ -362,6 +362,21 @@ test_that("preview mode control locks after obfuscation exists", {
   expect_match(locked_html, "disabled")
   expect_match(locked_html, "resultado ofuscado")
   expect_match(editable_html, "live_preview")
+})
+
+test_that("template notifications are human-readable", {
+  saved_msg <- build_template_notification("abcd1234", action = "saved")
+  loaded_msg <- build_template_notification("abcd1234", suggested_count = 2, action = "loaded")
+
+  expect_match(saved_msg, "esquema actual")
+  expect_match(loaded_msg, "coincidencia aproximada")
+})
+
+test_that("audit log dump can be rendered from the app", {
+  log_text <- render_audit_log_dump(list(seed = 123, roles = list(id = "persona_id")))
+
+  expect_match(log_text, "seed")
+  expect_match(log_text, "persona_id")
 })
 
 test_that("Las reglas de consistencia quedan registradas en el log con cantidad de ajustes", {
@@ -485,7 +500,7 @@ test_that("dataset display name comes from the loaded source", {
 test_that("studio demo datasets include built-ins and a mixed synthetic case", {
   demo_sets <- studio_demo_datasets()
 
-  expect_true(all(c("iris", "mtcars", "airquality", "obfuscator_demo_personas") %in% names(demo_sets)))
+  expect_true(all(c("iris", "mtcars", "airquality", "obfuscator_demo_personas", "obfuscator_demo_bloqueado") %in% names(demo_sets)))
   expect_true(all(c(
       "persona_id",
       "fecha_alta",
@@ -582,11 +597,13 @@ test_that("the main UI includes the release-safe variable table as visible prima
 
   expect_match(ui_text, "release_variable_table_ui")
   expect_match(ui_text, "Tabla principal por variable")
-  expect_match(ui_text, "mecanismo principal de clasificacion")
+  expect_match(ui_text, "liberacion controlada")
   expect_match(ui_text, "Modo heredado de arrastre \\(experimental\\)")
   expect_match(ui_text, "Tablero heredado")
   expect_match(ui_text, "show_privacy_meter_help")
   expect_match(ui_text, "preview_mode_ui")
+  expect_match(ui_text, "show_template_help")
+  expect_match(ui_text, "show_audit_log")
 })
 
 test_that("generated R code reflects release privacy inputs and warns about approval", {

@@ -407,6 +407,22 @@ test_that("audit summary includes release-safe classification context when avail
   expect_match(summary_text, "observacion")
 })
 
+test_that("release report warns when sensitive or private variables remain without manual review", {
+  report <- build_release_report(
+    status = "Liberable",
+    controls_passed = list("k-anonymity satisfecha"),
+    reviews = list(),
+    metadata = list(
+      artifact = release_artifact("releasable_external"),
+      has_sensitive = TRUE,
+      has_private = TRUE
+    )
+  )
+
+  expect_match(report, "No se registraron revisiones manuales formales", ignore.case = TRUE)
+  expect_match(report, "variables sensibles o privadas", ignore.case = TRUE)
+})
+
 test_that("audit summary explains configured residual handling and generalization steps", {
   state <- build_release_state(
     "Liberable",

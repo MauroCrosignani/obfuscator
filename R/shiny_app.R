@@ -355,6 +355,19 @@ render_release_workflow_guide <- function() {
   )
 }
 
+render_controlled_release_help <- function() {
+  shiny::tags$div(
+    style = "padding: 15px;",
+    shiny::tags$h4("Clasificacion y plantillas"),
+    shiny::tags$ul(
+      shiny::tags$li(shiny::tags$strong("Confirmar Todo:"), " aplica de una vez las sugerencias automaticas actuales sobre toda la tabla."),
+      shiny::tags$li(shiny::tags$strong("Guardar Plantilla:"), " guarda la clasificacion actual para volver a usarla con datasets del mismo esquema o de uno muy parecido."),
+      shiny::tags$li(shiny::tags$strong("Cargar Plantilla:"), " vuelve a aplicar la clasificacion guardada para este esquema cuando exista una plantilla compatible.")
+    ),
+    shiny::tags$p(class = "help-text", "Las plantillas guardan clasificacion reutilizable por estructura. No guardan el resultado ofuscado ni estados restringidos de revision.")
+  )
+}
+
 format_preview_dataset <- function(df) {
   if (!is.data.frame(df) || ncol(df) == 0) {
     return(df)
@@ -384,6 +397,59 @@ build_preview_mode_control <- function(has_obfuscated_data = FALSE) {
   }
 
   shiny::checkboxInput("live_preview", "Vista previa de ofuscacion (solo 10 filas)", value = FALSE)
+}
+
+apply_persisted_template_to_roles <- function(dataset, persisted) {
+  roles <- build_default_ui_roles(dataset)
+
+  if (is.null(persisted)) {
+    return(list(
+      roles = roles,
+      suggested = list(),
+      hierarchies = list(),
+      numeric_offsets = list(),
+      loaded = FALSE
+    ))
+  }
+
+  for (r in names(persisted$exact %||% list())) {
+    cols_to_move <- persisted$exact[[r]]
+    if (length(cols_to_move) > 0) {
+      for (orig_r in names(roles)) {
+        roles[[orig_r]] <- setdiff(roles[[orig_r]], cols_to_move)
+      }
+      roles[[r]] <- unique(c(roles[[r]], cols_to_move))
+    }
+  }
+
+  list(
+    roles = roles,
+    suggested = persisted$suggested %||% list(),
+    hierarchies = persisted$hierarchies %||% list(),
+    numeric_offsets = persisted$numeric_offsets %||% list(),
+    loaded = TRUE
+  )
+}
+
+build_template_notification <- function(hash_id, suggested_count = 0L, action = c("loaded", "saved")) {
+  action <- match.arg(action)
+  if (identical(action, "saved")) {
+    return(sprintf("Plantilla de clasificacion guardada para el esquema actual (%s).", hash_id))
+  }
+
+  if (suggested_count > 0) {
+    return(sprintf("Se cargo una plantilla compatible para el esquema actual (%s), con %d sugerencia(s) por coincidencia aproximada.", hash_id, suggested_count))
+  }
+
+  sprintf("Se cargo una plantilla compatible para el esquema actual (%s).", hash_id)
+}
+
+render_audit_log_dump <- function(log_info) {
+  if (is.null(log_info)) {
+    return("No hay log de auditoria disponible todavia.")
+  }
+
+  paste(capture.output(dput(log_info)), collapse = "\n")
 }
 
 release_safe_role_from_state <- function(var_name, role_state, suggested_roles = list()) {
@@ -887,7 +953,7 @@ render_release_variable_detail_panel <- function(df, selected_var, role_state, s
       "Ayuda",
       shiny::tagList(
         shiny::tags$p(detail$help),
-        shiny::tags$p(class = "help-text", "Esta ficha es transitoria y prioriza estructura funcional sobre configuracion avanzada.")
+        shiny::tags$p(class = "help-text", "Usa esta ficha para interpretar el riesgo y decidir si la variable puede participar en una liberacion controlada.")
       )
     )
   )
@@ -1068,7 +1134,14 @@ studio_demo_datasets <- function() {
     iris = datasets::iris,
     mtcars = datasets::mtcars,
     airquality = datasets::airquality,
-    obfuscator_demo_personas = build_demo_personas_dataset()
+    obfuscator_demo_personas = build_demo_personas_dataset(),
+    obfuscator_demo_bloqueado = data.frame(
+      persona_id = c("X001", "X002", "X003", "X004"),
+      fecha_alta = as.Date(c("2024-01-03", "2024-02-11", "2024-03-19", "2024-04-27")),
+      localidad = c("A", "B", "C", "D"),
+      edad = c(19, 47, 73, 91),
+      stringsAsFactors = FALSE
+    )
   )
 }
 
@@ -1423,11 +1496,18 @@ build_obfuscator_app_ui <- function(asset_version) {
               class = "section-header",
               shiny::tags$div(
                 shiny::tags$h3("Tabla principal por variable"),
-                shiny::tags$p("Vista principal por variable para liberacion. Este es el mecanismo principal de clasificacion.")
+                shiny::tags$p("Vista principal por variable para liberacion controlada. Este es el mecanismo principal de clasificacion.")
               )
             ),
             shiny::tags$div(
               class = "release-workbench",
+              shiny::tags$div(
+                class = "release-primary-actions",
+                shiny::actionButton("confirm_suggestions", shiny::tagList(studio_icon("check", "Confirmar"), " Confirmar Todo"), class = "btn-sm"),
+                shiny::actionButton("save_template", shiny::tagList(studio_icon("save", "Guardar"), " Guardar Plantilla"), class = "btn-sm"),
+                shiny::actionButton("load_template", shiny::tagList(studio_icon("open", "Cargar"), " Cargar Plantilla"), class = "btn-sm"),
+                shiny::actionButton("show_template_help", "?", class = "help-btn inline-help-btn", title = "Como funciona este modulo")
+              ),
               shiny::uiOutput("release_variable_table_ui"),
               shiny::uiOutput("release_variable_detail_ui")
             ),
@@ -1448,9 +1528,7 @@ build_obfuscator_app_ui <- function(asset_version) {
                   class = "search-wrapper",
                   shiny::tags$div(
                     class = "btn-group-custom",
-                    shiny::actionButton("confirm_suggestions", shiny::tagList(studio_icon("check", "Confirmar"), " Confirmar Todo"), class = "btn-sm"),
-                    shiny::actionButton("save_template", shiny::tagList(studio_icon("save", "Guardar"), " Guardar Plantilla"), class = "btn-sm"),
-                    shiny::actionButton("load_template", shiny::tagList(studio_icon("open", "Cargar"), " Cargar Plantilla"), class = "btn-sm")
+                    shiny::tags$span(class = "help-text", "Las plantillas ahora se gestionan desde la interfaz principal.")
                   ),
                   shiny::textInput("var_search", NULL, placeholder = "Filtrar por nombre...", width = "200px")
                 )
@@ -1472,7 +1550,11 @@ build_obfuscator_app_ui <- function(asset_version) {
           ),
           shiny::tags$div(
             class = "panel-card",
-            shiny::tags$h3("Resumen de auditoria"),
+            shiny::tags$div(
+              class = "section-header",
+              shiny::tags$h3("Resumen de auditoria"),
+              shiny::actionButton("show_audit_log", "Ver log tecnico", class = "btn-sm")
+            ),
             shiny::verbatimTextOutput("audit_log_text")
           )
         )
@@ -1709,31 +1791,16 @@ run_obfuscator_app <- function() {
       suggested_roles(list())
       if (file.exists(config_path)) {
         persisted <- load_roles_from_json(dataset, config_path)
-        if (!is.null(persisted)) {
-          # Mezclamos matches exactos con los demas detectados
-          roles <- build_default_ui_roles(dataset)
-          # Sobrescribir con los exactos
-          for (r in names(persisted$exact)) {
-             cols_to_move <- persisted$exact[[r]]
-             if (length(cols_to_move) > 0) {
-               # Limpiar de cualquier zona previa
-               for (orig_r in names(roles)) {
-                 roles[[orig_r]] <- setdiff(roles[[orig_r]], cols_to_move)
-               }
-               # Asignar a la zona persistida
-               roles[[r]] <- unique(c(roles[[r]], cols_to_move))
-             }
-          }
-          role_state(roles)
-          suggested_roles(persisted$suggested %||% list())
-          hierarchies(persisted$hierarchies %||% list())
-          numeric_offsets(persisted$numeric_offsets %||% list())
-          
-          msg <- sprintf("Hash %s detectado. Se cargo configuracion previa.", hash_id)
-          if (length(persisted$suggested) > 0) {
-            msg <- paste(msg, sprintf("(%d sugerencias fuzzy)", length(persisted$suggested)))
-          }
-          shiny::showNotification(msg, type = "message")
+        applied <- apply_persisted_template_to_roles(dataset, persisted)
+        if (isTRUE(applied$loaded)) {
+          role_state(applied$roles)
+          suggested_roles(applied$suggested)
+          hierarchies(applied$hierarchies)
+          numeric_offsets(applied$numeric_offsets)
+          shiny::showNotification(
+            build_template_notification(hash_id, suggested_count = length(applied$suggested), action = "loaded"),
+            type = "message"
+          )
         } else {
           role_state(build_default_ui_roles(dataset))
         }
@@ -2124,7 +2191,7 @@ run_obfuscator_app <- function() {
     output$release_variable_table_ui <- shiny::renderUI({
       df <- source_data()
       if (is.null(df)) {
-        return(shiny::tags$p("Carga un dataset para revisar variables en la tabla principal release-safe."))
+        return(shiny::tags$p("Carga un dataset para revisar variables en la tabla principal de liberacion controlada."))
       }
 
       render_release_variable_table(
@@ -2336,7 +2403,37 @@ run_obfuscator_app <- function() {
       )
 
       save_roles_to_json(config_to_save, config_path)
-      shiny::showNotification(sprintf("Plantilla guardada para hash %s.", hash_id), type = "message")
+      shiny::showNotification(build_template_notification(hash_id, action = "saved"), type = "message")
+    })
+
+    shiny::observeEvent(input$load_template, {
+      df <- source_data()
+      shiny::req(df)
+      hash_id <- generate_schema_hash(df)
+      config_path <- file.path("config", paste0(hash_id, ".json"))
+
+      if (!file.exists(config_path)) {
+        shiny::showNotification("No hay una plantilla guardada para el esquema actual.", type = "warning")
+        return()
+      }
+
+      persisted <- load_roles_from_json(df, config_path)
+      applied <- apply_persisted_template_to_roles(df, persisted)
+
+      if (!isTRUE(applied$loaded)) {
+        shiny::showNotification("No se pudo cargar la plantilla para este esquema.", type = "error")
+        return()
+      }
+
+      role_state(applied$roles)
+      suggested_roles(applied$suggested)
+      hierarchies(applied$hierarchies)
+      numeric_offsets(applied$numeric_offsets)
+      selected_release_variable(NULL)
+      shiny::showNotification(
+        build_template_notification(hash_id, suggested_count = length(applied$suggested), action = "loaded"),
+        type = "message"
+      )
     })
 
     shiny::observeEvent(input$confirm_suggestions, {
@@ -2367,6 +2464,21 @@ run_obfuscator_app <- function() {
         log_info = log_info
       )
       cat(report_text, "\n")
+    })
+
+    shiny::observeEvent(input$show_audit_log, {
+      shiny::showModal(shiny::modalDialog(
+        title = "Log tecnico de auditoria",
+        size = "l",
+        easyClose = TRUE,
+        shiny::tags$p(class = "help-text", "Este log muestra el objeto tecnico registrado por la ofuscacion actual."),
+        shiny::verbatimTextOutput("audit_log_dump_text"),
+        footer = shiny::modalButton("Cerrar")
+      ))
+    })
+
+    output$audit_log_dump_text <- shiny::renderText({
+      render_audit_log_dump(audit_log())
     })
 
     output$download_button_ui <- shiny::renderUI({
@@ -2405,8 +2517,17 @@ run_obfuscator_app <- function() {
       
       tryCatch({
         reverted <- revert_obfuscation(res, log)
-        obfuscated_data(reverted)
-        shiny::showNotification("Dataset revertido correctamente.", type = "message")
+        source_data(reverted)
+        obfuscated_data(NULL)
+        audit_log(NULL)
+        selected_release_variable(NULL)
+        progress_status("Dataset restaurado al estado previo a la ofuscacion.")
+        release_state(transition_release_state(
+          release_state(),
+          "material_change",
+          context = list(metadata = list(trigger = "revert"))
+        ))
+        shiny::showNotification("Dataset restaurado al estado previo a la ofuscacion.", type = "message")
       }, error = function(e) {
         shiny::showNotification(paste("Error al revertir:", e$message), type = "error")
       })
@@ -2508,6 +2629,9 @@ run_obfuscator_app <- function() {
               shiny::tags$p("Subir k o generalizar mas puede mejorar la liberabilidad, pero tambien puede degradar la utilidad analitica.")
             )
           ),
+          shiny::tabPanel("Plantillas",
+            render_controlled_release_help()
+          ),
           shiny::tabPanel("Medidor preliminar",
             render_privacy_meter_help_content()
           )
@@ -2522,6 +2646,16 @@ run_obfuscator_app <- function() {
         size = "m",
         easyClose = TRUE,
         render_privacy_meter_help_content(),
+        footer = shiny::modalButton("Cerrar")
+      ))
+    })
+
+    shiny::observeEvent(input$show_template_help, {
+      shiny::showModal(shiny::modalDialog(
+        title = "Clasificacion y plantillas",
+        size = "m",
+        easyClose = TRUE,
+        render_controlled_release_help(),
         footer = shiny::modalButton("Cerrar")
       ))
     })
