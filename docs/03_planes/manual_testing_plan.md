@@ -255,6 +255,87 @@ Registrar:
 - si el boton quedo habilitado o no;
 - si el bloqueo fue claro o confuso.
 
+### Caso 5A. Tabla principal release-safe
+
+Objetivo:
+- verificar que la tabla principal sea efectivamente el mecanismo dominante de clasificacion.
+
+Pasos:
+1. cargar `obfuscator_demo_personas`;
+2. ubicar la seccion `Tabla principal por variable`;
+3. verificar que cada fila muestre:
+   - nombre de variable;
+   - tipo;
+   - rol;
+   - tratamiento;
+   - riesgo;
+   - estado;
+   - accion `Editar`;
+4. comprobar que el tablero heredado no aparezca abierto como mecanismo principal.
+
+Resultado esperado:
+- la tabla principal debe verse primero y con claridad;
+- debe ser evidente que ese es el camino principal de trabajo;
+- el modo heredado debe quedar colapsado y marcado como experimental.
+
+### Caso 5B. Cambio rapido de rol desde la tabla
+
+Objetivo:
+- comprobar que un rol se pueda cambiar sin reorganizar listas ni usar el flujo viejo.
+
+Pasos:
+1. con `obfuscator_demo_personas` cargado, localizar la fila `edad`;
+2. observar el rol sugerido inicial;
+3. cambiar el rol desde el selector inline;
+4. verificar que cambian:
+   - el badge visible;
+   - el estado/riesgo de la fila;
+   - el bloque `Clasificacion para liberacion`.
+
+Resultado esperado:
+- el cambio debe reflejarse sin recargar la app;
+- la tabla debe seguir siendo comprensible despues del cambio.
+
+### Caso 5C. Ficha lateral por variable
+
+Objetivo:
+- verificar que la ficha lateral explique la variable seleccionada.
+
+Pasos:
+1. en `obfuscator_demo_personas`, abrir `Editar` sobre:
+   - `edad`
+   - `indicador_privado`
+   - `observacion`
+2. leer en cada caso:
+   - `Resumen`
+   - `Rol principal`
+   - `Tratamiento tecnico`
+   - `Impacto`
+   - `Ayuda`
+
+Resultado esperado:
+- `edad` debe explicarse como variable que puede identificar por combinacion;
+- `indicador_privado` debe verse como sensible;
+- `observacion` debe verse como privada o texto libre;
+- la ficha debe ayudar a entender, no solo repetir etiquetas.
+
+### Caso 5D. Guia breve de trabajo y glosario
+
+Objetivo:
+- validar que la app ya ofrece ayuda minima visible dentro del flujo.
+
+Pasos:
+1. cargar cualquier dataset;
+2. ubicar la `Guia breve de trabajo`;
+3. leer:
+   - el papel de `k-anonymity`;
+   - los pasos del flujo;
+   - las definiciones de `ID`, `QI`, `SENS`, `PRIV`, `KEEP`, `EXC`.
+
+Resultado esperado:
+- la ayuda debe ser corta pero suficiente para orientarse;
+- no deberia requerir conocer la historia del proyecto para entender el vocabulario basico.
+
 ### Caso 6. `k-anonymity` con supresion por filas
 
 Objetivo:
@@ -306,6 +387,42 @@ Resultado esperado hoy:
 Interpretacion correcta:
 - si la deteccion es poco visible, eso confirma una brecha real del MVP;
 - no debe maquillarse como funcionalidad ya resuelta.
+
+### Caso 8A. `edad` como `QI` numerico
+
+Objetivo:
+- comprobar que una numerica clasificada como `QI` entre efectivamente al modelo de `k-anonymity`.
+
+Pasos:
+1. cargar `obfuscator_demo_personas`;
+2. confirmar que `edad` quede clasificada como `QI`;
+3. activar `k-anonymity`;
+4. ejecutar una ofuscacion;
+5. revisar:
+   - el resumen release-safe;
+   - el resumen de auditoria;
+   - el `dput()` del `obfuscator_log` si hace falta.
+
+Resultado esperado:
+- `edad` debe formar parte de los `quasi-identifiers` evaluados;
+- no debe quedar tratada como numerica puramente analitica por defecto.
+
+### Caso 8B. Interpretacion de `SENS` y `PRIV`
+
+Objetivo:
+- verificar la semantica operativa actual de estos roles.
+
+Pasos:
+1. cargar `obfuscator_demo_personas`;
+2. revisar que:
+   - `indicador_privado` quede en `SENS`;
+   - `observacion` quede en `PRIV`;
+3. activar `k-anonymity`;
+4. ejecutar y revisar el resumen de auditoria.
+
+Resultado esperado:
+- `SENS` y `PRIV` no deben entrar automaticamente como quasi-identificadores;
+- aun asi deben aparecer como parte del contexto de riesgo y de la explicacion de la salida.
 
 ### Caso 9. Resumen de auditoria
 
