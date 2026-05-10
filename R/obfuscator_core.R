@@ -1193,11 +1193,11 @@ apply_k_anonymity_model <- function(data, privacy_model, progress_callback = NUL
         rows_suppressed <- sum(!keep_mask, na.rm = TRUE)
         final_data <- final_data[keep_mask, , drop = FALSE]
       } else if (identical(suppression, "group")) {
-        # NEW: Residual grouping into "REMANENTE"
+        # Residual grouping into a clearly generalized bucket
         violating_mask <- keys %in% violating_keys
         if (any(violating_mask)) {
           for (qi in quasi_identifiers) {
-            final_data[violating_mask, qi] <- "REMANENTE"
+            final_data[violating_mask, qi] <- "AGRUPADO"
           }
         }
         rows_suppressed <- 0L

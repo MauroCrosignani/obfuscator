@@ -41,7 +41,7 @@ Verificar por observacion directa:
   - valor de `k`;
   - supresion residual por:
     - eliminar filas;
-    - agrupar remanentes;
+    - agrupar categorias residuales;
     - conservar sin anonimizar;
 - estado de liberacion:
   - `No evaluado`;
@@ -215,13 +215,13 @@ Registrar:
 ### Caso 4. Reproduccion del warning reportado con `iris`
 
 Objetivo:
-- confirmar que no reaparece el warning en consola al usar `k = 13` y `Agrupar remanentes`.
+- confirmar que no reaparece el warning en consola al usar `k = 13` y `Agrupar categorias residuales`.
 
 Pasos:
 1. cargar `iris`;
 2. activar `k-anonymity`;
 3. poner `k = 13`;
-4. seleccionar `Agrupar remanentes`;
+4. seleccionar `Agrupar categorias residuales`;
 5. ejecutar la ofuscacion.
 
 Resultado esperado:
@@ -270,7 +270,7 @@ Pasos:
    - tratamiento;
    - riesgo;
    - estado;
-   - accion `Editar`;
+   - accion `Ver detalle`;
 4. comprobar que el tablero heredado no aparezca abierto como mecanismo principal.
 
 Resultado esperado:
@@ -302,7 +302,7 @@ Objetivo:
 - verificar que la ficha lateral explique la variable seleccionada.
 
 Pasos:
-1. en `obfuscator_demo_personas`, abrir `Editar` sobre:
+1. en `obfuscator_demo_personas`, abrir `Ver detalle` sobre:
    - `edad`
    - `indicador_privado`
    - `observacion`
@@ -354,18 +354,18 @@ Resultado esperado:
 - el resumen debe mencionar supresion residual, si la hubo;
 - el estado de liberacion no debe ser `Liberable` si persiste riesgo.
 
-### Caso 7. `k-anonymity` con `Agrupar remanentes`
+### Caso 7. `k-anonymity` con `Agrupar categorias residuales`
 
 Objetivo:
-- verificar que las clases chicas se agrupen visualmente como remanentes.
+- verificar que las clases chicas se agrupen visualmente en una categoria residual clara.
 
 Pasos:
 1. repetir el caso anterior;
-2. elegir `Agrupar remanentes`;
+2. elegir `Agrupar categorias residuales`;
 3. ejecutar.
 
 Resultado esperado:
-- deben aparecer valores `REMANENTE` en cuasi-identificadores afectados, si la configuracion lo requiere;
+- deben aparecer valores `AGRUPADO` en cuasi-identificadores afectados, si la configuracion lo requiere;
 - el resumen debe explicar que hubo agrupacion residual;
 - la salida debe ser visualmente distinta del modo `Eliminar filas`.
 

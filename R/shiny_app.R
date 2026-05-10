@@ -235,7 +235,7 @@ release_safe_workflow_steps <- function() {
   c(
     "Carga el dataset y revisa las sugerencias automaticas.",
     "Confirma el rol principal de cada variable desde la tabla.",
-    "Abre Editar en las variables dudosas para leer impacto y tratamiento.",
+    "Abre Ver detalle en las variables dudosas para leer impacto y tratamiento.",
     "Activa k-anonymity cuando el destino sea una liberacion externa.",
     "Ejecuta la evaluacion y revisa bloqueos, advertencias y resumen de auditoria.",
     "Exporta solo si el estado final del dataset es Liberable."
@@ -373,7 +373,7 @@ release_safe_status_label <- function(role, suggestion_role = NULL) {
     return("OK")
   }
 
-  if (identical(role, suggestion_role) && role %in% c("KEEP", "QI")) {
+  if (identical(role, suggestion_role) && identical(role, "QI")) {
     return("Sugerido")
   }
 
@@ -484,7 +484,7 @@ build_release_variable_rows <- function(df, role_state, suggested_roles = list()
       treatment = release_safe_treatment_label(role, type_label),
       risk = release_safe_risk_label(role),
       status = release_safe_status_label(role, suggestion_role),
-      action_label = "Editar"
+      action_label = "Ver detalle"
     )
   })
 }
@@ -716,7 +716,7 @@ render_release_variable_detail_panel <- function(df, selected_var, role_state, s
     return(shiny::tags$div(
       class = "release-variable-detail release-variable-detail-empty",
       shiny::tags$h3("Ficha por variable"),
-      shiny::tags$p("Usa el boton Editar de la tabla principal para abrir el detalle de una variable.")
+      shiny::tags$p("Usa el boton Ver detalle de la tabla principal para abrir el detalle de una variable.")
     ))
   }
 
@@ -750,7 +750,7 @@ render_release_variable_detail_panel <- function(df, selected_var, role_state, s
       shiny::tagList(
         shiny::tags$p(sprintf("Rol actual: %s", detail$role)),
         shiny::tags$p(release_safe_role_definition(detail$role)),
-        shiny::tags$p(class = "help-text", "El cambio rapido sigue disponible en la tabla principal para no romper el flujo actual.")
+        shiny::tags$p(class = "help-text", "Si quieres cambiar este rol, hazlo desde el selector de la tabla principal.")
       )
     ),
     render_release_detail_block(
@@ -895,7 +895,8 @@ studio_parameter_defaults <- function() {
     numeric_mode = "range_random",
     k_value = 5,
     k_suppression = "rows",
-    group_ids = FALSE
+    group_ids = FALSE,
+    enable_k = TRUE
   )
 }
 
@@ -1145,7 +1146,7 @@ build_release_parameters_card <- function() {
     class = "panel-card",
     shiny::tags$h3(studio_icon("settings", "Parametros"), " Parametros"),
     shiny::numericInput("seed", "Semilla", value = defaults$seed, min = 1),
-    shiny::checkboxInput("enable_k", "Activar k-anonymity", value = FALSE),
+    shiny::checkboxInput("enable_k", "Activar k-anonymity", value = isTRUE(defaults$enable_k)),
     shiny::conditionalPanel(
       "input.enable_k === true",
       shiny::numericInput("k_value", "Valor de k", value = defaults$k_value, min = 2, step = 1),
@@ -1154,7 +1155,7 @@ build_release_parameters_card <- function() {
         "Supresion residual",
         choices = c(
           "Eliminar filas" = "rows",
-          "Agrupar remanentes" = "group",
+          "Agrupar categorias residuales" = "group",
           "Conservar sin anonimizar" = "none"
         ),
         selected = defaults$k_suppression
@@ -1163,12 +1164,12 @@ build_release_parameters_card <- function() {
       shiny::tags$div(
         class = "help-text",
         style = "margin-top: -10px; margin-bottom: 10px;",
-        shiny::tags$em("Tip: Si 'k' es alto y no ves datos, prueba 'Agrupar remanentes' o usa jerarquias para reducir la diversidad de los quasi-identificadores.")
+        shiny::tags$em("Tip: Si 'k' es alto y no ves datos, prueba 'Agrupar categorias residuales' o usa jerarquias para reducir la diversidad de los quasi-identificadores.")
       )
     ),
     shiny::tags$details(
       class = "advanced-options",
-      shiny::tags$summary("Opciones Avanzadas"),
+      shiny::tags$summary("Opciones Avanzadas (clic para abrir)"),
       shiny::tags$br(),
       shiny::textInput("id_prefix", "Prefijo para IDs", value = defaults$id_prefix),
       shiny::passwordInput("project_key", "Llave del Proyecto (Opcional)", placeholder = "Sincroniza multiples archivos"),

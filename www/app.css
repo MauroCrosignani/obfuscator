@@ -283,6 +283,30 @@ body {
   color: #44515c;
 }
 
+.release-role-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.release-role-select {
+  min-width: 84px;
+  padding: 4px 8px;
+  border-radius: 10px;
+  border: 1px solid #cfd8df;
+  background: #ffffff;
+  color: #243241;
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+.release-role-select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.16);
+}
+
 .release-role-badge,
 .release-signal-badge {
   display: inline-flex;
@@ -924,19 +948,62 @@ body {
 /* Advanced Options Disclosure */
 .advanced-options {
   border-top: 1px solid var(--border-primary);
-  padding-top: 10px;
+  margin-top: 16px;
+  padding-top: 14px;
+  margin-bottom: 14px;
 }
 
 .advanced-options summary {
   cursor: pointer;
-  font-weight: 600;
-  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border-primary);
+  background: rgba(59, 130, 246, 0.08);
+  font-weight: 700;
+  color: #1d4ed8;
   font-size: 13px;
   user-select: none;
+  list-style: none;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 }
 
 .advanced-options summary:hover {
-  color: var(--text-primary);
+  color: #1e3a8a;
+  background: rgba(59, 130, 246, 0.14);
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+.advanced-options summary::-webkit-details-marker {
+  display: none;
+}
+
+.advanced-options summary::before {
+  content: "+";
+  font-weight: 800;
+}
+
+.advanced-options[open] summary::before {
+  content: "-";
+}
+
+.advanced-options[open] summary {
+  margin-bottom: 10px;
+}
+
+.selectize-control,
+.selectize-dropdown {
+  position: relative;
+}
+
+.selectize-control {
+  z-index: 40;
+}
+
+.selectize-dropdown {
+  z-index: 2000 !important;
 }
 
 /* Dark Theme Overrides for Specific Components */

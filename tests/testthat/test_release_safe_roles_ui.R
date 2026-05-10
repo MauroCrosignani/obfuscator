@@ -97,9 +97,16 @@ test_that("main classification table render exposes release-safe columns and rol
   expect_match(html, "Riesgo")
   expect_match(html, "Estado")
   expect_match(html, "Accion")
-  expect_match(html, "Editar")
+  expect_match(html, "Ver detalle")
   expect_match(html, "release-variable-table")
   expect_match(html, "release-role-badge")
+})
+
+test_that("status labels distinguish quasi-identifiers from kept analytical fields", {
+  expect_equal(release_safe_status_label("EXC", suggestion_role = "QI"), "OK")
+  expect_equal(release_safe_status_label("KEEP", suggestion_role = "KEEP"), "OK")
+  expect_equal(release_safe_status_label("QI", suggestion_role = "QI"), "Sugerido")
+  expect_equal(release_safe_status_label("SENS", suggestion_role = "SENS"), "Revisar")
 })
 
 test_that("main classification table renders an inline role control per row", {

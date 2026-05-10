@@ -398,6 +398,7 @@ test_that("release UI uses one canonical parameter configuration", {
   expect_equal(cfg$id_prefix, "999")
   expect_null(cfg$project_key)
   expect_equal(cfg$numeric_mode, "range_random")
+  expect_true(cfg$enable_k)
 })
 
 test_that("dataset display name comes from the loaded source", {
