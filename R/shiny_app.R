@@ -88,9 +88,10 @@ quasi_identifier_choices <- function(df, ui_roles) {
 }
 
 build_release_role_summary <- function(df, roles, k_enabled = FALSE) {
-  qis <- quasi_identifier_choices(df, roles)
-  sensitive <- intersect(roles$sensitive %||% character(0), colnames(df))
-  private <- intersect(roles$private %||% character(0), colnames(df))
+  visible_sets <- release_safe_display_role_sets(df, roles)
+  qis <- visible_sets$qi
+  sensitive <- visible_sets$sensitive
+  private <- visible_sets$private
 
   chips_or_fallback <- function(values, empty_text) {
     if (length(values) == 0) {
@@ -108,7 +109,7 @@ build_release_role_summary <- function(df, roles, k_enabled = FALSE) {
       shiny::tags$p(
         class = "help-text",
         if (isTRUE(k_enabled)) {
-          "Actualmente k-anonymity se calcula con Identificadoras, Fechas y Categoricas."
+          "Este resumen refleja las variables marcadas como QI en la vista principal release-safe."
         } else {
           "Activa k-anonymity para evaluar liberacion externa con esta lista."
         }
@@ -246,6 +247,75 @@ release_safe_status_label <- function(role, suggestion_role = NULL) {
   "OK"
 }
 
+release_safe_role_input_id <- function(var_name) {
+  paste0("release_role__", gsub("[^A-Za-z0-9_]+", "_", var_name))
+}
+
+release_safe_display_role_sets <- function(df, role_state, suggested_roles = list()) {
+  if (!is.data.frame(df) || ncol(df) == 0) {
+    return(list(qi = character(0), sensitive = character(0), private = character(0)))
+  }
+
+  variables <- colnames(df)
+  roles_by_variable <- vapply(
+    variables,
+    function(var_name) release_safe_role_from_state(var_name, role_state, suggested_roles = suggested_roles),
+    character(1)
+  )
+
+  list(
+    qi = variables[roles_by_variable == "QI"],
+    sensitive = variables[roles_by_variable == "SENS"],
+    private = variables[roles_by_variable == "PRIV"]
+  )
+}
+
+release_safe_role_to_legacy_bucket <- function(df, var_name, role) {
+  normalized_role <- toupper(role %||% "")
+  column_data <- df[[var_name]]
+
+  switch(
+    normalized_role,
+    ID = "id",
+    QI = if (inherits(column_data, c("Date", "POSIXct", "POSIXt"))) {
+      "date"
+    } else if (is.numeric(column_data) || is.integer(column_data)) {
+      "numeric"
+    } else {
+      "categorical"
+    },
+    SENS = "sensitive",
+    PRIV = "private",
+    KEEP = "preserve",
+    EXC = "exclude",
+    stop(sprintf("Rol release-safe no soportado: %s", normalized_role))
+  )
+}
+
+apply_release_safe_role_change <- function(df, role_state, var_name, new_role) {
+  if (!is.data.frame(df) || !(var_name %in% colnames(df))) {
+    return(role_state)
+  }
+
+  normalized_role <- toupper(trimws(new_role %||% ""))
+  if (!(normalized_role %in% release_safe_allowed_roles())) {
+    stop(sprintf("Rol release-safe invalido: %s", normalized_role))
+  }
+
+  updated_roles <- role_state
+  managed_slots <- c("available", "id", "date", "categorical", "numeric", "sensitive", "private", "preserve", "exclude")
+  for (slot in managed_slots) {
+    updated_roles[[slot]] <- setdiff(updated_roles[[slot]] %||% character(0), var_name)
+  }
+
+  target_slot <- release_safe_role_to_legacy_bucket(df, var_name, normalized_role)
+  updated_roles[[target_slot]] <- unique(c(updated_roles[[target_slot]] %||% character(0), var_name))
+
+  assigned <- unique(unlist(updated_roles[setdiff(managed_slots, "available")], use.names = FALSE))
+  updated_roles$available <- setdiff(colnames(df), assigned)
+  updated_roles
+}
+
 build_release_variable_rows <- function(df, role_state, suggested_roles = list(), search_term = NULL) {
   if (!is.data.frame(df) || ncol(df) == 0) {
     return(list())
@@ -281,6 +351,27 @@ render_release_role_badge <- function(role) {
   )
 }
 
+render_release_role_control <- function(var_name, selected_role) {
+  options <- lapply(release_safe_allowed_roles(), function(role) {
+    shiny::tags$option(
+      value = role,
+      selected = if (identical(role, selected_role)) "selected" else NULL,
+      role
+    )
+  })
+
+  shiny::tags$div(
+    class = "release-role-control",
+    render_release_role_badge(selected_role),
+    shiny::tags$select(
+      id = release_safe_role_input_id(var_name),
+      class = "release-role-select",
+      `aria-label` = sprintf("Rol principal para %s", var_name),
+      options
+    )
+  )
+}
+
 render_release_signal_badge <- function(value, kind = c("risk", "status")) {
   kind <- match.arg(kind)
   normalized <- tolower(gsub("[^a-z0-9]+", "-", value))
@@ -307,7 +398,7 @@ render_release_variable_table <- function(df, role_state, suggested_roles = list
     shiny::tags$tr(
       shiny::tags$td(class = "release-col-variable", shiny::tags$strong(row$variable)),
       shiny::tags$td(row$type),
-      shiny::tags$td(render_release_role_badge(row$role)),
+      shiny::tags$td(render_release_role_control(row$variable, row$role)),
       shiny::tags$td(class = "release-col-treatment", row$treatment),
       shiny::tags$td(render_release_signal_badge(row$risk, "risk")),
       shiny::tags$td(render_release_signal_badge(row$status, "status")),
@@ -1070,6 +1161,7 @@ run_obfuscator_app <- function() {
     suggested_roles <- shiny::reactiveVal(list()) # Para fuzzy matching
     # Jerarquias (listas de listas: mapping, name)
     hierarchies <- shiny::reactiveVal(list())
+    role_input_observers <- shiny::reactiveVal(list())
     
     # NUEVO: Offsets numericos
     numeric_offsets <- shiny::reactiveVal(list())
@@ -1159,6 +1251,37 @@ run_obfuscator_app <- function() {
           dataset_name = loaded_dataset_name()
         ))
       ))
+    }, ignoreNULL = TRUE)
+
+    shiny::observeEvent(source_data(), {
+      existing_observers <- role_input_observers()
+      if (length(existing_observers) > 0) {
+        invisible(lapply(existing_observers, function(observer_ref) {
+          if (!is.null(observer_ref)) {
+            observer_ref$destroy()
+          }
+          NULL
+        }))
+      }
+
+      df <- source_data()
+      shiny::req(df)
+
+      observers <- lapply(colnames(df), function(var_name) {
+        input_id <- release_safe_role_input_id(var_name)
+        shiny::observeEvent(input[[input_id]], ignoreInit = TRUE, {
+          updated_roles <- apply_release_safe_role_change(
+            df = df,
+            role_state = role_state(),
+            var_name = var_name,
+            new_role = input[[input_id]]
+          )
+          role_state(updated_roles)
+        })
+      })
+
+      names(observers) <- colnames(df)
+      role_input_observers(observers)
     }, ignoreNULL = TRUE)
 
     shiny::observeEvent(input$open_hierarchy_editor, {

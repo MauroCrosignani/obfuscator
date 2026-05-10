@@ -101,3 +101,43 @@ test_that("main classification table render exposes release-safe columns and rol
   expect_match(html, "release-variable-table")
   expect_match(html, "release-role-badge")
 })
+
+test_that("main classification table renders an inline role control per row", {
+  df <- build_demo_personas_dataset()
+
+  html <- as.character(render_release_variable_table_for_test(df))
+
+  expect_match(html, "release-role-control")
+  expect_match(html, "release_role__edad")
+  expect_match(html, "release_role__observacion")
+})
+
+test_that("quick role changes update visible QI state, table row and release summary", {
+  df <- build_demo_personas_dataset()
+  roles <- build_default_ui_roles(df)
+
+  initial_sets <- release_safe_display_role_sets(df, roles)
+  expect_true("edad" %in% initial_sets$qi)
+  expect_false("edad" %in% initial_sets$sensitive)
+
+  updated_roles <- apply_release_safe_role_change(df, roles, "edad", "SENS")
+  updated_sets <- release_safe_display_role_sets(df, updated_roles)
+
+  expect_false("edad" %in% updated_sets$qi)
+  expect_true("edad" %in% updated_sets$sensitive)
+  expect_false("edad" %in% (updated_roles$numeric %||% character(0)))
+  expect_true("edad" %in% (updated_roles$sensitive %||% character(0)))
+
+  rows <- build_release_variable_rows(
+    df,
+    role_state = updated_roles,
+    suggested_roles = suggest_release_safe_roles(df)
+  )
+  edad_row <- rows[[match("edad", vapply(rows, `[[`, character(1), "variable"))]]
+  expect_equal(edad_row$role, "SENS")
+  expect_match(edad_row$status, "Revisar", ignore.case = TRUE)
+
+  summary_html <- as.character(build_release_role_summary(df, updated_roles))
+  expect_true(grepl("Variables sensibles", summary_html, fixed = TRUE))
+  expect_true(grepl("edad", summary_html, fixed = TRUE))
+})

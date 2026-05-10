@@ -11,6 +11,7 @@ Registrar explicaciones breves y tecnicamente defendibles para audiencia interna
 - remover nombre o documento no basta cuando el tercero ya conoce muchas variables descriptivas.
 - una herramienta seria debe poder bloquear y explicar por que bloquea.
 - la clasificacion principal ya puede leerse por variable y por riesgo, no solo como listas o casilleros.
+- el rol principal de una variable ya puede cambiarse desde la vista principal, sin obligar al usuario a reorganizar listas enteras.
 - la utilidad analitica se preserva solo dentro del margen compatible con la proteccion de datos.
 - el resumen de auditoria debe traducir evidencia tecnica a una conclusion operativa defendible, no limitarse a imprimir un log interno.
 - generar codigo R para reproducir transformaciones no equivale a aprobar una liberacion externa.
