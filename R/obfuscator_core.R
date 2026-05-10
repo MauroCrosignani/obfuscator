@@ -4,6 +4,139 @@
   if (is.null(x)) y else x
 }
 
+release_safe_allowed_roles <- function() {
+  c("ID", "QI", "SENS", "PRIV", "KEEP", "EXC")
+}
+
+release_safe_role_priority <- function() {
+  c(ID = 1L, PRIV = 2L, SENS = 3L, QI = 4L, EXC = 5L, KEEP = 6L)
+}
+
+normalize_release_safe_column_name <- function(column_name) {
+  normalized <- tolower(trimws(column_name %||% ""))
+  gsub("[^a-z0-9]+", "_", normalized)
+}
+
+release_safe_text_like_column <- function(column_data) {
+  if (!(is.character(column_data) || is.factor(column_data))) {
+    return(FALSE)
+  }
+
+  values <- as.character(column_data)
+  values <- values[!is.na(values) & nzchar(trimws(values))]
+  if (length(values) == 0) {
+    return(FALSE)
+  }
+
+  unique_ratio <- length(unique(values)) / length(values)
+  mean(nchar(values), na.rm = TRUE) >= 18 || unique_ratio >= 0.8
+}
+
+suggest_release_safe_role_for_column <- function(column_name, column_data) {
+  normalized_name <- normalize_release_safe_column_name(column_name)
+  priority <- release_safe_role_priority()
+  matches <- list()
+
+  add_match <- function(role, reason) {
+    matches[[length(matches) + 1L]] <<- list(role = role, reason = reason)
+  }
+
+  if (grepl(
+    "(^|_)(id|rut|cedula|dni|nie|nic)(_|$)|identificador|persona_id|pers_id|expediente|matricula|contribuyente",
+    normalized_name
+  )) {
+    add_match("ID", "Se detecto como identificador directo por el nombre de la columna.")
+  }
+
+  if (grepl(
+    "observ|coment|nota|descripcion|direccion|telefono|mail|correo|detalle|texto",
+    normalized_name
+  )) {
+    add_match("PRIV", "Se sugirio como PRIV por nombre asociado a texto libre o dato privado.")
+  }
+  if (release_safe_text_like_column(column_data)) {
+    add_match("PRIV", "Se sugirio como PRIV porque parece texto libre o contenido muy variado.")
+  }
+
+  if (grepl(
+    "diagnost|enfermed|patolog|beneficio|subsid|sancion|riesgo|situacion|indicador_privado|sensib|privad",
+    normalized_name
+  )) {
+    add_match("SENS", "Se sugirio como SENS por nombre asociado a informacion delicada.")
+  }
+
+  if (inherits(column_data, c("Date", "POSIXct", "POSIXlt", "POSIXt")) ||
+      grepl("fecha|date|nacimiento|alta|periodo|mes|anio", normalized_name)) {
+    add_match("QI", "Se sugirio como QI porque una fecha o periodo puede identificar por combinacion.")
+  }
+  if (grepl(
+    "edad|antiguedad|cantidad_hijos|tam_hogar|ingreso|salario|monto|facturacion",
+    normalized_name
+  )) {
+    add_match("QI", "Se sugirio como QI porque puede identificar por combinacion o granularidad.")
+  }
+  if (grepl(
+    "departamento|localidad|ocupacion|sector|tramo|educ|sexo",
+    normalized_name
+  )) {
+    add_match("QI", "Se sugirio como QI porque es un atributo categorico distintivo por combinacion.")
+  }
+
+  if (grepl("excluir|exclude|descart|omit|drop|ignorar", normalized_name)) {
+    add_match("EXC", "Se sugirio como EXC por el nombre de la columna.")
+  }
+
+  if (length(matches) == 0) {
+    return(list(
+      role = "KEEP",
+      reason = "Se sugirio como KEEP porque no activo senales fuertes de identificacion o riesgo.",
+      matches = list()
+    ))
+  }
+
+  match_roles <- vapply(matches, `[[`, character(1), "role")
+  best_idx <- order(unname(priority[match_roles]), seq_along(matches))[1]
+  list(
+    role = matches[[best_idx]]$role,
+    reason = matches[[best_idx]]$reason,
+    matches = matches
+  )
+}
+
+suggest_release_safe_roles <- function(df) {
+  if (!is.data.frame(df)) {
+    stop("`df` debe ser un data.frame.")
+  }
+
+  stats::setNames(
+    lapply(colnames(df), function(column_name) {
+      suggest_release_safe_role_for_column(column_name, df[[column_name]])
+    }),
+    colnames(df)
+  )
+}
+
+release_safe_quasi_identifiers <- function(role_suggestions) {
+  if (is.null(role_suggestions) || length(role_suggestions) == 0) {
+    return(character(0))
+  }
+
+  if (is.character(role_suggestions) && !is.null(names(role_suggestions))) {
+    return(names(role_suggestions)[role_suggestions == "QI"])
+  }
+
+  is_release_safe_entry <- vapply(
+    role_suggestions,
+    function(entry) is.list(entry) && !is.null(entry$role),
+    logical(1)
+  )
+  if (!all(is_release_safe_entry)) {
+    stop("`role_suggestions` debe ser una lista nombrada de sugerencias release-safe o un vector nombrado.")
+  }
+
+  names(role_suggestions)[vapply(role_suggestions, function(entry) identical(entry$role, "QI"), logical(1))]
+}
+
 obfuscator_version <- function() {
   "0.3.0"
 }

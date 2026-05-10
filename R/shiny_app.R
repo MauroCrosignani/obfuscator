@@ -69,6 +69,17 @@ enrich_release_review_roles <- function(df, roles) {
 }
 
 quasi_identifier_choices <- function(df, ui_roles) {
+  if (is.list(ui_roles) && length(ui_roles) > 0) {
+    canonical_entries <- vapply(
+      ui_roles,
+      function(entry) is.list(entry) && !is.null(entry$role),
+      logical(1)
+    )
+    if (all(canonical_entries)) {
+      return(intersect(release_safe_quasi_identifiers(ui_roles), colnames(df)))
+    }
+  }
+
   intersect(unique(c(
     ui_roles$id %||% character(0),
     ui_roles$date %||% character(0),
