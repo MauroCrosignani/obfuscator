@@ -553,6 +553,35 @@ release_controls_from_log <- function(log_info = list()) {
     controls <- c(controls, sprintf("transformaciones registradas: %s", length(transformations)))
   }
 
+  release_safe <- log_info$release_safe %||% list()
+  if (length(release_safe$qi %||% character(0)) > 0) {
+    controls <- c(
+      controls,
+      sprintf(
+        "quasi-identificadores release-safe: %s",
+        paste(release_safe$qi, collapse = ", ")
+      )
+    )
+  }
+  if (length(release_safe$sensitive %||% character(0)) > 0) {
+    controls <- c(
+      controls,
+      sprintf(
+        "variables sensibles bajo control residual: %s",
+        paste(release_safe$sensitive, collapse = ", ")
+      )
+    )
+  }
+  if (length(release_safe$private %||% character(0)) > 0) {
+    controls <- c(
+      controls,
+      sprintf(
+        "variables privadas fuera de k-anonymity automatica: %s",
+        paste(release_safe$private, collapse = ", ")
+      )
+    )
+  }
+
   unique(controls)
 }
 

@@ -83,8 +83,89 @@ quasi_identifier_choices <- function(df, ui_roles) {
   intersect(unique(c(
     ui_roles$id %||% character(0),
     ui_roles$date %||% character(0),
-    ui_roles$categorical %||% character(0)
+    ui_roles$categorical %||% character(0),
+    ui_roles$numeric %||% character(0)
   )), colnames(df))
+}
+
+build_release_safe_audit_context <- function(df, role_state, suggested_roles = list()) {
+  if (!is.data.frame(df) || ncol(df) == 0) {
+    return(list(
+      qi = character(0),
+      sensitive = character(0),
+      private = character(0),
+      roles_by_variable = setNames(character(0), character(0))
+    ))
+  }
+
+  variables <- colnames(df)
+  roles_by_variable <- stats::setNames(
+    vapply(
+      variables,
+      function(var_name) release_safe_role_from_state(var_name, role_state, suggested_roles = suggested_roles),
+      character(1)
+    ),
+    variables
+  )
+  visible_sets <- release_safe_display_role_sets(df, role_state, suggested_roles = suggested_roles)
+
+  list(
+    qi = intersect(visible_sets$qi, variables),
+    sensitive = intersect(visible_sets$sensitive, variables),
+    private = intersect(visible_sets$private, variables),
+    roles_by_variable = roles_by_variable
+  )
+}
+
+build_release_safe_privacy_model <- function(
+  df,
+  role_state,
+  k_enabled,
+  k_value,
+  k_suppression = "rows",
+  group_ids = FALSE,
+  hierarchies = list(),
+  suggested_roles = list()
+) {
+  if (!isTRUE(k_enabled)) {
+    return(NULL)
+  }
+
+  audit_context <- build_release_safe_audit_context(
+    df,
+    role_state = role_state,
+    suggested_roles = suggested_roles
+  )
+
+  list(
+    type = "k_anonymity",
+    k = k_value,
+    quasi_identifiers = audit_context$qi,
+    suppression = k_suppression,
+    group_ids = isTRUE(group_ids),
+    hierarchies = hierarchies
+  )
+}
+
+augment_release_audit_log_with_release_safe_context <- function(
+  log_info,
+  df,
+  role_state,
+  suggested_roles = list()
+) {
+  augmented_log <- log_info %||% list()
+  audit_context <- build_release_safe_audit_context(
+    df,
+    role_state = role_state,
+    suggested_roles = suggested_roles
+  )
+
+  augmented_log$release_safe <- audit_context
+  augmented_log$roles <- augmented_log$roles %||% list()
+  augmented_log$roles$qi <- intersect(audit_context$qi, colnames(df))
+  augmented_log$roles$sensitive <- intersect(audit_context$sensitive, colnames(df))
+  augmented_log$roles$private <- intersect(audit_context$private, colnames(df))
+  augmented_log
 }
 
 build_release_role_summary <- function(df, roles, k_enabled = FALSE) {
@@ -1808,18 +1889,16 @@ run_obfuscator_app <- function() {
        roles <- role_state()
        h <- hierarchies()
        o <- numeric_offsets()
-        privacy_model <- if (isTRUE(input$enable_k)) {
-          list(
-            type = "k_anonymity",
-            k = input$k_value,
-            quasi_identifiers = quasi_identifier_choices(df, roles),
-            suppression = input$k_suppression,
-            group_ids = input$group_ids,
-            hierarchies = h
-          )
-       } else {
-         NULL
-       }
+       privacy_model <- build_release_safe_privacy_model(
+         df,
+         role_state = roles,
+         k_enabled = isTRUE(input$enable_k),
+         k_value = input$k_value,
+         k_suppression = input$k_suppression,
+         group_ids = input$group_ids,
+         hierarchies = h,
+         suggested_roles = suggested_roles()
+       )
 
        build_obfuscation_code_snippet(
          data_reference = if (input$source_mode == "environment") input$env_object else "data",
@@ -1991,6 +2070,16 @@ run_obfuscator_app <- function() {
 
       if (isTRUE(input$live_preview)) {
         roles <- role_state()
+        privacy_model <- build_release_safe_privacy_model(
+          df,
+          role_state = roles,
+          k_enabled = isTRUE(input$enable_k),
+          k_value = input$k_value,
+          k_suppression = input$k_suppression,
+          group_ids = input$group_ids,
+          hierarchies = hierarchies(),
+          suggested_roles = suggested_roles()
+        )
         config <- obfuscator_config(
           seed = input$seed,
           id_prefix = input$id_prefix,
@@ -1999,16 +2088,7 @@ run_obfuscator_app <- function() {
           project_key = if (nchar(input$project_key) > 0) input$project_key else NULL,
           numeric_offsets = numeric_offsets(),
           exclude_cols = roles$exclude,
-          privacy_model = if (isTRUE(input$enable_k)) {
-              list(
-                type = "k_anonymity", 
-                k = input$k_value,
-                quasi_identifiers = quasi_identifier_choices(df, roles),
-                suppression = input$k_suppression,
-                group_ids = input$group_ids,
-                hierarchies = hierarchies()
-              )
-          } else NULL
+          privacy_model = privacy_model
         )
         df <- obfuscate_dataset(utils::head(df, 10), config = config)
       } else {
@@ -2028,23 +2108,19 @@ run_obfuscator_app <- function() {
         "start_review",
         context = list(metadata = list(trigger = "run_obfuscation"))
       ))
-      privacy_model <- if (isTRUE(input$enable_k)) {
-          qis <- quasi_identifier_choices(df, roles)
-          if (length(qis) == 0) {
-            shiny::showNotification("k-anonymity necesita al menos un quasi-identificador seleccionado.", type = "error")
-            return()
-          }
-
-        list(
-          type = "k_anonymity",
-          k = input$k_value,
-          quasi_identifiers = qis,
-          suppression = input$k_suppression,
-          group_ids = input$group_ids,
-          hierarchies = hierarchies()
-        )
-      } else {
-        NULL
+      privacy_model <- build_release_safe_privacy_model(
+        df,
+        role_state = roles,
+        k_enabled = isTRUE(input$enable_k),
+        k_value = input$k_value,
+        k_suppression = input$k_suppression,
+        group_ids = input$group_ids,
+        hierarchies = hierarchies(),
+        suggested_roles = suggested_roles()
+      )
+      if (isTRUE(input$enable_k) && length(privacy_model$quasi_identifiers %||% character(0)) == 0) {
+        shiny::showNotification("k-anonymity necesita al menos un quasi-identificador seleccionado.", type = "error")
+        return()
       }
 
       config <- obfuscator_config(
@@ -2091,9 +2167,16 @@ run_obfuscator_app <- function() {
 
         result <- obfuscate_dataset(df, config = config)
         obfuscated_data(result)
-        audit_log(attr(result, "obfuscator_log"))
+        log_info <- augment_release_audit_log_with_release_safe_context(
+          attr(result, "obfuscator_log"),
+          df = source_data(),
+          role_state = roles,
+          suggested_roles = suggested_roles()
+        )
+        attr(result, "obfuscator_log") <- log_info
+        audit_log(log_info)
 
-        privacy_report <- attr(result, "obfuscator_log")$privacy_report %||% list()
+        privacy_report <- log_info$privacy_report %||% list()
         release_state(derive_release_state_from_obfuscation(
           privacy_enabled = isTRUE(input$enable_k),
           privacy_satisfied = isTRUE(privacy_report$after$satisfied),

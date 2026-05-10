@@ -58,6 +58,7 @@ Verificar por observacion directa:
   - ficha lateral de detalle;
   - ayuda contextual minima;
   - guia breve de trabajo release-safe;
+  - uso efectivo de `QI` numericos dentro de `k-anonymity`;
 - datasets demo precargados en el entorno global al iniciar la app:
   - `iris`
   - `mtcars`

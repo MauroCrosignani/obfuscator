@@ -451,6 +451,39 @@ test_that("quasi identifiers exclude sensitive and private roles", {
   expect_false("observacion" %in% qis)
 })
 
+test_that("release-safe privacy model includes numeric QI and keeps SENS/PRIV out of k-anonymity", {
+  df <- build_demo_personas_dataset()
+  roles <- build_default_ui_roles(df)
+  suggestions <- suggest_release_safe_roles(df)
+
+  privacy_model <- build_release_safe_privacy_model(
+    df,
+    role_state = roles,
+    k_enabled = TRUE,
+    k_value = 5,
+    k_suppression = "group",
+    group_ids = TRUE,
+    suggested_roles = suggestions
+  )
+  audit_context <- build_release_safe_audit_context(
+    df,
+    role_state = roles,
+    suggested_roles = suggestions
+  )
+
+  expect_equal(privacy_model$type, "k_anonymity")
+  expect_equal(privacy_model$k, 5)
+  expect_equal(privacy_model$suppression, "group")
+  expect_true(privacy_model$group_ids)
+  expect_true(all(c("fecha_alta", "tramo", "departamento", "edad", "ingreso") %in% privacy_model$quasi_identifiers))
+  expect_false("indicador_privado" %in% privacy_model$quasi_identifiers)
+  expect_false("observacion" %in% privacy_model$quasi_identifiers)
+
+  expect_true("edad" %in% audit_context$qi)
+  expect_true("indicador_privado" %in% audit_context$sensitive)
+  expect_true("observacion" %in% audit_context$private)
+})
+
 test_that("download control renders a blocked action when release is not allowed", {
   control <- build_download_button_control(initial_release_state())
   html <- as.character(control)

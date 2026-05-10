@@ -371,6 +371,42 @@ test_that("audit summary uses release controls when the dataset is releasable", 
   expect_match(summary_text, "supresion residual aplicada")
 })
 
+test_that("audit summary includes release-safe classification context when available", {
+  df <- build_demo_personas_dataset()
+  roles <- build_default_ui_roles(df)
+  suggestions <- suggest_release_safe_roles(df)
+  state <- build_release_state(
+    "Liberable",
+    metadata = list(artifact = release_artifact("releasable_external"))
+  )
+
+  summary_text <- build_release_audit_summary(
+    state,
+    log_info = augment_release_audit_log_with_release_safe_context(
+      log_info = list(
+        roles = role_column_choices(df, roles),
+        transformations = list(
+          persona_id = list(method = "deterministic-map"),
+          edad = list(method = "range_random")
+        ),
+        privacy_report = list(
+          k = 5,
+          after = list(satisfied = TRUE)
+        )
+      ),
+      df = df,
+      role_state = roles,
+      suggested_roles = suggestions
+    )
+  )
+
+  expect_match(summary_text, "quasi-identificadores release-safe", ignore.case = TRUE)
+  expect_match(summary_text, "edad")
+  expect_match(summary_text, "ingreso")
+  expect_match(summary_text, "indicador_privado")
+  expect_match(summary_text, "observacion")
+})
+
 test_that("api results can be evaluated with the same release semantics as the UI", {
   df <- data.frame(
     edad = c(21, 22, 23, 90),
