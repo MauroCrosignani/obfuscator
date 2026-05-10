@@ -12,3 +12,4 @@ Este documento acumula, fase a fase, los argumentos de valor del producto para u
 - diferencia artefactos internos de salidas realmente liberables;
 - deja trazabilidad de decisiones, alertas y revisiones;
 - busca minimizar reenlazabilidad, no solo remover identificadores directos.
+- no obliga al usuario a administrar listas arbitrarias: apunta a una clasificacion mas entendible por variable y por riesgo.
