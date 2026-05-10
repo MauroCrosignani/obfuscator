@@ -333,6 +333,37 @@ test_that("privacy meter state aligns with a liberable evaluated release", {
   expect_true(meter$score >= 82)
 })
 
+test_that("privacy meter help explains heuristics and limits", {
+  html <- as.character(render_privacy_meter_help_content())
+
+  expect_match(html, "estimacion preliminar", ignore.case = TRUE)
+  expect_match(html, "heuristica orientativa", ignore.case = TRUE)
+  expect_match(html, "l-diversity", ignore.case = TRUE)
+})
+
+test_that("preview formatter renders Date columns as ISO text", {
+  df <- data.frame(
+    fecha = as.Date(c("2024-01-01", NA)),
+    valor = c(10, 20)
+  )
+
+  out <- format_preview_dataset(df)
+
+  expect_type(out$fecha, "character")
+  expect_equal(out$fecha[[1]], "2024-01-01")
+  expect_true(is.na(out$fecha[[2]]))
+  expect_equal(out$valor, df$valor)
+})
+
+test_that("preview mode control locks after obfuscation exists", {
+  locked_html <- as.character(build_preview_mode_control(TRUE))
+  editable_html <- as.character(build_preview_mode_control(FALSE))
+
+  expect_match(locked_html, "disabled")
+  expect_match(locked_html, "resultado ofuscado")
+  expect_match(editable_html, "live_preview")
+})
+
 test_that("Las reglas de consistencia quedan registradas en el log con cantidad de ajustes", {
   rules <- list(list(type = "ordered", lower = "A", upper = "B", allow_equal = TRUE))
   df <- data.frame(A = c(10, 2), B = c(1, 3))
@@ -543,6 +574,7 @@ test_that("the main UI renders a single parameters section", {
   expect_equal(sum(gregexpr("id=\"id_prefix\"", ui_text, fixed = TRUE)[[1]] > 0), 1)
   expect_equal(sum(gregexpr("id=\"project_key\"", ui_text, fixed = TRUE)[[1]] > 0), 1)
   expect_equal(sum(gregexpr("id=\"numeric_mode\"", ui_text, fixed = TRUE)[[1]] > 0), 1)
+  expect_match(ui_text, "Modo numerico general")
 })
 
 test_that("the main UI includes the release-safe variable table as visible primary structure", {
@@ -553,6 +585,8 @@ test_that("the main UI includes the release-safe variable table as visible prima
   expect_match(ui_text, "mecanismo principal de clasificacion")
   expect_match(ui_text, "Modo heredado de arrastre \\(experimental\\)")
   expect_match(ui_text, "Tablero heredado")
+  expect_match(ui_text, "show_privacy_meter_help")
+  expect_match(ui_text, "preview_mode_ui")
 })
 
 test_that("generated R code reflects release privacy inputs and warns about approval", {

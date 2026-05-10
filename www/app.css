@@ -112,6 +112,14 @@ body {
   box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 }
 
+.inline-help-btn {
+  min-width: 34px;
+  height: 34px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-weight: 700;
+}
+
 .panel-card {
   background: var(--bg-card);
   backdrop-filter: var(--glass-blur);
@@ -219,14 +227,14 @@ body {
 
 .release-role-glossary {
   display: grid;
-  gap: 10px;
+  gap: 14px;
 }
 
 .release-role-glossary-item {
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  padding: 4px 0;
+  padding: 6px 0;
 }
 
 .release-role-glossary-item .release-role-badge {
@@ -921,6 +929,23 @@ body {
 .score-val {
   font-size: 18px;
   font-weight: 800;
+}
+
+.preview-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-bottom: 0;
+}
+
+.preview-toggle input[disabled] {
+  cursor: not-allowed;
+}
+
+.preview-toggle-locked {
+  opacity: 0.9;
 }
 
 /* Micro-interactions & Glassmorphism 2.0 */

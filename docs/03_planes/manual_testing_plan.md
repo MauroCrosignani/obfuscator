@@ -350,8 +350,9 @@ Pasos:
 6. ejecutar.
 
 Resultado esperado:
-- la salida debe mostrar reduccion de filas o bloqueo;
-- el resumen debe mencionar supresion residual, si la hubo;
+- si la generalizacion no alcanza, la salida debe mostrar reduccion de filas o bloqueo;
+- si la generalizacion alcanza antes, puede no haber reduccion de filas aunque el modo configurado sea `Eliminar filas`;
+- el resumen debe mencionar la supresion residual configurada y aclarar si finalmente no hizo falta eliminar filas;
 - el estado de liberacion no debe ser `Liberable` si persiste riesgo.
 
 ### Caso 7. `k-anonymity` con `Agrupar categorias residuales`
@@ -367,7 +368,8 @@ Pasos:
 Resultado esperado:
 - deben aparecer valores `AGRUPADO` en cuasi-identificadores afectados, si la configuracion lo requiere;
 - el resumen debe explicar que hubo agrupacion residual;
-- la salida debe ser visualmente distinta del modo `Eliminar filas`.
+- la salida debe ser visualmente distinta del modo `Eliminar filas`;
+- una vez ejecutada la ofuscacion, la vista previa debe reflejar el resultado real y dejar bloqueado el modo de previsualizacion hipotetica.
 
 ### Caso 8. Texto libre y senales de riesgo con `obfuscator_demo_personas`
 

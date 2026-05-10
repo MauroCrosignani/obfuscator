@@ -247,6 +247,37 @@ release_safe_workflow_steps <- function() {
   )
 }
 
+privacy_meter_explanation_points <- function() {
+  list(
+    preliminar = c(
+      "Antes de ejecutar, la estimacion usa el valor de k, la cantidad de variables clasificadas como ID y QI, y la presencia de jerarquias activas.",
+      "Es una heuristica orientativa: ayuda a detectar configuraciones debiles, pero no decide por si sola si un dataset puede liberarse."
+    ),
+    evaluado = c(
+      "Despues de ejecutar, el medidor deja de ser solo preliminar y refleja el ultimo estado evaluado de liberacion.",
+      "Si el estado final es Liberable, el medidor pasa a verde; si queda Bloqueado, muestra ese resultado aunque la configuracion preliminar pareciera prometedora."
+    ),
+    alcance = c(
+      "El criterio formal de liberacion sigue estando en el resumen de auditoria, no en el porcentaje aislado.",
+      "El medidor no implementa l-diversity ni t-closeness en este MVP."
+    )
+  )
+}
+
+render_privacy_meter_help_content <- function() {
+  points <- privacy_meter_explanation_points()
+
+  shiny::tags$div(
+    style = "padding: 15px;",
+    shiny::tags$h4("Como se calcula la estimacion preliminar"),
+    shiny::tags$ul(lapply(points$preliminar, shiny::tags$li)),
+    shiny::tags$h4("Que cambia despues de ejecutar"),
+    shiny::tags$ul(lapply(points$evaluado, shiny::tags$li)),
+    shiny::tags$h4("Alcance y limites"),
+    shiny::tags$ul(lapply(points$alcance, shiny::tags$li))
+  )
+}
+
 release_safe_privacy_meter_state <- function(role_state, k_value, hierarchy_count = 0, release_state = NULL, log_info = NULL) {
   role_state <- role_state %||% list()
   k <- as.numeric(k_value %||% studio_parameter_defaults()$k_value)
@@ -322,6 +353,37 @@ render_release_workflow_guide <- function() {
     shiny::tags$h4("Roles principales"),
     render_release_role_glossary()
   )
+}
+
+format_preview_dataset <- function(df) {
+  if (!is.data.frame(df) || ncol(df) == 0) {
+    return(df)
+  }
+
+  out <- df
+  for (col_name in names(out)) {
+    column <- out[[col_name]]
+    if (inherits(column, "Date")) {
+      out[[col_name]] <- ifelse(is.na(column), NA_character_, format(column, "%Y-%m-%d"))
+    } else if (inherits(column, c("POSIXct", "POSIXt"))) {
+      out[[col_name]] <- ifelse(is.na(column), NA_character_, format(column, "%Y-%m-%d %H:%M:%S"))
+    }
+  }
+  out
+}
+
+build_preview_mode_control <- function(has_obfuscated_data = FALSE) {
+  if (isTRUE(has_obfuscated_data)) {
+    return(
+      shiny::tags$label(
+        class = "preview-toggle preview-toggle-locked",
+        shiny::tags$input(type = "checkbox", checked = "checked", disabled = "disabled"),
+        shiny::tags$span("Vista del resultado ofuscado (solo 10 filas)")
+      )
+    )
+  }
+
+  shiny::checkboxInput("live_preview", "Vista previa de ofuscacion (solo 10 filas)", value = FALSE)
 }
 
 release_safe_role_from_state <- function(var_name, role_state, suggested_roles = list()) {
@@ -1234,7 +1296,8 @@ build_release_parameters_card <- function() {
           "Preservar rango" = "preserve_rank",
           "Permutacion" = "permute"
         ),
-        selected = defaults$numeric_mode
+        selected = defaults$numeric_mode,
+        selectize = FALSE
       )
     ),
     shiny::actionButton("run_obfuscation", "Ofuscar dataset", class = "primary-btn")
@@ -1311,7 +1374,11 @@ build_obfuscator_app_ui <- function(asset_version) {
             class = "sidebar",
             shiny::tags$div(
               class = "panel-card privacy-meter-container",
-              shiny::tags$h3(studio_icon("privacy", "Privacidad"), " Nivel de Privacidad"),
+              shiny::tags$div(
+                class = "section-header",
+                shiny::tags$h3(studio_icon("privacy", "Privacidad"), " Nivel de Privacidad"),
+                shiny::actionButton("show_privacy_meter_help", "?", class = "help-btn inline-help-btn", title = "Como se calcula esta estimacion")
+              ),
               shiny::uiOutput("privacy_meter_ui"),
               shiny::tags$p(class = "help-text", "Antes de ejecutar funciona como una estimacion preliminar. Despues refleja la ultima evaluacion de liberacion.")
             ),
@@ -1396,7 +1463,7 @@ build_obfuscator_app_ui <- function(asset_version) {
             shiny::tags$div(
               class = "section-header",
               shiny::tags$h3("Vista previa"),
-              shiny::checkboxInput("live_preview", "Vista previa de ofuscacion (solo 10 filas)", value = FALSE)
+              shiny::uiOutput("preview_mode_ui")
             ),
             shiny::tags$div(
               class = "preview-table-wrapper",
@@ -2082,6 +2149,10 @@ run_obfuscator_app <- function() {
       )
     })
 
+    output$preview_mode_ui <- shiny::renderUI({
+      build_preview_mode_control(has_obfuscated_data = !is.null(obfuscated_data()))
+    })
+
     output$role_board_ui <- shiny::renderUI({
       df <- source_data()
       if (is.null(df)) {
@@ -2130,7 +2201,11 @@ run_obfuscator_app <- function() {
       df <- source_data()
       shiny::req(df)
 
-      if (isTRUE(input$live_preview)) {
+      preview_df <- obfuscated_data()
+
+      if (!is.null(preview_df)) {
+        df <- preview_df
+      } else if (isTRUE(input$live_preview)) {
         roles <- role_state()
         privacy_model <- build_release_safe_privacy_model(
           df,
@@ -2153,11 +2228,9 @@ run_obfuscator_app <- function() {
           privacy_model = privacy_model
         )
         df <- obfuscate_dataset(utils::head(df, 10), config = config)
-      } else {
-        df <- obfuscated_data() %||% df
       }
 
-      utils::head(df, 10)
+      utils::head(format_preview_dataset(df), 10)
     }, rownames = TRUE)
 
     shiny::observeEvent(input$run_obfuscation, {
@@ -2388,7 +2461,8 @@ run_obfuscator_app <- function() {
                 shiny::tags$li("Carga el dataset y revisa las sugerencias automaticas."),
                 shiny::tags$li("Confirma o ajusta el rol principal de cada variable desde la tabla."),
                 shiny::tags$li("Usa Ver detalle para entender impacto, tratamiento y riesgo."),
-                shiny::tags$li("Si el resultado es solo interno, puedes guardarlo como artefacto interno; si va a terceros, revisa el estado final antes de exportar.")
+                shiny::tags$li("Si el resultado es solo interno, puedes guardarlo como artefacto interno; si va a terceros, revisa el estado final antes de exportar."),
+                shiny::tags$li("Usa el boton junto a Nivel de Privacidad para leer como funciona la estimacion preliminar.")
               ),
               shiny::tags$h4("Roles principales"),
               shiny::tags$ul(
@@ -2433,8 +2507,21 @@ run_obfuscator_app <- function() {
               ),
               shiny::tags$p("Subir k o generalizar mas puede mejorar la liberabilidad, pero tambien puede degradar la utilidad analitica.")
             )
+          ),
+          shiny::tabPanel("Medidor preliminar",
+            render_privacy_meter_help_content()
           )
         ),
+        footer = shiny::modalButton("Cerrar")
+      ))
+    })
+
+    shiny::observeEvent(input$show_privacy_meter_help, {
+      shiny::showModal(shiny::modalDialog(
+        title = "Estimacion preliminar del nivel de privacidad",
+        size = "m",
+        easyClose = TRUE,
+        render_privacy_meter_help_content(),
         footer = shiny::modalButton("Cerrar")
       ))
     })

@@ -6,6 +6,33 @@ Registrar pendientes transversales que no deben perderse entre fases, cambios de
 
 ## Pendientes activos
 
+### 0. Persistencia operativa del resumen de auditoria para produccion
+
+**Estado:** activo  
+**Prioridad:** media
+
+Cuando el proyecto salga del MVP, el resumen de auditoria no deberia quedar solo visible en pantalla o embebido en el objeto resultante. Conviene definir un mecanismo persistente y trazable para registrar:
+
+- fecha y hora de cada evaluacion;
+- usuario o proceso que la ejecuto, si el entorno lo permite;
+- configuracion relevante de privacidad;
+- veredicto final de liberacion;
+- resumen de controles y bloqueos;
+- referencia al artefacto exportado o retenido.
+
+Objetivo:
+
+- soportar auditoria posterior;
+- facilitar soporte operativo y trazabilidad institucional;
+- preparar una futura puesta en produccion con evidencias consultables.
+
+Alternativas a evaluar mas adelante:
+
+- log estructurado local por ejecucion;
+- almacenamiento en base de datos o tabla institucional;
+- adjunto del resumen como metadata del artefacto exportado;
+- combinacion de registro operativo + informe descargable.
+
 ### 1. Documentacion retrospectiva de tasks ya completados y estables
 
 **Estado:** parcialmente cumplido  
