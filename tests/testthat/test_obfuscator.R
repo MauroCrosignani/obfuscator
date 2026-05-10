@@ -281,6 +281,7 @@ test_that("la guia release-safe expone flujo breve y definiciones de roles", {
   expect_match(html, "Guia breve de trabajo")
   expect_match(html, "k-anonymity")
   expect_match(html, "Carga el dataset")
+  expect_match(html, "uso interno", ignore.case = TRUE)
   expect_match(html, "Exporta solo si el estado final del dataset es Liberable")
   expect_match(html, "Roles principales")
   expect_match(html, "ID")
@@ -289,6 +290,28 @@ test_that("la guia release-safe expone flujo breve y definiciones de roles", {
   expect_match(html, "PRIV")
   expect_match(html, "KEEP")
   expect_match(html, "EXC")
+})
+
+test_that("privacy meter state aligns with a liberable evaluated release", {
+  df <- build_demo_personas_dataset()
+  roles <- build_default_ui_roles(df)
+  log_info <- list(
+    privacy_report = list(
+      after = list(satisfied = TRUE)
+    )
+  )
+
+  meter <- release_safe_privacy_meter_state(
+    role_state = roles,
+    k_value = 5,
+    hierarchy_count = 0,
+    release_state = build_release_state("Liberable"),
+    log_info = log_info
+  )
+
+  expect_equal(meter$label, "Liberable")
+  expect_equal(meter$color_class, "meter-high")
+  expect_true(meter$score >= 82)
 })
 
 test_that("Las reglas de consistencia quedan registradas en el log con cantidad de ajustes", {

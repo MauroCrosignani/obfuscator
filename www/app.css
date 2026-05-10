@@ -207,6 +207,37 @@ body {
   margin-bottom: 8px;
 }
 
+.release-workflow-guide ol {
+  margin: 0 0 18px;
+  padding-left: 24px;
+}
+
+.release-workflow-guide li {
+  margin-bottom: 10px;
+  line-height: 1.5;
+}
+
+.release-role-glossary {
+  display: grid;
+  gap: 10px;
+}
+
+.release-role-glossary-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 4px 0;
+}
+
+.release-role-glossary-item .release-role-badge {
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+
+.release-role-glossary-item span:last-child {
+  line-height: 1.5;
+}
+
 .release-role-chip {
   display: inline-flex;
   align-items: center;
@@ -943,6 +974,13 @@ body {
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.04em;
+}
+
+.meter-caption {
+  margin: 10px 0 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 /* Advanced Options Disclosure */

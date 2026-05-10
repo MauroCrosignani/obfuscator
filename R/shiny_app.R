@@ -236,9 +236,57 @@ release_safe_workflow_steps <- function() {
     "Carga el dataset y revisa las sugerencias automaticas.",
     "Confirma el rol principal de cada variable desde la tabla.",
     "Abre Ver detalle en las variables dudosas para leer impacto y tratamiento.",
-    "Activa k-anonymity cuando el destino sea una liberacion externa.",
+    "Si el resultado es solo para uso interno, puedes conservarlo como artefacto interno; si va a terceros, manten k-anonymity activo y revisa el estado final.",
     "Ejecuta la evaluacion y revisa bloqueos, advertencias y resumen de auditoria.",
     "Exporta solo si el estado final del dataset es Liberable."
+  )
+}
+
+release_safe_privacy_meter_state <- function(role_state, k_value, hierarchy_count = 0, release_state = NULL, log_info = NULL) {
+  role_state <- role_state %||% list()
+  k <- as.numeric(k_value %||% studio_parameter_defaults()$k_value)
+  if (is.na(k)) {
+    k <- studio_parameter_defaults()$k_value
+  }
+
+  heuristic_score <- 10 + (k * 4)
+  heuristic_score <- heuristic_score + (length(role_state$id %||% character(0)) * 5)
+  heuristic_score <- heuristic_score + (length(role_state$categorical %||% character(0)) * 2)
+  heuristic_score <- heuristic_score + (as.integer(hierarchy_count %||% 0) * 8)
+  heuristic_score <- max(0, min(100, heuristic_score))
+
+  state_status <- release_state$status %||% NULL
+  privacy_report <- log_info$privacy_report %||% list()
+  evaluated <- !is.null(privacy_report$after)
+
+  if (evaluated && identical(state_status, "Liberable") && isTRUE(privacy_report$after$satisfied)) {
+    score <- max(heuristic_score, 82)
+    return(list(
+      score = score,
+      color_class = "meter-high",
+      label = "Liberable",
+      caption = "Refleja la ultima evaluacion ejecutada: el dataset quedo liberable para salida externa."
+    ))
+  }
+
+  if (evaluated && identical(state_status, "Bloqueado")) {
+    score <- min(heuristic_score, 39)
+    return(list(
+      score = score,
+      color_class = if (score < 40) "meter-low" else "meter-med",
+      label = "Bloqueado",
+      caption = "Refleja la ultima evaluacion ejecutada: todavia faltan ajustes antes de una salida externa."
+    ))
+  }
+
+  color_class <- if (heuristic_score < 40) "meter-low" else if (heuristic_score < 75) "meter-med" else "meter-high"
+  label <- if (heuristic_score < 40) "Preliminar bajo" else if (heuristic_score < 75) "Preliminar medio" else "Preliminar alto"
+
+  list(
+    score = heuristic_score,
+    color_class = color_class,
+    label = label,
+    caption = "Antes de ejecutar es una estimacion preliminar basada en k-anonymity y roles asignados."
   )
 }
 
@@ -1260,7 +1308,7 @@ build_obfuscator_app_ui <- function(asset_version) {
               class = "panel-card privacy-meter-container",
               shiny::tags$h3(studio_icon("privacy", "Privacidad"), " Nivel de Privacidad"),
               shiny::uiOutput("privacy_meter_ui"),
-              shiny::tags$p(class = "help-text", "Estimacion basada en el k-anonymity y roles asignados.")
+              shiny::tags$p(class = "help-text", "Antes de ejecutar funciona como una estimacion preliminar. Despues refleja la ultima evaluacion de liberacion.")
             ),
             build_release_parameters_card()
           ),
@@ -1861,31 +1909,24 @@ run_obfuscator_app <- function() {
 
     # --- Lógica de Privacy Meter ---
     output$privacy_meter_ui <- shiny::renderUI({
-      roles <- role_state()
-      k <- input$k_value %||% studio_parameter_defaults()$k_value
-      
-      # Calculo heuristico del score (0 a 100)
-      # k=2 es base, cada punto de k suma. Roles de ID y Categorical con jerarquia suman mas.
-      score <- 10 + (k * 4)
-      n_ids <- length(roles$id)
-      n_cat <- length(roles$categorical)
-      n_hierarchies <- length(hierarchies())
-      
-      score <- score + (n_ids * 5) + (n_cat * 2) + (n_hierarchies * 8)
-      score <- min(100, score)
-      
-      color_class <- if(score < 40) "meter-low" else if(score < 75) "meter-med" else "meter-high"
-      label <- if(score < 40) "Bajo" else if(score < 75) "Medio" else "Excelente"
-      
+      meter <- release_safe_privacy_meter_state(
+        role_state = role_state(),
+        k_value = input$k_value %||% studio_parameter_defaults()$k_value,
+        hierarchy_count = length(hierarchies()),
+        release_state = release_state(),
+        log_info = audit_log()
+      )
+
       shiny::tags$div(
-        class = paste("privacy-meter", color_class),
+        class = paste("privacy-meter", meter$color_class),
         shiny::tags$div(class = "meter-track", 
-          shiny::tags$div(class = "meter-fill", style = sprintf("width: %d%%", score))
+          shiny::tags$div(class = "meter-fill", style = sprintf("width: %d%%", meter$score))
         ),
         shiny::tags$div(class = "meter-label", 
-          shiny::tags$span(class = "score-val", sprintf("%d%%", score)),
-          shiny::tags$span(class = "score-text", label)
-        )
+          shiny::tags$span(class = "score-val", sprintf("%d%%", meter$score)),
+          shiny::tags$span(class = "score-text", meter$label)
+        ),
+        shiny::tags$p(class = "meter-caption", meter$caption)
       )
     })
     
@@ -2326,13 +2367,21 @@ run_obfuscator_app <- function() {
         shiny::tabsetPanel(
           shiny::tabPanel("Guia Rapida", 
             shiny::tags$div(style = "padding: 15px;",
-              shiny::tags$h4("Configuracion de Roles"),
-              shiny::tags$p("Arrastra las variables de la zona 'Disponibles' a las zonas activas:"),
+              shiny::tags$h4("Flujo release-safe"),
+              shiny::tags$p("La tabla principal por variable y la ficha lateral son ahora el camino recomendado para clasificar y revisar el dataset."),
+              shiny::tags$ol(
+                shiny::tags$li("Carga el dataset y revisa las sugerencias automaticas."),
+                shiny::tags$li("Confirma o ajusta el rol principal de cada variable desde la tabla."),
+                shiny::tags$li("Usa Ver detalle para entender impacto, tratamiento y riesgo."),
+                shiny::tags$li("Si el resultado es solo interno, puedes guardarlo como artefacto interno; si va a terceros, revisa el estado final antes de exportar.")
+              ),
+              shiny::tags$h4("Roles principales"),
               shiny::tags$ul(
-                shiny::tags$li(shiny::tags$strong("Identificadoras:"), " Para IDs, nombres o claves unicas."),
-                shiny::tags$li(shiny::tags$strong("Categorizacion:"), " Para variables tipo texto que quieras agrupar."),
-                shiny::tags$li(shiny::tags$strong("Fechas:"), " Seran permutadas para mantener el orden pero ocultar el dia exacto."),
-                shiny::tags$li(shiny::tags$strong("Conservar:"), " Estas variables no se tocan.")
+                shiny::tags$li(shiny::tags$strong("ID:"), " identifica directamente y no debe liberarse tal cual."),
+                shiny::tags$li(shiny::tags$strong("QI:"), " puede identificar por combinacion y entra a k-anonymity."),
+                shiny::tags$li(shiny::tags$strong("SENS:"), " revela informacion delicada aunque no identifique por si sola."),
+                shiny::tags$li(shiny::tags$strong("PRIV:"), " contiene informacion riesgosa o texto libre y requiere cautela adicional."),
+                shiny::tags$li(shiny::tags$strong("KEEP / EXC:"), " permiten conservar o excluir variables de la salida final.")
               ),
               shiny::tags$p("Usa el boton de distribucion ", studio_icon("chart", "Distribucion"), " para ver la distribucion de los datos.")
             )
@@ -2360,12 +2409,14 @@ run_obfuscator_app <- function() {
           shiny::tabPanel("Privacidad (k)", 
             shiny::tags$div(style = "padding: 15px;",
               shiny::tags$h4("Modelo k-anonymity"),
-              shiny::tags$p("El ", shiny::tags$strong("Privacy Meter"), " estima la seguridad de tu dataset."),
+              shiny::tags$p("k-anonymity es el piso formal minimo para liberacion externa en este MVP."),
               shiny::tags$ul(
-                shiny::tags$li(shiny::tags$strong("Score Bajo:"), " Los datos son faciles de re-identificar."),
-                shiny::tags$li(shiny::tags$strong("Score Alto:"), " Has logrado agrupar a los individuos de forma que es dificil distinguirlos.")
+                shiny::tags$li(shiny::tags$strong("Antes de ejecutar:"), " el panel lateral muestra una estimacion preliminar basada en roles y configuracion."),
+                shiny::tags$li(shiny::tags$strong("Despues de ejecutar:"), " el resumen de auditoria y el estado Liberable/Bloqueado mandan sobre la decision real de salida."),
+                shiny::tags$li(shiny::tags$strong("Uso interno:"), " puedes guardar un artefacto interno sin tratarlo automaticamente como liberable hacia terceros."),
+                shiny::tags$li(shiny::tags$strong("Liberacion externa:"), " solo debe ocurrir cuando el estado final del dataset sea Liberable.")
               ),
-              shiny::tags$p("Aumenta el valor de 'k' o usa mas jerarquias para mejorar el puntaje.")
+              shiny::tags$p("Subir k o generalizar mas puede mejorar la liberabilidad, pero tambien puede degradar la utilidad analitica.")
             )
           )
         ),
