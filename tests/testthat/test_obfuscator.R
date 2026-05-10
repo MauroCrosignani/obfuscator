@@ -266,6 +266,31 @@ test_that("Las reglas ordered corrigen consistencia entre columnas numericas", {
   expect_true(all(out$MINIMO <= out$MAXIMO))
 })
 
+test_that("las definiciones release-safe explican cada rol con lenguaje minimo claro", {
+  glossary <- release_safe_role_glossary()
+
+  expect_true(all(release_safe_allowed_roles() %in% names(glossary)))
+  expect_match(release_safe_role_definition("QI"), "k-anonymity|combin", ignore.case = TRUE)
+  expect_match(release_safe_role_definition("SENS"), "delicad|sensible", ignore.case = TRUE)
+  expect_match(release_safe_role_definition("PRIV"), "texto libre|riesgos", ignore.case = TRUE)
+})
+
+test_that("la guia release-safe expone flujo breve y definiciones de roles", {
+  html <- as.character(render_release_workflow_guide_for_test())
+
+  expect_match(html, "Guia breve de trabajo")
+  expect_match(html, "k-anonymity")
+  expect_match(html, "Carga el dataset")
+  expect_match(html, "Exporta solo si el estado final del dataset es Liberable")
+  expect_match(html, "Roles principales")
+  expect_match(html, "ID")
+  expect_match(html, "QI")
+  expect_match(html, "SENS")
+  expect_match(html, "PRIV")
+  expect_match(html, "KEEP")
+  expect_match(html, "EXC")
+})
+
 test_that("Las reglas de consistencia quedan registradas en el log con cantidad de ajustes", {
   rules <- list(list(type = "ordered", lower = "A", upper = "B", allow_equal = TRUE))
   df <- data.frame(A = c(10, 2), B = c(1, 3))

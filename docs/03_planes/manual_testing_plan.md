@@ -11,8 +11,9 @@ Audiencia:
 
 Conclusion practica:
 - el producto ya permite probar un flujo defendible de carga, clasificacion, ofuscacion, `k-anonymity`, bloqueo de exportacion externa y resumen de auditoria;
+- la UI ya ofrece una clasificacion principal por variable, una ficha lateral de detalle y una guia breve de trabajo release-safe;
 - todavia no implementa modelos avanzados como `l-diversity` o `t-closeness`;
-- y la interfaz aun no expone de forma suficientemente explicita una taxonomia guiada de `cuasi-identificadores`, `variables sensibles` e `informacion privada`.
+- y la interfaz aun no implementa una revision manual completa por alertas ni una experiencia final madura de liberacion formal.
 
 Este plan debe leerse como una guia para validar lo que el MVP realmente hace hoy, no como una promesa de capacidades futuras.
 
@@ -52,6 +53,11 @@ Verificar por observacion directa:
 - resumen de auditoria legible;
 - heuristicas internas de riesgo residual y reenlazabilidad;
 - generacion de codigo R con advertencia de que generar codigo no equivale a aprobar liberacion externa;
+- clasificacion principal por variable con:
+  - cambio rapido de rol;
+  - ficha lateral de detalle;
+  - ayuda contextual minima;
+  - guia breve de trabajo release-safe;
 - datasets demo precargados en el entorno global al iniciar la app:
   - `iris`
   - `mtcars`
@@ -62,11 +68,8 @@ Verificar por observacion directa:
 
 - `l-diversity`;
 - `t-closeness`;
-- una interfaz completa y explicita de flujo de revision manual por alerta;
-- una capa visual madura que etiquete y explique por separado:
-  - `cuasi-identificadores`;
-  - `variables sensibles`;
-  - `informacion privada`;
+- una interfaz completa de revision manual por alerta;
+- configuracion avanzada persistente por variable dentro de la ficha lateral;
 - una pantalla de liberacion formal que conduzca al usuario paso a paso por cada bloqueo.
 
 ## Preparacion de la prueba

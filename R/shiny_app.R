@@ -130,6 +130,66 @@ build_release_role_summary <- function(df, roles, k_enabled = FALSE) {
   )
 }
 
+release_safe_role_definition <- function(role) {
+  switch(
+    toupper(role %||% ""),
+    ID = "Identifica directamente a la unidad de analisis y no debe liberarse tal cual.",
+    QI = "Puede identificar por combinacion con otras variables y entra a k-anonymity.",
+    SENS = "Revela informacion delicada, aunque no identifique por si sola.",
+    PRIV = "Contiene informacion especialmente riesgosa o dificil de controlar, como texto libre.",
+    KEEP = "Puede conservarse en la salida sin ser eje principal del control de anonimidad.",
+    EXC = "Debe excluirse de la salida final.",
+    "Rol sin definir."
+  )
+}
+
+release_safe_role_glossary <- function() {
+  setNames(
+    lapply(release_safe_allowed_roles(), release_safe_role_definition),
+    release_safe_allowed_roles()
+  )
+}
+
+release_safe_workflow_steps <- function() {
+  c(
+    "Carga el dataset y revisa las sugerencias automaticas.",
+    "Confirma el rol principal de cada variable desde la tabla.",
+    "Abre Editar en las variables dudosas para leer impacto y tratamiento.",
+    "Activa k-anonymity cuando el destino sea una liberacion externa.",
+    "Ejecuta la evaluacion y revisa bloqueos, advertencias y resumen de auditoria.",
+    "Exporta solo si el estado final del dataset es Liberable."
+  )
+}
+
+render_release_role_glossary <- function() {
+  glossary <- release_safe_role_glossary()
+
+  shiny::tags$div(
+    class = "release-role-glossary",
+    lapply(names(glossary), function(role) {
+      shiny::tags$div(
+        class = "release-role-glossary-item",
+        render_release_role_badge(role),
+        shiny::tags$span(glossary[[role]])
+      )
+    })
+  )
+}
+
+render_release_workflow_guide <- function() {
+  shiny::tags$div(
+    class = "release-workflow-guide",
+    shiny::tags$h4("Guia breve de trabajo"),
+    shiny::tags$p(
+      class = "help-text",
+      "k-anonymity es un piso formal para la liberacion externa, no una garantia suficiente por si sola."
+    ),
+    shiny::tags$ol(lapply(release_safe_workflow_steps(), shiny::tags$li)),
+    shiny::tags$h4("Roles principales"),
+    render_release_role_glossary()
+  )
+}
+
 release_safe_role_from_state <- function(var_name, role_state, suggested_roles = list()) {
   if (!is.null(role_state[[var_name]]) && is.list(role_state[[var_name]]) && !is.null(role_state[[var_name]]$role)) {
     return(toupper(role_state[[var_name]]$role))
@@ -251,6 +311,10 @@ release_safe_role_input_id <- function(var_name) {
   paste0("release_role__", gsub("[^A-Za-z0-9_]+", "_", var_name))
 }
 
+release_safe_detail_input_id <- function(var_name) {
+  paste0("release_detail__", gsub("[^A-Za-z0-9_]+", "_", var_name))
+}
+
 release_safe_display_role_sets <- function(df, role_state, suggested_roles = list()) {
   if (!is.data.frame(df) || ncol(df) == 0) {
     return(list(qi = character(0), sensitive = character(0), private = character(0)))
@@ -347,6 +411,7 @@ build_release_variable_rows <- function(df, role_state, suggested_roles = list()
 render_release_role_badge <- function(role) {
   shiny::tags$span(
     class = sprintf("release-role-badge release-role-%s", tolower(role)),
+    title = release_safe_role_definition(role),
     role
   )
 }
@@ -403,10 +468,9 @@ render_release_variable_table <- function(df, role_state, suggested_roles = list
       shiny::tags$td(render_release_signal_badge(row$risk, "risk")),
       shiny::tags$td(render_release_signal_badge(row$status, "status")),
       shiny::tags$td(
-        shiny::tags$button(
-          type = "button",
+        shiny::actionButton(
+          inputId = release_safe_detail_input_id(row$variable),
           class = "btn btn-default action-button btn-sm secondary-btn release-table-action",
-          `data-variable` = row$variable,
           row$action_label
         )
       )
@@ -434,6 +498,216 @@ render_release_variable_table_for_test <- function(df) {
     role_state = build_default_ui_roles(df),
     suggested_roles = suggest_release_safe_roles(df)
   )
+}
+
+release_safe_sample_values <- function(column_data, max_n = 3) {
+  values <- unique(as.character(column_data))
+  values <- values[!is.na(values) & nzchar(trimws(values))]
+  if (length(values) == 0) {
+    return("Sin valores de ejemplo disponibles.")
+  }
+
+  sample_values <- utils::head(values, max_n)
+  paste(sample_values, collapse = " | ")
+}
+
+release_safe_treatment_choices <- function(role, type_label) {
+  if (identical(role, "ID")) {
+    return(c("Mapa deterministico", "Excluir"))
+  }
+
+  if (identical(role, "QI")) {
+    if (identical(type_label, "Fecha")) {
+      return(c("Mes", "Trimestre", "Anio"))
+    }
+    if (identical(type_label, "Numerica")) {
+      return(c("Rango fino", "Rango amplio", "Decil"))
+    }
+    return(c("Valor original", "Agrupar raras", "Jerarquia"))
+  }
+
+  if (identical(role, "SENS")) {
+    return(c("Conservar con control", "Revision manual", "Excluir"))
+  }
+
+  if (identical(role, "PRIV")) {
+    return(c("Bloquear", "Revision manual", "Excluir"))
+  }
+
+  if (identical(role, "EXC")) {
+    return("Excluir de la salida")
+  }
+
+  c("Conservar", "Revisar si aporta a la salida")
+}
+
+release_safe_impact_text <- function(role) {
+  if (identical(role, "ID")) {
+    return("No debe salir como identificador directo. Bloquea la liberacion hasta reemplazarlo o excluirlo y no participa como QI valido para k-anonymity.")
+  }
+
+  if (identical(role, "QI")) {
+    return("Participa en k-anonymity como quasi-identificador. Puede exigir generalizacion adicional y deja la variable en revision hasta confirmar que la combinacion no reidentifica.")
+  }
+
+  if (identical(role, "SENS")) {
+    return("No entra automaticamente a k-anonymity, pero requiere revision por riesgo residual. Puede bloquear la salida si el contenido sensible queda demasiado expuesto.")
+  }
+
+  if (identical(role, "PRIV")) {
+    return("No entra automaticamente a k-anonymity y suele bloquear la liberacion hasta completar revision manual o exclusion por contenido expresivo.")
+  }
+
+  if (identical(role, "EXC")) {
+    return("Queda fuera de la salida final. No participa en k-anonymity y no agrega bloqueo si realmente se excluye.")
+  }
+
+  "No participa como quasi-identificador principal. Aun asi conviene revisar si aporta contexto que pueda requerir ajuste manual."
+}
+
+release_safe_help_text <- function(var_name, role, suggestion_reason) {
+  role_explanation <- switch(
+    role,
+    ID = "Se interpreta como identificador directo.",
+    QI = "Se interpreta como variable que puede identificar por combinacion.",
+    SENS = "Se interpreta como variable sensible.",
+    PRIV = "Se interpreta como informacion privada o texto libre.",
+    KEEP = "Se interpreta como variable conservable.",
+    EXC = "Se interpreta como variable para excluir.",
+    "Requiere revision manual."
+  )
+
+  paste(
+    role_explanation,
+    sprintf("Se sugirio asi para `%s` porque %s.", var_name, tolower(suggestion_reason %||% "requiere revision contextual")),
+    "Usa esta ficha para entender el riesgo antes de liberar."
+  )
+}
+
+build_release_variable_detail <- function(df, var_name, role_state, suggested_roles = list()) {
+  if (!is.data.frame(df) || !(var_name %in% colnames(df))) {
+    return(NULL)
+  }
+
+  role <- release_safe_role_from_state(var_name, role_state, suggested_roles)
+  type_label <- release_safe_variable_type_label(df[[var_name]], role = role)
+  suggestion <- suggested_roles[[var_name]] %||% list()
+  suggestion_role <- toupper(suggestion$role %||% role)
+  suggestion_reason <- suggestion$reason %||% "no hubo una sugerencia automatica fuerte"
+  sample_values <- release_safe_sample_values(df[[var_name]])
+
+  list(
+    variable = var_name,
+    type = type_label,
+    role = role,
+    summary = sprintf(
+      "Tipo detectado: %s. Valores de ejemplo: %s. Sugerencia automatica: %s.",
+      type_label,
+      sample_values,
+      suggestion_role
+    ),
+    treatment = release_safe_treatment_label(role, type_label),
+    treatment_choices = release_safe_treatment_choices(role, type_label),
+    impact = release_safe_impact_text(role),
+    help = release_safe_help_text(var_name, role, suggestion_reason),
+    suggestion_reason = suggestion_reason
+  )
+}
+
+render_release_detail_block <- function(title, content, extra_class = NULL) {
+  shiny::tags$section(
+    class = paste("release-detail-block", extra_class %||% ""),
+    shiny::tags$h4(title),
+    content
+  )
+}
+
+render_release_variable_detail_panel <- function(df, selected_var, role_state, suggested_roles = list()) {
+  if (!is.data.frame(df) || ncol(df) == 0) {
+    return(shiny::tags$div(
+      class = "release-variable-detail release-variable-detail-empty",
+      shiny::tags$h3("Ficha por variable"),
+      shiny::tags$p("Carga un dataset para abrir una ficha de detalle release-safe.")
+    ))
+  }
+
+  if (is.null(selected_var) || !nzchar(selected_var) || !(selected_var %in% colnames(df))) {
+    return(shiny::tags$div(
+      class = "release-variable-detail release-variable-detail-empty",
+      shiny::tags$h3("Ficha por variable"),
+      shiny::tags$p("Usa el boton Editar de la tabla principal para abrir el detalle de una variable.")
+    ))
+  }
+
+  detail <- build_release_variable_detail(df, selected_var, role_state, suggested_roles)
+  if (is.null(detail)) {
+    return(NULL)
+  }
+
+  shiny::tags$aside(
+    class = "release-variable-detail",
+    shiny::tags$div(
+      class = "release-variable-detail-header",
+      shiny::tags$div(
+        shiny::tags$h3(detail$variable),
+        shiny::tags$p(sprintf("Tipo: %s", detail$type))
+      ),
+      render_release_role_badge(detail$role)
+    ),
+    render_release_detail_block(
+      "Resumen",
+      shiny::tagList(
+        shiny::tags$p(detail$summary),
+        shiny::tags$p(
+          class = "help-text",
+          sprintf("Motivo de sugerencia: %s", detail$suggestion_reason)
+        )
+      )
+    ),
+    render_release_detail_block(
+      "Rol principal",
+      shiny::tagList(
+        shiny::tags$p(sprintf("Rol actual: %s", detail$role)),
+        shiny::tags$p(release_safe_role_definition(detail$role)),
+        shiny::tags$p(class = "help-text", "El cambio rapido sigue disponible en la tabla principal para no romper el flujo actual.")
+      )
+    ),
+    render_release_detail_block(
+      "Tratamiento tecnico",
+      shiny::tagList(
+        shiny::tags$p(detail$treatment),
+        shiny::tags$ul(lapply(detail$treatment_choices, shiny::tags$li))
+      )
+    ),
+    render_release_detail_block(
+      "Impacto",
+      shiny::tagList(
+        shiny::tags$p(detail$impact),
+        render_release_signal_badge(release_safe_risk_label(detail$role), "risk"),
+        render_release_signal_badge(release_safe_status_label(detail$role, toupper((suggested_roles[[selected_var]] %||% list())$role %||% detail$role)), "status")
+      )
+    ),
+    render_release_detail_block(
+      "Ayuda",
+      shiny::tagList(
+        shiny::tags$p(detail$help),
+        shiny::tags$p(class = "help-text", "Esta ficha es transitoria y prioriza estructura funcional sobre configuracion avanzada.")
+      )
+    )
+  )
+}
+
+render_release_variable_detail_panel_for_test <- function(df, selected_var) {
+  render_release_variable_detail_panel(
+    df,
+    selected_var = selected_var,
+    role_state = build_default_ui_roles(df),
+    suggested_roles = suggest_release_safe_roles(df)
+  )
+}
+
+render_release_workflow_guide_for_test <- function() {
+  render_release_workflow_guide()
 }
 
 build_download_button_control <- function(state) {
@@ -939,6 +1213,10 @@ build_obfuscator_app_ui <- function(asset_version) {
           ),
           shiny::tags$div(
             class = "panel-card",
+            shiny::uiOutput("release_workflow_guide_ui")
+          ),
+          shiny::tags$div(
+            class = "panel-card",
             shiny::tags$div(
               class = "section-header",
               shiny::tags$div(
@@ -946,7 +1224,11 @@ build_obfuscator_app_ui <- function(asset_version) {
                 shiny::tags$p("Vista principal release-safe por variable. El flujo visual anterior sigue disponible como apoyo temporal.")
               )
             ),
-            shiny::uiOutput("release_variable_table_ui"),
+            shiny::tags$div(
+              class = "release-workbench",
+              shiny::uiOutput("release_variable_table_ui"),
+              shiny::uiOutput("release_variable_detail_ui")
+            ),
             shiny::tags$div(
               class = "legacy-role-board",
               shiny::tags$div(
@@ -1162,6 +1444,8 @@ run_obfuscator_app <- function() {
     # Jerarquias (listas de listas: mapping, name)
     hierarchies <- shiny::reactiveVal(list())
     role_input_observers <- shiny::reactiveVal(list())
+    detail_input_observers <- shiny::reactiveVal(list())
+    selected_release_variable <- shiny::reactiveVal(NULL)
     
     # NUEVO: Offsets numericos
     numeric_offsets <- shiny::reactiveVal(list())
@@ -1240,6 +1524,7 @@ run_obfuscator_app <- function() {
         role_state(build_default_ui_roles(dataset))
       }
       
+      selected_release_variable(NULL)
       obfuscated_data(NULL)
       audit_log(NULL)
       progress_status("Dataset cargado. Se busco persistencia por esquema.")
@@ -1257,6 +1542,16 @@ run_obfuscator_app <- function() {
       existing_observers <- role_input_observers()
       if (length(existing_observers) > 0) {
         invisible(lapply(existing_observers, function(observer_ref) {
+          if (!is.null(observer_ref)) {
+            observer_ref$destroy()
+          }
+          NULL
+        }))
+      }
+
+      existing_detail_observers <- detail_input_observers()
+      if (length(existing_detail_observers) > 0) {
+        invisible(lapply(existing_detail_observers, function(observer_ref) {
           if (!is.null(observer_ref)) {
             observer_ref$destroy()
           }
@@ -1282,6 +1577,16 @@ run_obfuscator_app <- function() {
 
       names(observers) <- colnames(df)
       role_input_observers(observers)
+
+      detail_observers <- lapply(colnames(df), function(var_name) {
+        input_id <- release_safe_detail_input_id(var_name)
+        shiny::observeEvent(input[[input_id]], ignoreInit = TRUE, {
+          selected_release_variable(var_name)
+        })
+      })
+
+      names(detail_observers) <- colnames(df)
+      detail_input_observers(detail_observers)
     }, ignoreNULL = TRUE)
 
     shiny::observeEvent(input$open_hierarchy_editor, {
@@ -1604,6 +1909,10 @@ run_obfuscator_app <- function() {
       build_release_role_summary(df, role_state(), k_enabled = isTRUE(input$enable_k))
     })
 
+    output$release_workflow_guide_ui <- shiny::renderUI({
+      render_release_workflow_guide()
+    })
+
     output$release_variable_table_ui <- shiny::renderUI({
       df <- source_data()
       if (is.null(df)) {
@@ -1615,6 +1924,20 @@ run_obfuscator_app <- function() {
         role_state = role_state(),
         suggested_roles = suggested_roles(),
         search_term = input$var_search %||% ""
+      )
+    })
+
+    output$release_variable_detail_ui <- shiny::renderUI({
+      df <- source_data()
+      if (is.null(df)) {
+        return(render_release_variable_detail_panel(NULL, NULL, role_state = list()))
+      }
+
+      render_release_variable_detail_panel(
+        df,
+        selected_var = selected_release_variable(),
+        role_state = role_state(),
+        suggested_roles = suggested_roles()
       )
     })
 

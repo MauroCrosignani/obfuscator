@@ -141,3 +141,72 @@ test_that("quick role changes update visible QI state, table row and release sum
   expect_true(grepl("Variables sensibles", summary_html, fixed = TRUE))
   expect_true(grepl("edad", summary_html, fixed = TRUE))
 })
+
+test_that("variable detail helper exposes contextual release-safe content", {
+  df <- build_demo_personas_dataset()
+  roles <- build_default_ui_roles(df)
+  suggestions <- suggest_release_safe_roles(df)
+
+  edad_detail <- build_release_variable_detail(
+    df,
+    var_name = "edad",
+    role_state = roles,
+    suggested_roles = suggestions
+  )
+  observacion_detail <- build_release_variable_detail(
+    df,
+    var_name = "observacion",
+    role_state = roles,
+    suggested_roles = suggestions
+  )
+  indicador_detail <- build_release_variable_detail(
+    df,
+    var_name = "indicador_privado",
+    role_state = roles,
+    suggested_roles = suggestions
+  )
+
+  expect_true(all(c(
+    "variable", "type", "role", "summary", "treatment",
+    "impact", "help", "suggestion_reason"
+  ) %in% names(edad_detail)))
+
+  expect_equal(edad_detail$variable, "edad")
+  expect_equal(edad_detail$role, "QI")
+  expect_match(edad_detail$type, "Numerica", ignore.case = TRUE)
+  expect_match(edad_detail$treatment, "rango|generaliz|cuasi", ignore.case = TRUE)
+  expect_match(edad_detail$impact, "k-anonymity|quasi|revision", ignore.case = TRUE)
+  expect_match(edad_detail$help, "edad|sugeri|combin", ignore.case = TRUE)
+
+  expect_equal(observacion_detail$role, "PRIV")
+  expect_match(observacion_detail$type, "Texto", ignore.case = TRUE)
+  expect_match(observacion_detail$treatment, "manual|exclusion|expresiv", ignore.case = TRUE)
+  expect_match(observacion_detail$impact, "bloque|manual|k-anonymity", ignore.case = TRUE)
+  expect_match(observacion_detail$help, "texto|observ|priv", ignore.case = TRUE)
+
+  expect_equal(indicador_detail$role, "SENS")
+  expect_match(indicador_detail$treatment, "conservar|riesgo|excluir", ignore.case = TRUE)
+  expect_match(indicador_detail$impact, "revision|residual|k-anonymity", ignore.case = TRUE)
+  expect_match(indicador_detail$help, "sens|privad|delicad", ignore.case = TRUE)
+})
+
+test_that("variable detail panel render includes the five expected blocks", {
+  df <- build_demo_personas_dataset()
+
+  html <- as.character(
+    render_release_variable_detail_panel_for_test(
+      df,
+      selected_var = "observacion"
+    )
+  )
+
+  expect_match(html, "release-variable-detail")
+  expect_match(html, "Resumen")
+  expect_match(html, "Rol principal")
+  expect_match(html, "Tratamiento tecnico")
+  expect_match(html, "Impacto")
+  expect_match(html, "Ayuda")
+  expect_match(html, "observacion")
+  expect_match(html, "Texto", ignore.case = TRUE)
+  expect_match(html, "PRIV")
+})
