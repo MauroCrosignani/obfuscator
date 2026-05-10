@@ -282,6 +282,7 @@ test_that("la guia release-safe expone flujo breve y definiciones de roles", {
   expect_match(html, "k-anonymity")
   expect_match(html, "Carga el dataset")
   expect_match(html, "uso interno", ignore.case = TRUE)
+  expect_match(html, "liberacion", ignore.case = TRUE)
   expect_match(html, "Exporta solo si el estado final del dataset es Liberable")
   expect_match(html, "Roles principales")
   expect_match(html, "ID")
@@ -290,6 +291,24 @@ test_that("la guia release-safe expone flujo breve y definiciones de roles", {
   expect_match(html, "PRIV")
   expect_match(html, "KEEP")
   expect_match(html, "EXC")
+})
+
+test_that("invalid k values are normalized for release-safe privacy model", {
+  df <- build_demo_personas_dataset()
+  roles <- build_default_ui_roles(df)
+
+  privacy_model <- build_release_safe_privacy_model(
+    df,
+    role_state = roles,
+    k_enabled = TRUE,
+    k_value = 1,
+    k_suppression = "rows",
+    group_ids = FALSE,
+    hierarchies = list(),
+    suggested_roles = suggest_release_safe_roles(df)
+  )
+
+  expect_equal(privacy_model$k, 2)
 })
 
 test_that("privacy meter state aligns with a liberable evaluated release", {

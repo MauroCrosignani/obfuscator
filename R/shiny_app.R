@@ -131,6 +131,11 @@ build_release_safe_privacy_model <- function(
     return(NULL)
   }
 
+  normalized_k <- suppressWarnings(as.integer(k_value))
+  if (is.na(normalized_k) || normalized_k < 2L) {
+    normalized_k <- 2L
+  }
+
   audit_context <- build_release_safe_audit_context(
     df,
     role_state = role_state,
@@ -139,7 +144,7 @@ build_release_safe_privacy_model <- function(
 
   list(
     type = "k_anonymity",
-    k = k_value,
+    k = normalized_k,
     quasi_identifiers = audit_context$qi,
     suppression = k_suppression,
     group_ids = isTRUE(group_ids),
@@ -190,7 +195,7 @@ build_release_role_summary <- function(df, roles, k_enabled = FALSE) {
       shiny::tags$p(
         class = "help-text",
         if (isTRUE(k_enabled)) {
-          "Este resumen refleja las variables marcadas como QI en la vista principal release-safe."
+          "Este resumen refleja las variables marcadas como QI en la vista principal de liberacion."
         } else {
           "Activa k-anonymity para evaluar liberacion externa con esta lista."
         }
@@ -218,7 +223,7 @@ release_safe_role_definition <- function(role) {
     QI = "Puede identificar por combinacion con otras variables y entra a k-anonymity.",
     SENS = "Revela informacion delicada, aunque no identifique por si sola.",
     PRIV = "Contiene informacion especialmente riesgosa o dificil de controlar, como texto libre.",
-    KEEP = "Puede conservarse en la salida sin ser eje principal del control de anonimidad.",
+    KEEP = "Puede conservarse en la salida sin ser eje principal del control de anonimato.",
     EXC = "Debe excluirse de la salida final.",
     "Rol sin definir."
   )
@@ -756,7 +761,7 @@ render_release_variable_detail_panel <- function(df, selected_var, role_state, s
     return(shiny::tags$div(
       class = "release-variable-detail release-variable-detail-empty",
       shiny::tags$h3("Ficha por variable"),
-      shiny::tags$p("Carga un dataset para abrir una ficha de detalle release-safe.")
+      shiny::tags$p("Carga un dataset para abrir una ficha de detalle por variable.")
     ))
   }
 
@@ -1351,7 +1356,7 @@ build_obfuscator_app_ui <- function(asset_version) {
               class = "section-header",
               shiny::tags$div(
                 shiny::tags$h3("Tabla principal por variable"),
-                shiny::tags$p("Vista principal release-safe por variable. Este es el mecanismo principal de clasificacion.")
+                shiny::tags$p("Vista principal por variable para liberacion. Este es el mecanismo principal de clasificacion.")
               )
             ),
             shiny::tags$div(
@@ -1604,6 +1609,16 @@ run_obfuscator_app <- function() {
         selected = if (length(object_choices) > 0) object_choices[[1]] else ""
       )
     })
+
+    shiny::observeEvent(input$k_value, {
+      if (is.null(input$k_value) || is.na(input$k_value)) {
+        return()
+      }
+      if (isTRUE(input$k_value < 2)) {
+        shiny::updateNumericInput(session, "k_value", value = 2)
+        shiny::showNotification("k-anonymity requiere un valor de k mayor o igual a 2. Se ajusto automaticamente a 2.", type = "warning")
+      }
+    }, ignoreInit = TRUE)
 
     shiny::observeEvent(input$load_data, {
       dataset <- load_dataset_for_app(
@@ -2367,8 +2382,8 @@ run_obfuscator_app <- function() {
         shiny::tabsetPanel(
           shiny::tabPanel("Guia Rapida", 
             shiny::tags$div(style = "padding: 15px;",
-              shiny::tags$h4("Flujo release-safe"),
-              shiny::tags$p("La tabla principal por variable y la ficha lateral son ahora el camino recomendado para clasificar y revisar el dataset."),
+              shiny::tags$h4("Flujo de trabajo para liberacion"),
+              shiny::tags$p("La tabla principal por variable y la ficha lateral permiten clasificar y revisar el dataset antes de decidir su salida."),
               shiny::tags$ol(
                 shiny::tags$li("Carga el dataset y revisa las sugerencias automaticas."),
                 shiny::tags$li("Confirma o ajusta el rol principal de cada variable desde la tabla."),

@@ -460,6 +460,16 @@ collapse_lines <- function(lines) {
   paste(unlist(lines, recursive = TRUE, use.names = FALSE), collapse = "\n")
 }
 
+release_artifact_label <- function(type) {
+  switch(
+    type %||% "",
+    preview = "vista previa",
+    internal_work = "artefacto interno",
+    releasable_external = "liberable externo",
+    type %||% "desconocido"
+  )
+}
+
 build_release_report <- function(status, controls_passed = list(), reviews = list(), metadata = list()) {
   artifact_type <- metadata$artifact$type %||% "desconocido"
   review_lines <- if (length(reviews) == 0) {
@@ -477,7 +487,7 @@ build_release_report <- function(status, controls_passed = list(), reviews = lis
 
   collapse_lines(c(
     sprintf("Estado de liberacion: %s", status),
-    sprintf("Tipo de artefacto: %s", artifact_type),
+    sprintf("Tipo de artefacto: %s", release_artifact_label(artifact_type)),
     "",
     "Controles superados:",
     if (length(controls_passed) == 0) "- Sin controles registrados." else paste0("- ", unlist(controls_passed, use.names = FALSE)),
@@ -549,8 +559,28 @@ release_controls_from_log <- function(log_info = list()) {
     controls <- c(controls, sprintf("supresion residual aplicada: %s fila(s)", privacy_report$rows_suppressed))
   }
 
+  suppression_mode <- privacy_report$suppression %||% NULL
+  if (identical(suppression_mode, "rows") && is.numeric(privacy_report$rows_suppressed) && length(privacy_report$rows_suppressed) == 1 && privacy_report$rows_suppressed == 0) {
+    controls <- c(controls, "supresion residual por filas configurada: no fue necesaria")
+  }
+  if (identical(suppression_mode, "group")) {
+    controls <- c(controls, "agrupacion residual configurada: se usarian categorias residuales si quedaran clases por debajo de k")
+  }
+
   if (length(transformations) > 0) {
     controls <- c(controls, sprintf("transformaciones registradas: %s", length(transformations)))
+  }
+
+  generalization_steps <- privacy_report$generalization_steps %||% list()
+  if (length(generalization_steps) > 0) {
+    formatted_steps <- vapply(names(generalization_steps), function(field) {
+      step <- generalization_steps[[field]]
+      if (is.list(step)) {
+        step <- step$name %||% "jerarquia personalizada"
+      }
+      sprintf("%s=%s", field, as.character(step %||% "identity"))
+    }, character(1))
+    controls <- c(controls, sprintf("pasos de generalizacion: %s", paste(formatted_steps, collapse = "; ")))
   }
 
   release_safe <- log_info$release_safe %||% list()
@@ -558,7 +588,7 @@ release_controls_from_log <- function(log_info = list()) {
     controls <- c(
       controls,
       sprintf(
-        "quasi-identificadores release-safe: %s",
+        "cuasi-identificadores para liberacion: %s",
         paste(release_safe$qi, collapse = ", ")
       )
     )

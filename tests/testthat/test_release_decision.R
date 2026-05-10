@@ -322,7 +322,7 @@ test_that("release report includes status controls and reviews", {
   expect_match(report, "Liberable")
   expect_match(report, "k-anonymity satisfecha")
   expect_match(report, "observacion")
-  expect_match(report, "releasable_external")
+  expect_match(report, "liberable externo")
 })
 
 test_that("audit summary adapts blocked states into actionable non-release guidance", {
@@ -400,11 +400,43 @@ test_that("audit summary includes release-safe classification context when avail
     )
   )
 
-  expect_match(summary_text, "quasi-identificadores release-safe", ignore.case = TRUE)
+  expect_match(summary_text, "cuasi-identificadores para liberacion", ignore.case = TRUE)
   expect_match(summary_text, "edad")
   expect_match(summary_text, "ingreso")
   expect_match(summary_text, "indicador_privado")
   expect_match(summary_text, "observacion")
+})
+
+test_that("audit summary explains configured residual handling and generalization steps", {
+  state <- build_release_state(
+    "Liberable",
+    metadata = list(artifact = release_artifact("releasable_external"))
+  )
+
+  summary_text <- build_release_audit_summary(
+    state,
+    log_info = list(
+      roles = list(id = "persona_id"),
+      transformations = list(persona_id = list(method = "deterministic-map")),
+      privacy_report = list(
+        k = 5,
+        suppression = "group",
+        rows_suppressed = 0,
+        after = list(satisfied = TRUE),
+        generalization_steps = list(
+          fecha_alta = "year",
+          edad = "interval_10"
+        )
+      ),
+      release_safe = list(qi = c("fecha_alta", "edad"))
+    )
+  )
+
+  expect_match(summary_text, "agrupacion residual configurada", ignore.case = TRUE)
+  expect_match(summary_text, "pasos de generalizacion", ignore.case = TRUE)
+  expect_match(summary_text, "fecha_alta=year", ignore.case = TRUE)
+  expect_match(summary_text, "edad=interval_10", ignore.case = TRUE)
+  expect_match(summary_text, "liberable externo", ignore.case = TRUE)
 })
 
 test_that("api results can be evaluated with the same release semantics as the UI", {
