@@ -431,10 +431,31 @@ build_persistable_role_template <- function(
   manual_review = NULL,
   artifact = NULL
 ) {
-  persisted_roles <- role_state[intersect(
-    names(role_state),
-    c("id", "date", "categorical", "numeric", "preserve", "exclude", "sensitive", "private")
-  )]
+  persisted_roles <- list(
+    id = unique(role_state$id %||% character(0)),
+    qi = unique(c(
+      role_state$qi %||% character(0),
+      role_state$date %||% character(0),
+      role_state$categorical %||% character(0),
+      role_state$numeric %||% character(0)
+    )),
+    sens = unique(c(
+      role_state$sens %||% character(0),
+      role_state$sensitive %||% character(0)
+    )),
+    priv = unique(c(
+      role_state$priv %||% character(0),
+      role_state$private %||% character(0)
+    )),
+    keep = unique(c(
+      role_state$keep %||% character(0),
+      role_state$preserve %||% character(0)
+    )),
+    exc = unique(c(
+      role_state$exc %||% character(0),
+      role_state$exclude %||% character(0)
+    ))
+  )
   persisted_roles <- Filter(function(x) length(x) > 0, persisted_roles)
 
   if (length(hierarchies) > 0) {

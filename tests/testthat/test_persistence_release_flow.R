@@ -3,11 +3,13 @@ library(testthat)
 source(file.path("..", "..", "R", "obfuscator_core.R"))
 source(file.path("..", "..", "R", "shiny_app.R"))
 
-test_that("role templates still persist and load by schema hash under the release model", {
+test_that("role templates persist canonical release-safe roles and drop restricted artifacts", {
   df <- data.frame(
     patient_id = 1:3,
     city = c("A", "B", "C"),
+    clinical_note = c("alpha", "beta", "gamma"),
     notes = c("x", "y", "z"),
+    drop_me = c("legacy", "legacy", "legacy"),
     stringsAsFactors = FALSE
   )
 
@@ -22,9 +24,11 @@ test_that("role templates still persist and load by schema hash under the releas
     role_state = list(
       available = "notes",
       id = "patient_id",
-      categorical = "city",
-      sensitive = "notes",
-      exclude = "notes"
+      qi = "city",
+      sens = "clinical_note",
+      priv = "notes",
+      keep = "city",
+      exc = "drop_me"
     ),
     hierarchies = list(
       city = list(
@@ -53,19 +57,38 @@ test_that("role templates still persist and load by schema hash under the releas
   )
 
   save_roles_to_json(template, template_path)
+  saved_json <- jsonlite::read_json(template_path, simplifyVector = TRUE)
   loaded <- load_roles_from_json(df, template_path)
+
+  expect_equal(saved_json$id, "patient_id")
+  expect_equal(saved_json$qi, "city")
+  expect_equal(saved_json$sens, "clinical_note")
+  expect_equal(saved_json$priv, "notes")
+  expect_equal(saved_json$keep, "city")
+  expect_equal(saved_json$exc, "drop_me")
+  expect_false("numeric_offsets" %in% names(saved_json))
+  expect_false("release_state" %in% names(saved_json))
+  expect_false("manual_review" %in% names(saved_json))
+  expect_false("artifact" %in% names(saved_json))
 
   expect_equal(loaded$exact$id, "patient_id")
   expect_equal(loaded$exact$categorical, "city")
-  expect_equal(loaded$exact$sensitive, "notes")
-  expect_equal(loaded$exact$exclude, "notes")
+  expect_equal(loaded$exact$sensitive, "clinical_note")
+  expect_equal(loaded$exact$private, "notes")
+  expect_equal(loaded$exact$preserve, "city")
+  expect_equal(loaded$exact$exclude, "drop_me")
+  expect_equal(loaded$canonical_exact$qi, "city")
+  expect_equal(loaded$canonical_exact$sens, "clinical_note")
+  expect_equal(loaded$canonical_exact$priv, "notes")
+  expect_equal(loaded$canonical_exact$keep, "city")
+  expect_equal(loaded$canonical_exact$exc, "drop_me")
   expect_equal(loaded$hierarchies$city$REGION, c("A", "B", "C"))
   expect_false("numeric_offsets" %in% names(loaded))
   expect_false("release_state" %in% names(loaded))
   expect_false("manual_review" %in% names(loaded))
 })
 
-test_that("fuzzy suggestions still appear for near-match schemas", {
+test_that("canonical release-safe templates keep fuzzy suggestions for near-match schemas", {
   original_df <- data.frame(
     patient_id = 1:3,
     city_name = c("A", "B", "C"),
@@ -83,7 +106,7 @@ test_that("fuzzy suggestions still appear for near-match schemas", {
     build_persistable_role_template(
       role_state = list(
         id = "patient_id",
-        categorical = "city_name"
+        qi = "city_name"
       )
     ),
     template_path
@@ -93,11 +116,12 @@ test_that("fuzzy suggestions still appear for near-match schemas", {
 
   expect_equal(loaded$exact$id, "patient_id")
   expect_equal(loaded$suggested$city_nam$role, "categorical")
+  expect_equal(loaded$suggested$city_nam$canonical_role, "QI")
   expect_equal(loaded$suggested$city_nam$original, "city_name")
   expect_gt(loaded$suggested$city_nam$score, 0.8)
 })
 
-test_that("loading ignores release-review metadata without corrupting persisted roles", {
+test_that("loading legacy templates maps old fields into canonical release-safe roles", {
   df <- data.frame(
     patient_id = 1:2,
     city = c("A", "B"),
@@ -143,6 +167,10 @@ test_that("loading ignores release-review metadata without corrupting persisted 
   expect_equal(loaded$exact$id, "patient_id")
   expect_equal(loaded$exact$categorical, "city")
   expect_equal(loaded$exact$exclude, "notes")
+  expect_equal(loaded$canonical_exact$qi, "city")
+  expect_equal(loaded$canonical_exact$keep, character(0))
+  expect_equal(loaded$canonical_exact$exc, "notes")
+  expect_equal(loaded$canonical_exact$priv, character(0))
   expect_equal(loaded$hierarchies$city$REGION, c("A", "B"))
   expect_false("artifact" %in% names(loaded))
   expect_false("release_state" %in% names(loaded))

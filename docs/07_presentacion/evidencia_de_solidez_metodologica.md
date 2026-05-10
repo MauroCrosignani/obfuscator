@@ -10,6 +10,7 @@ Reunir ejemplos, pruebas y decisiones que demuestran que el producto no fue cons
 - exportacion bloqueada salvo estado `Liberable`;
 - bloqueo de descarga externa ya expresado como UX amigable y no como stacktrace tecnico;
 - separacion visible en UI entre `quasi-identificadores`, `sensibles` y `privadas`;
+- migracion de roles y plantillas con compatibilidad hacia atras, sin mezclar metadata restringida en plantillas comunes;
 - pruebas para riesgo residual incluso cuando `k` se cumple;
 - pruebas para reenlazabilidad por alta dimensionalidad;
 - requisitos de revision manual auditable.

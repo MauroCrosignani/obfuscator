@@ -1479,7 +1479,11 @@ generate_schema_hash <- function(df) {
 }
 
 persistable_role_template_fields <- function() {
-  c("id", "date", "categorical", "numeric", "preserve", "exclude", "sensitive", "private", "hierarchies")
+  c(
+    "id", "date", "categorical", "numeric", "preserve", "exclude", "sensitive", "private",
+    "qi", "sens", "priv", "keep", "exc",
+    "hierarchies"
+  )
 }
 
 restricted_role_template_fields <- function() {
@@ -1526,6 +1530,86 @@ save_roles_to_json <- function(roles, path) {
   jsonlite::write_json(clean_roles, path, pretty = TRUE)
 }
 
+empty_legacy_template_roles <- function() {
+  list(
+    id = character(0),
+    date = character(0),
+    categorical = character(0),
+    numeric = character(0),
+    sensitive = character(0),
+    private = character(0),
+    preserve = character(0),
+    exclude = character(0)
+  )
+}
+
+empty_canonical_template_roles <- function() {
+  list(
+    id = character(0),
+    qi = character(0),
+    sens = character(0),
+    priv = character(0),
+    keep = character(0),
+    exc = character(0)
+  )
+}
+
+template_field_to_canonical_role <- function(field_name) {
+  switch(
+    field_name,
+    id = "ID",
+    date = "QI",
+    categorical = "QI",
+    numeric = "QI",
+    qi = "QI",
+    sensitive = "SENS",
+    sens = "SENS",
+    private = "PRIV",
+    priv = "PRIV",
+    preserve = "KEEP",
+    keep = "KEEP",
+    exclude = "EXC",
+    exc = "EXC",
+    NULL
+  )
+}
+
+canonical_role_to_template_field <- function(role_name) {
+  switch(
+    role_name,
+    ID = "id",
+    QI = "qi",
+    SENS = "sens",
+    PRIV = "priv",
+    KEEP = "keep",
+    EXC = "exc",
+    NULL
+  )
+}
+
+canonical_role_to_legacy_bucket <- function(role_name, column_name = NULL, column_data = NULL) {
+  if (identical(role_name, "QI")) {
+    if (inherits(column_data, c("Date", "POSIXct", "POSIXlt", "POSIXt")) ||
+        grepl("fecha|date|nacimiento|alta|periodo|mes|anio", normalize_release_safe_column_name(column_name %||% ""))) {
+      return("date")
+    }
+    if (is.numeric(column_data)) {
+      return("numeric")
+    }
+    return("categorical")
+  }
+
+  switch(
+    role_name,
+    ID = "id",
+    SENS = "sensitive",
+    PRIV = "private",
+    KEEP = "preserve",
+    EXC = "exclude",
+    NULL
+  )
+}
+
 #' Cargar roles desde JSON con soporte para fuzzy matching
 #' @param df Dataframe actual para validar columnas.
 #' @param path Ruta del JSON.
@@ -1538,27 +1622,32 @@ load_roles_from_json <- function(df, path, threshold = 0.8) {
   current_cols <- colnames(df)
   
   result <- list(
-    exact = list(
-      id = c(),
-      date = c(),
-      categorical = c(),
-      numeric = c(),
-      sensitive = c(),
-      private = c(),
-      preserve = c(),
-      exclude = c()
-    ),
+    exact = empty_legacy_template_roles(),
+    canonical_exact = empty_canonical_template_roles(),
     suggested = list() # Lista de listas: list(col_actual, role_sugerido, original_name, score)
   )
   
-  for (role_name in names(result$exact)) {
+  template_role_fields <- setdiff(
+    intersect(names(saved_roles), persistable_role_template_fields()),
+    "hierarchies"
+  )
+
+  for (role_name in template_role_fields) {
+    canonical_role <- template_field_to_canonical_role(role_name)
+    canonical_bucket <- canonical_role_to_template_field(canonical_role)
     cols_in_role <- saved_roles[[role_name]] %||% c()
+    if (is.null(canonical_role) || length(cols_in_role) == 0) {
+      next
+    }
+
     for (col in cols_in_role) {
       if (col %in% current_cols) {
-        # Match exacto
-        result$exact[[role_name]] <- c(result$exact[[role_name]], col)
+        result$canonical_exact[[canonical_bucket]] <- unique(c(result$canonical_exact[[canonical_bucket]], col))
+        legacy_bucket <- canonical_role_to_legacy_bucket(canonical_role, col, df[[col]])
+        if (!is.null(legacy_bucket)) {
+          result$exact[[legacy_bucket]] <- unique(c(result$exact[[legacy_bucket]], col))
+        }
       } else {
-        # Intentar Fuzzy Match si no hay match exacto en ninguna zona
         distances <- adist(col, current_cols, ignore.case = TRUE)[1, ]
         max_len <- max(nchar(col), nchar(current_cols))
         similarity <- 1 - (distances / max_len)
@@ -1566,17 +1655,16 @@ load_roles_from_json <- function(df, path, threshold = 0.8) {
         best_idx <- which.max(similarity)
         if (as.numeric(similarity[best_idx]) >= threshold) {
           suggested_col <- current_cols[best_idx]
-          # Solo sugerir si la columna actual no tiene ya un match exacto asignado
-          already_assigned_exact <- suggested_col %in% unlist(result$exact)
+          already_assigned_exact <- suggested_col %in% unlist(result$exact, use.names = FALSE)
           if (!already_assigned_exact) {
-             # Tambien verificar si ya fue sugerida (prioridad al primer rol encontrado)
-             if (is.null(result$suggested[[suggested_col]])) {
-                result$suggested[[suggested_col]] <- list(
-                  role = role_name,
-                  original = col,
-                  score = as.numeric(similarity[best_idx])
-                )
-             }
+            if (is.null(result$suggested[[suggested_col]])) {
+              result$suggested[[suggested_col]] <- list(
+                role = canonical_role_to_legacy_bucket(canonical_role, suggested_col, df[[suggested_col]]),
+                canonical_role = canonical_role,
+                original = col,
+                score = as.numeric(similarity[best_idx])
+              )
+            }
           }
         }
       }
