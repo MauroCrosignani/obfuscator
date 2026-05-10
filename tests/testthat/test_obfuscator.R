@@ -507,7 +507,9 @@ test_that("the main UI includes the release-safe variable table as visible prima
 
   expect_match(ui_text, "release_variable_table_ui")
   expect_match(ui_text, "Tabla principal por variable")
-  expect_match(ui_text, "Clasificacion visual heredada")
+  expect_match(ui_text, "mecanismo principal de clasificacion")
+  expect_match(ui_text, "Modo heredado de arrastre \\(experimental\\)")
+  expect_match(ui_text, "Tablero heredado")
 })
 
 test_that("generated R code reflects release privacy inputs and warns about approval", {

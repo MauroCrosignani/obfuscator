@@ -1302,7 +1302,7 @@ build_obfuscator_app_ui <- function(asset_version) {
               class = "section-header",
               shiny::tags$div(
                 shiny::tags$h3("Tabla principal por variable"),
-                shiny::tags$p("Vista principal release-safe por variable. El flujo visual anterior sigue disponible como apoyo temporal.")
+                shiny::tags$p("Vista principal release-safe por variable. Este es el mecanismo principal de clasificacion.")
               )
             ),
             shiny::tags$div(
@@ -1310,13 +1310,18 @@ build_obfuscator_app_ui <- function(asset_version) {
               shiny::uiOutput("release_variable_table_ui"),
               shiny::uiOutput("release_variable_detail_ui")
             ),
-            shiny::tags$div(
-              class = "legacy-role-board",
+            shiny::tags$details(
+              class = "legacy-role-board legacy-role-board-details",
+              shiny::tags$summary("Modo heredado de arrastre (experimental)"),
+              shiny::tags$div(
+                class = "legacy-role-board-intro",
+                shiny::tags$p("Este modo ya no es la clasificacion principal. Usalo solo si necesitas apoyar o corregir la transicion desde el esquema anterior.")
+              ),
               shiny::tags$div(
                 class = "section-header legacy-role-board-header",
                 shiny::tags$div(
-                  shiny::tags$h4("Clasificacion visual heredada"),
-                  shiny::tags$p("Arrastra variables entre zonas solo si necesitas apoyar o corregir el flujo transitorio.")
+                  shiny::tags$h4("Tablero heredado"),
+                  shiny::tags$p("La tabla principal y la ficha lateral son ahora el camino preferido para clasificar.")
                 ),
                 shiny::tags$div(
                   class = "search-wrapper",
