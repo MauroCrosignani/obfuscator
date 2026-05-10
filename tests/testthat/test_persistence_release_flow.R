@@ -23,6 +23,7 @@ test_that("role templates still persist and load by schema hash under the releas
       available = "notes",
       id = "patient_id",
       categorical = "city",
+      sensitive = "notes",
       exclude = "notes"
     ),
     hierarchies = list(
@@ -56,6 +57,7 @@ test_that("role templates still persist and load by schema hash under the releas
 
   expect_equal(loaded$exact$id, "patient_id")
   expect_equal(loaded$exact$categorical, "city")
+  expect_equal(loaded$exact$sensitive, "notes")
   expect_equal(loaded$exact$exclude, "notes")
   expect_equal(loaded$hierarchies$city$REGION, c("A", "B", "C"))
   expect_false("numeric_offsets" %in% names(loaded))

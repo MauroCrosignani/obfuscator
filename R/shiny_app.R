@@ -1,9 +1,129 @@
 build_default_ui_roles <- function(df) {
   roles <- detect_column_roles(df, obfuscator_config())
+  roles <- enrich_release_review_roles(df, roles)
   assigned <- unique(unlist(roles, use.names = FALSE))
   roles$available <- setdiff(colnames(df), assigned)
   if (is.null(roles$preserve)) roles$preserve <- character(0)
   roles
+}
+
+enrich_release_review_roles <- function(df, roles) {
+  roles$sensitive <- unique(roles$sensitive %||% character(0))
+  roles$private <- unique(roles$private %||% character(0))
+
+  cols <- colnames(df)
+  if (length(cols) == 0) {
+    return(roles)
+  }
+
+  normalized <- tolower(cols)
+
+  private_name_patterns <- c(
+    "observ", "coment", "nota", "texto", "descripcion",
+    "direccion", "telefono", "mail", "correo"
+  )
+  sensitive_name_patterns <- c(
+    "privad", "sensib", "diagn", "enfer", "ingreso",
+    "salario", "monto", "beneficio", "subsid", "tramo_ingreso"
+  )
+
+  has_pattern <- function(name_vec, patterns) {
+    vapply(name_vec, function(x) any(vapply(patterns, grepl, logical(1), x, fixed = TRUE)), logical(1))
+  }
+
+  text_like_cols <- cols[vapply(df, function(column) {
+    if (!(is.character(column) || is.factor(column))) {
+      return(FALSE)
+    }
+    values <- as.character(column)
+    values <- values[!is.na(values) & nzchar(trimws(values))]
+    if (length(values) == 0) {
+      return(FALSE)
+    }
+    mean(nchar(values), na.rm = TRUE) >= 18
+  }, logical(1))]
+
+  private_candidates <- unique(c(
+    cols[has_pattern(normalized, private_name_patterns)],
+    text_like_cols
+  ))
+  sensitive_candidates <- unique(c(
+    cols[has_pattern(normalized, sensitive_name_patterns)]
+  ))
+
+  protected_roles <- unique(c(
+    roles$id %||% character(0),
+    roles$date %||% character(0),
+    roles$numeric %||% character(0),
+    roles$preserve %||% character(0),
+    roles$exclude %||% character(0)
+  ))
+
+  private_candidates <- setdiff(private_candidates, protected_roles)
+  sensitive_candidates <- setdiff(sensitive_candidates, c(protected_roles, private_candidates))
+
+  roles$categorical <- setdiff(roles$categorical %||% character(0), c(private_candidates, sensitive_candidates))
+  roles$private <- unique(c(roles$private, private_candidates))
+  roles$sensitive <- unique(c(roles$sensitive, sensitive_candidates))
+  roles
+}
+
+quasi_identifier_choices <- function(df, ui_roles) {
+  intersect(unique(c(
+    ui_roles$id %||% character(0),
+    ui_roles$date %||% character(0),
+    ui_roles$categorical %||% character(0)
+  )), colnames(df))
+}
+
+build_release_role_summary <- function(df, roles, k_enabled = FALSE) {
+  qis <- quasi_identifier_choices(df, roles)
+  sensitive <- intersect(roles$sensitive %||% character(0), colnames(df))
+  private <- intersect(roles$private %||% character(0), colnames(df))
+
+  chips_or_fallback <- function(values, empty_text) {
+    if (length(values) == 0) {
+      return(shiny::tags$span(class = "release-role-empty", empty_text))
+    }
+    lapply(values, function(value) shiny::tags$span(class = "release-role-chip", value))
+  }
+
+  shiny::tags$div(
+    class = "release-role-summary",
+    shiny::tags$div(
+      class = "release-role-card",
+      shiny::tags$strong("Quasi-identificadores usados por k-anonymity"),
+      shiny::tags$div(class = "release-role-list", chips_or_fallback(qis, "Todavia no hay quasi-identificadores.")),
+      shiny::tags$p(
+        class = "help-text",
+        if (isTRUE(k_enabled)) {
+          "Actualmente k-anonymity se calcula con Identificadoras, Fechas y Categoricas."
+        } else {
+          "Activa k-anonymity para evaluar liberacion externa con esta lista."
+        }
+      )
+    ),
+    shiny::tags$div(
+      class = "release-role-card",
+      shiny::tags$strong("Variables sensibles"),
+      shiny::tags$div(class = "release-role-list", chips_or_fallback(sensitive, "Sin variables sensibles clasificadas.")),
+      shiny::tags$p(class = "help-text", "No entran automaticamente como quasi-identificadores. Requieren interpretacion especifica del riesgo.")
+    ),
+    shiny::tags$div(
+      class = "release-role-card",
+      shiny::tags$strong("Variables privadas"),
+      shiny::tags$div(class = "release-role-list", chips_or_fallback(private, "Sin variables privadas clasificadas.")),
+      shiny::tags$p(class = "help-text", "Incluye campos de texto libre u otras columnas que ameritan cautela adicional.")
+    )
+  )
+}
+
+build_download_button_control <- function(state) {
+  if (can_export_external_release(state)) {
+    return(shiny::downloadButton("download_csv", "Descargar CSV"))
+  }
+
+  shiny::actionButton("download_blocked", "Descargar CSV (bloqueado)", class = "secondary-btn")
 }
 
 detect_suspicious_date_character_columns <- function(df) {
@@ -302,7 +422,7 @@ build_persistable_role_template <- function(
 ) {
   persisted_roles <- role_state[intersect(
     names(role_state),
-    c("id", "date", "categorical", "numeric", "preserve", "exclude")
+    c("id", "date", "categorical", "numeric", "preserve", "exclude", "sensitive", "private")
   )]
   persisted_roles <- Filter(function(x) length(x) > 0, persisted_roles)
 
@@ -461,7 +581,7 @@ build_obfuscator_app_ui <- function(asset_version) {
             shiny::tags$div(
               class = "btn-group-custom",
               style = "margin-top: 10px;",
-              shiny::downloadButton("download_csv", "Descargar CSV"),
+              shiny::uiOutput("download_button_ui", inline = TRUE),
               shiny::actionButton("view_r_code", shiny::tagList(studio_icon("code", "Codigo R"), " Ver Codigo R"))
             )
           )
@@ -472,6 +592,11 @@ build_obfuscator_app_ui <- function(asset_version) {
             class = "panel-card",
             shiny::tags$h3("Estado del dataset"),
             shiny::uiOutput("dataset_summary_ui")
+          ),
+          shiny::tags$div(
+            class = "panel-card",
+            shiny::tags$h3("Clasificacion para liberacion"),
+            shiny::uiOutput("release_role_summary_ui")
           ),
           shiny::tags$div(
             class = "panel-card",
@@ -678,6 +803,8 @@ run_obfuscator_app <- function() {
       date = character(0), 
       categorical = character(0), 
       numeric = character(0), 
+      sensitive = character(0),
+      private = character(0),
       preserve = character(0),
       exclude = character(0) # NUEVO: Zona de exclusion
     ))
@@ -994,15 +1121,15 @@ run_obfuscator_app <- function() {
        roles <- role_state()
        h <- hierarchies()
        o <- numeric_offsets()
-       privacy_model <- if (isTRUE(input$enable_k)) {
-         list(
-           type = "k_anonymity",
-           k = input$k_value,
-           quasi_identifiers = intersect(unique(c(roles$id, roles$date, roles$categorical)), names(df)),
-           suppression = input$k_suppression,
-           group_ids = input$group_ids,
-           hierarchies = h
-         )
+        privacy_model <- if (isTRUE(input$enable_k)) {
+          list(
+            type = "k_anonymity",
+            k = input$k_value,
+            quasi_identifiers = quasi_identifier_choices(df, roles),
+            suppression = input$k_suppression,
+            group_ids = input$group_ids,
+            hierarchies = h
+          )
        } else {
          NULL
        }
@@ -1081,8 +1208,18 @@ run_obfuscator_app <- function() {
         shiny::tags$div(class = "summary-card", shiny::tags$strong("Fechas"), length(roles$date)),
         shiny::tags$div(class = "summary-card", shiny::tags$strong("Categoricas"), length(roles$categorical)),
         shiny::tags$div(class = "summary-card", shiny::tags$strong("Numericas"), length(roles$numeric)),
+        shiny::tags$div(class = "summary-card", shiny::tags$strong("Sensibles"), length(roles$sensitive %||% character(0))),
+        shiny::tags$div(class = "summary-card", shiny::tags$strong("Privadas"), length(roles$private %||% character(0))),
         shiny::tags$div(class = "summary-card", shiny::tags$strong("Para conservar"), length(roles$preserve))
       )
+    })
+
+    output$release_role_summary_ui <- shiny::renderUI({
+      df <- source_data()
+      if (is.null(df)) {
+        return(shiny::tags$p("Carga un dataset para ver como quedarian separados los quasi-identificadores, sensibles y privados."))
+      }
+      build_release_role_summary(df, role_state(), k_enabled = isTRUE(input$enable_k))
     })
 
     output$role_board_ui <- shiny::renderUI({
@@ -1109,6 +1246,8 @@ run_obfuscator_app <- function() {
         roles$date <- roles$date[grepl(search_term, tolower(roles$date))]
         roles$categorical <- roles$categorical[grepl(search_term, tolower(roles$categorical))]
         roles$numeric <- roles$numeric[grepl(search_term, tolower(roles$numeric))]
+        roles$sensitive <- (roles$sensitive %||% character(0))[grepl(search_term, tolower(roles$sensitive %||% character(0)))]
+        roles$private <- (roles$private %||% character(0))[grepl(search_term, tolower(roles$private %||% character(0)))]
         roles$preserve <- roles$preserve[grepl(search_term, tolower(roles$preserve))]
         roles$exclude <- roles$exclude[grepl(search_term, tolower(roles$exclude))] # Filter exclude zone
       }
@@ -1119,6 +1258,8 @@ run_obfuscator_app <- function() {
         render_role_zone_ui("Identificadoras", "id", roles$id, warning_vars = warning_vars, suggested_vars = sug_roles, active_hierarchies = active_h, active_offsets = active_o, numeric_cols = numeric_cols, accent_class = "accent-red"),
         render_role_zone_ui("Fechas", "date", roles$date, warning_vars = warning_vars, suggested_vars = sug_roles, active_hierarchies = active_h, active_offsets = active_o, numeric_cols = numeric_cols, accent_class = "accent-blue text-sm"),
         render_role_zone_ui("Categoricas", "categorical", roles$categorical, warning_vars = warning_vars, suggested_vars = sug_roles, active_hierarchies = active_h, active_offsets = active_o, numeric_cols = numeric_cols, accent_class = "accent-green text-sm"),
+        render_role_zone_ui("Sensibles", "sensitive", roles$sensitive %||% character(0), warning_vars = warning_vars, suggested_vars = sug_roles, active_hierarchies = active_h, active_offsets = active_o, numeric_cols = numeric_cols, accent_class = "accent-burgundy text-sm"),
+        render_role_zone_ui("Privadas", "private", roles$private %||% character(0), warning_vars = warning_vars, suggested_vars = sug_roles, active_hierarchies = active_h, active_offsets = active_o, numeric_cols = numeric_cols, accent_class = "accent-gold text-sm"),
         render_role_zone_ui("Numericas", "numeric", roles$numeric, warning_vars = warning_vars, suggested_vars = sug_roles, active_hierarchies = active_h, active_offsets = active_o, numeric_cols = numeric_cols, accent_class = "accent-gold text-sm"),
         render_role_zone_ui("Excluir", "exclude", roles$exclude, warning_vars = warning_vars, suggested_vars = sug_roles, active_hierarchies = active_h, active_offsets = active_o, numeric_cols = numeric_cols, accent_class = "accent-gray text-sm"), # NUEVA ZONA
         render_role_zone_ui("Conservar", "preserve", roles$preserve, warning_vars = warning_vars, suggested_vars = sug_roles, active_hierarchies = active_h, active_offsets = active_o, numeric_cols = numeric_cols, accent_class = "accent-gray text-sm")
@@ -1140,14 +1281,14 @@ run_obfuscator_app <- function() {
           numeric_offsets = numeric_offsets(),
           exclude_cols = roles$exclude,
           privacy_model = if (isTRUE(input$enable_k)) {
-            list(
-              type = "k_anonymity", 
-              k = input$k_value,
-              quasi_identifiers = intersect(unique(c(roles$id, roles$date, roles$categorical)), names(df)),
-              suppression = input$k_suppression,
-              group_ids = input$group_ids,
-              hierarchies = hierarchies()
-            )
+              list(
+                type = "k_anonymity", 
+                k = input$k_value,
+                quasi_identifiers = quasi_identifier_choices(df, roles),
+                suppression = input$k_suppression,
+                group_ids = input$group_ids,
+                hierarchies = hierarchies()
+              )
           } else NULL
         )
         df <- obfuscate_dataset(utils::head(df, 10), config = config)
@@ -1169,11 +1310,11 @@ run_obfuscator_app <- function() {
         context = list(metadata = list(trigger = "run_obfuscation"))
       ))
       privacy_model <- if (isTRUE(input$enable_k)) {
-        qis <- unique(c(roles$id, roles$date, roles$categorical))
-        if (length(qis) == 0) {
-          shiny::showNotification("k-anonymity necesita al menos un quasi-identificador seleccionado.", type = "error")
-          return()
-        }
+          qis <- quasi_identifier_choices(df, roles)
+          if (length(qis) == 0) {
+            shiny::showNotification("k-anonymity necesita al menos un quasi-identificador seleccionado.", type = "error")
+            return()
+          }
 
         list(
           type = "k_anonymity",
@@ -1289,6 +1430,23 @@ run_obfuscator_app <- function() {
         log_info = log_info
       )
       cat(report_text, "\n")
+    })
+
+    output$download_button_ui <- shiny::renderUI({
+      build_download_button_control(release_state())
+    })
+
+    shiny::observeEvent(input$download_blocked, {
+      shiny::showModal(shiny::modalDialog(
+        title = "Exportacion externa bloqueada",
+        easyClose = TRUE,
+        footer = shiny::modalButton("Cerrar"),
+        shiny::tags$p("El dataset actual no esta en estado Liberable para exportacion externa."),
+        shiny::tags$p(
+          class = "help-text",
+          "Revisa el resumen de auditoria para entender por que esta bloqueado y que ajustes faltan antes de descargar."
+        )
+      ))
     })
 
     shiny::observeEvent(input$save_to_env, {

@@ -388,15 +388,50 @@ test_that("studio demo datasets include built-ins and a mixed synthetic case", {
 
   expect_true(all(c("iris", "mtcars", "airquality", "obfuscator_demo_personas") %in% names(demo_sets)))
   expect_true(all(c(
-    "persona_id",
-    "fecha_alta",
-    "tramo",
-    "departamento",
-    "edad",
-    "ingreso",
-    "indicador_privado",
-    "observacion"
-  ) %in% names(demo_sets$obfuscator_demo_personas)))
+      "persona_id",
+      "fecha_alta",
+      "tramo",
+      "departamento",
+      "edad",
+      "ingreso",
+      "indicador_privado",
+      "observacion"
+    ) %in% names(demo_sets$obfuscator_demo_personas)))
+})
+
+test_that("release review enrichment separates sensitive and private demo fields", {
+  df <- build_demo_personas_dataset()
+  roles <- build_default_ui_roles(df)
+
+  expect_true("indicador_privado" %in% (roles$sensitive %||% character(0)))
+  expect_true("observacion" %in% (roles$private %||% character(0)))
+  expect_false("indicador_privado" %in% roles$categorical)
+  expect_false("observacion" %in% roles$categorical)
+})
+
+test_that("quasi identifiers exclude sensitive and private roles", {
+  df <- build_demo_personas_dataset()
+  roles <- list(
+    id = "persona_id",
+    date = "fecha_alta",
+    categorical = c("tramo", "departamento"),
+    sensitive = "indicador_privado",
+    private = "observacion"
+  )
+
+  qis <- quasi_identifier_choices(df, roles)
+
+  expect_true(all(c("persona_id", "fecha_alta", "tramo", "departamento") %in% qis))
+  expect_false("indicador_privado" %in% qis)
+  expect_false("observacion" %in% qis)
+})
+
+test_that("download control renders a blocked action when release is not allowed", {
+  control <- build_download_button_control(initial_release_state())
+  html <- as.character(control)
+
+  expect_match(html, "download_blocked")
+  expect_match(html, "bloqueado")
 })
 
 test_that("the main UI renders a single parameters section", {

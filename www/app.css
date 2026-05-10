@@ -181,6 +181,48 @@ body {
   color: #2b2d30;
 }
 
+.release-role-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.release-role-card {
+  padding: 14px;
+  border-radius: 16px;
+  background: #fcfcfb;
+  border: 1px solid #e3e3e0;
+}
+
+.release-role-card strong {
+  display: block;
+  margin-bottom: 8px;
+  color: #2b2d30;
+}
+
+.release-role-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.release-role-chip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 4px 10px;
+  background: #eef2f5;
+  border: 1px solid #d9e0e6;
+  font-size: 12px;
+  color: #2b2d30;
+}
+
+.release-role-empty {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
 .section-header {
   display: flex;
   justify-content: space-between;
@@ -217,6 +259,9 @@ body {
 
 .accent-green { border-color: #27ae60 !important; }
 .accent-green .role-zone-header { background: #27ae60 !important; color: white !important; }
+
+.accent-burgundy { border-color: #8e3b46 !important; }
+.accent-burgundy .role-zone-header { background: #8e3b46 !important; color: white !important; }
 
 .accent-gold { border-color: #d35400 !important; } /* Naranja oscuro para contraste */
 .accent-gold .role-zone-header { background: #d35400 !important; color: white !important; }

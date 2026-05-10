@@ -8,6 +8,8 @@ Reunir ejemplos, pruebas y decisiones que demuestran que el producto no fue cons
 
 - contrato compartido de release entre UI, script y API;
 - exportacion bloqueada salvo estado `Liberable`;
+- bloqueo de descarga externa ya expresado como UX amigable y no como stacktrace tecnico;
+- separacion visible en UI entre `quasi-identificadores`, `sensibles` y `privadas`;
 - pruebas para riesgo residual incluso cuando `k` se cumple;
 - pruebas para reenlazabilidad por alta dimensionalidad;
 - requisitos de revision manual auditable.

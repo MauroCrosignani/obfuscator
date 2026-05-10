@@ -1346,7 +1346,7 @@ generate_schema_hash <- function(df) {
 }
 
 persistable_role_template_fields <- function() {
-  c("id", "date", "categorical", "numeric", "preserve", "exclude", "hierarchies")
+  c("id", "date", "categorical", "numeric", "preserve", "exclude", "sensitive", "private", "hierarchies")
 }
 
 restricted_role_template_fields <- function() {
@@ -1410,6 +1410,8 @@ load_roles_from_json <- function(df, path, threshold = 0.8) {
       date = c(),
       categorical = c(),
       numeric = c(),
+      sensitive = c(),
+      private = c(),
       preserve = c(),
       exclude = c()
     ),
