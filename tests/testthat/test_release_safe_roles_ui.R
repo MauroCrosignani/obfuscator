@@ -61,3 +61,43 @@ test_that("column-level helper returns the highest-priority matching role", {
   )
   expect_equal(private_text_suggestion$role, "PRIV")
 })
+
+test_that("release-safe variable table helpers expose one row per variable", {
+  df <- build_demo_personas_dataset()
+  rows <- build_release_variable_rows(
+    df,
+    role_state = build_default_ui_roles(df),
+    suggested_roles = suggest_release_safe_roles(df)
+  )
+
+  expect_length(rows, ncol(df))
+  expect_true(all(c(
+    "variable", "type", "role", "treatment", "risk", "status", "action_label"
+  ) %in% names(rows[[1]])))
+
+  edad_row <- rows[[match("edad", vapply(rows, `[[`, character(1), "variable"))]]
+  observacion_row <- rows[[match("observacion", vapply(rows, `[[`, character(1), "variable"))]]
+
+  expect_equal(edad_row$role, "QI")
+  expect_match(edad_row$treatment, "rango|generaliz|cuasi", ignore.case = TRUE)
+  expect_match(edad_row$risk, "alto|medio", ignore.case = TRUE)
+
+  expect_equal(observacion_row$role, "PRIV")
+  expect_match(observacion_row$type, "Texto", ignore.case = TRUE)
+  expect_match(observacion_row$status, "bloquea|revis", ignore.case = TRUE)
+})
+
+test_that("main classification table render exposes release-safe columns and role badges", {
+  html <- as.character(render_release_variable_table_for_test(build_demo_personas_dataset()))
+
+  expect_match(html, "Variable")
+  expect_match(html, "Tipo")
+  expect_match(html, "Rol")
+  expect_match(html, "Tratamiento")
+  expect_match(html, "Riesgo")
+  expect_match(html, "Estado")
+  expect_match(html, "Accion")
+  expect_match(html, "Editar")
+  expect_match(html, "release-variable-table")
+  expect_match(html, "release-role-badge")
+})

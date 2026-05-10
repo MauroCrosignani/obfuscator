@@ -444,6 +444,14 @@ test_that("the main UI renders a single parameters section", {
   expect_equal(sum(gregexpr("id=\"numeric_mode\"", ui_text, fixed = TRUE)[[1]] > 0), 1)
 })
 
+test_that("the main UI includes the release-safe variable table as visible primary structure", {
+  ui_text <- paste(capture.output(print(run_obfuscator_app_ui_for_test())), collapse = "\n")
+
+  expect_match(ui_text, "release_variable_table_ui")
+  expect_match(ui_text, "Tabla principal por variable")
+  expect_match(ui_text, "Clasificacion visual heredada")
+})
+
 test_that("generated R code reflects release privacy inputs and warns about approval", {
   code <- build_obfuscation_code_snippet(
     data_reference = "iris",

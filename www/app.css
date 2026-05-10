@@ -223,6 +223,151 @@ body {
   font-size: 12px;
 }
 
+.release-variable-table-shell {
+  margin-bottom: 18px;
+}
+
+.release-variable-table-wrapper {
+  overflow-x: auto;
+  border: 1px solid #d9e0e6;
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(248, 250, 251, 0.96));
+  box-shadow: 0 8px 24px rgba(25, 33, 45, 0.06);
+}
+
+.release-variable-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 760px;
+}
+
+.release-variable-table th,
+.release-variable-table td {
+  padding: 12px 14px;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid #e8edf1;
+}
+
+.release-variable-table th {
+  background: #eef3f6;
+  color: #243241;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.release-variable-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.release-variable-table tbody tr:hover {
+  background: rgba(238, 243, 246, 0.72);
+}
+
+.release-col-variable strong {
+  color: #1f2933;
+}
+
+.release-col-treatment {
+  min-width: 220px;
+  color: #44515c;
+}
+
+.release-role-badge,
+.release-signal-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.release-role-id {
+  background: #fdecec;
+  color: #9f1d20;
+  border-color: #f5c2c7;
+}
+
+.release-role-qi {
+  background: #edf6ff;
+  color: #155a99;
+  border-color: #bcdcff;
+}
+
+.release-role-sens {
+  background: #fff4dd;
+  color: #8a5a00;
+  border-color: #f4d28c;
+}
+
+.release-role-priv {
+  background: #f9ecf1;
+  color: #7b2948;
+  border-color: #eab8ca;
+}
+
+.release-role-keep {
+  background: #e9f8ef;
+  color: #1f6b47;
+  border-color: #bde5cb;
+}
+
+.release-role-exc {
+  background: #eef1f4;
+  color: #4a5a68;
+  border-color: #cfd8df;
+}
+
+.risk-badge,
+.status-badge {
+  background: #f4f6f8;
+  color: #32414f;
+  border-color: #d5dde5;
+}
+
+.risk-critico,
+.status-bloquea {
+  background: #fdecec;
+  color: #9f1d20;
+  border-color: #f5c2c7;
+}
+
+.risk-alto,
+.status-revisar,
+.status-sugerido {
+  background: #fff4dd;
+  color: #8a5a00;
+  border-color: #f4d28c;
+}
+
+.risk-bajo,
+.status-ok {
+  background: #e9f8ef;
+  color: #1f6b47;
+  border-color: #bde5cb;
+}
+
+.legacy-role-board {
+  padding-top: 8px;
+  border-top: 1px solid #e6eaee;
+}
+
+.legacy-role-board-header h4 {
+  margin: 0;
+  font-size: 18px;
+  color: #243241;
+}
+
+.release-table-action {
+  min-width: 78px;
+}
+
 .section-header {
   display: flex;
   justify-content: space-between;

@@ -129,6 +129,222 @@ build_release_role_summary <- function(df, roles, k_enabled = FALSE) {
   )
 }
 
+release_safe_role_from_state <- function(var_name, role_state, suggested_roles = list()) {
+  if (!is.null(role_state[[var_name]]) && is.list(role_state[[var_name]]) && !is.null(role_state[[var_name]]$role)) {
+    return(toupper(role_state[[var_name]]$role))
+  }
+
+  legacy_role_map <- c(
+    id = "ID",
+    date = "QI",
+    categorical = "QI",
+    numeric = "QI",
+    sensitive = "SENS",
+    private = "PRIV",
+    preserve = "KEEP",
+    exclude = "EXC"
+  )
+
+  for (legacy_role in names(legacy_role_map)) {
+    if (var_name %in% (role_state[[legacy_role]] %||% character(0))) {
+      return(legacy_role_map[[legacy_role]])
+    }
+  }
+
+  suggestion <- suggested_roles[[var_name]] %||% list()
+  toupper(suggestion$role %||% "KEEP")
+}
+
+release_safe_variable_type_label <- function(column_data, role = NULL) {
+  if (inherits(column_data, c("Date", "POSIXct", "POSIXt"))) {
+    return("Fecha")
+  }
+
+  if (is.numeric(column_data) || is.integer(column_data)) {
+    return("Numerica")
+  }
+
+  if (is.logical(column_data)) {
+    return("Categorica")
+  }
+
+  values <- as.character(column_data)
+  values <- values[!is.na(values)]
+  if (length(values) == 0) {
+    return("Categorica")
+  }
+
+  median_chars <- stats::median(nchar(trimws(values)))
+  unique_ratio <- length(unique(values)) / length(values)
+  if (identical(role, "PRIV") || median_chars >= 28 || (median_chars >= 18 && unique_ratio > 0.65)) {
+    return("Texto")
+  }
+
+  "Categorica"
+}
+
+release_safe_treatment_label <- function(role, type_label) {
+  if (identical(role, "ID")) {
+    return("Reemplazar identificador directo o excluir")
+  }
+
+  if (identical(role, "QI")) {
+    if (identical(type_label, "Fecha")) {
+      return("Generalizar fecha para reducir reidentificacion")
+    }
+    if (identical(type_label, "Numerica")) {
+      return("Generalizar en rangos como cuasi-identificador")
+    }
+    return("Agrupar categorias o jerarquizar como cuasi-identificador")
+  }
+
+  if (identical(role, "SENS")) {
+    return("Conservar con control de riesgo residual o excluir")
+  }
+
+  if (identical(role, "PRIV")) {
+    return("Revision manual o exclusion por contenido expresivo")
+  }
+
+  if (identical(role, "EXC")) {
+    return("Excluir de la salida final")
+  }
+
+  "Conservar en salida sin tratamiento principal"
+}
+
+release_safe_risk_label <- function(role) {
+  switch(
+    role,
+    ID = "Critico",
+    QI = "Alto",
+    SENS = "Alto",
+    PRIV = "Critico",
+    KEEP = "Bajo",
+    EXC = "Bajo",
+    "Medio"
+  )
+}
+
+release_safe_status_label <- function(role, suggestion_role = NULL) {
+  if (identical(role, "EXC")) {
+    return("OK")
+  }
+
+  if (identical(role, suggestion_role) && role %in% c("KEEP", "QI")) {
+    return("Sugerido")
+  }
+
+  if (role %in% c("ID", "PRIV")) {
+    return("Bloquea")
+  }
+
+  if (role %in% c("QI", "SENS")) {
+    return("Revisar")
+  }
+
+  "OK"
+}
+
+build_release_variable_rows <- function(df, role_state, suggested_roles = list(), search_term = NULL) {
+  if (!is.data.frame(df) || ncol(df) == 0) {
+    return(list())
+  }
+
+  variables <- colnames(df)
+  if (nzchar(search_term %||% "")) {
+    pattern <- tolower(search_term)
+    variables <- variables[grepl(pattern, tolower(variables), fixed = TRUE)]
+  }
+
+  lapply(variables, function(var_name) {
+    role <- release_safe_role_from_state(var_name, role_state, suggested_roles)
+    suggestion_role <- toupper((suggested_roles[[var_name]] %||% list())$role %||% role)
+    type_label <- release_safe_variable_type_label(df[[var_name]], role = role)
+
+    list(
+      variable = var_name,
+      type = type_label,
+      role = role,
+      treatment = release_safe_treatment_label(role, type_label),
+      risk = release_safe_risk_label(role),
+      status = release_safe_status_label(role, suggestion_role),
+      action_label = "Editar"
+    )
+  })
+}
+
+render_release_role_badge <- function(role) {
+  shiny::tags$span(
+    class = sprintf("release-role-badge release-role-%s", tolower(role)),
+    role
+  )
+}
+
+render_release_signal_badge <- function(value, kind = c("risk", "status")) {
+  kind <- match.arg(kind)
+  normalized <- tolower(gsub("[^a-z0-9]+", "-", value))
+  shiny::tags$span(
+    class = sprintf("release-signal-badge %s-badge %s-%s", kind, kind, normalized),
+    value
+  )
+}
+
+render_release_variable_table <- function(df, role_state, suggested_roles = list(), search_term = NULL) {
+  rows <- build_release_variable_rows(
+    df,
+    role_state = role_state,
+    suggested_roles = suggested_roles,
+    search_term = search_term
+  )
+
+  if (length(rows) == 0) {
+    return(shiny::tags$p(class = "release-variable-empty", "Carga un dataset para revisar variables en la tabla principal."))
+  }
+
+  header_labels <- c("Variable", "Tipo", "Rol", "Tratamiento", "Riesgo", "Estado", "Accion")
+  body_rows <- lapply(rows, function(row) {
+    shiny::tags$tr(
+      shiny::tags$td(class = "release-col-variable", shiny::tags$strong(row$variable)),
+      shiny::tags$td(row$type),
+      shiny::tags$td(render_release_role_badge(row$role)),
+      shiny::tags$td(class = "release-col-treatment", row$treatment),
+      shiny::tags$td(render_release_signal_badge(row$risk, "risk")),
+      shiny::tags$td(render_release_signal_badge(row$status, "status")),
+      shiny::tags$td(
+        shiny::tags$button(
+          type = "button",
+          class = "btn btn-default action-button btn-sm secondary-btn release-table-action",
+          `data-variable` = row$variable,
+          row$action_label
+        )
+      )
+    )
+  })
+
+  shiny::tags$div(
+    class = "release-variable-table-shell",
+    shiny::tags$div(
+      class = "release-variable-table-wrapper",
+      shiny::tags$table(
+        class = "release-variable-table",
+        shiny::tags$thead(
+          shiny::tags$tr(lapply(header_labels, shiny::tags$th))
+        ),
+        shiny::tags$tbody(body_rows)
+      )
+    )
+  )
+}
+
+render_release_variable_table_for_test <- function(df) {
+  render_release_variable_table(
+    df,
+    role_state = build_default_ui_roles(df),
+    suggested_roles = suggest_release_safe_roles(df)
+  )
+}
+
 build_download_button_control <- function(state) {
   if (can_export_external_release(state)) {
     return(shiny::downloadButton("download_csv", "Descargar CSV"))
@@ -635,21 +851,32 @@ build_obfuscator_app_ui <- function(asset_version) {
             shiny::tags$div(
               class = "section-header",
               shiny::tags$div(
-                shiny::tags$h3("Clasificacion visual de variables"),
-                shiny::tags$p("Arrastra variables entre zonas para corregir la deteccion automatica.")
-              ),
-              shiny::tags$div(
-                class = "search-wrapper",
-                shiny::tags$div(
-                  class = "btn-group-custom",
-                  shiny::actionButton("confirm_suggestions", shiny::tagList(studio_icon("check", "Confirmar"), " Confirmar Todo"), class = "btn-sm"),
-                  shiny::actionButton("save_template", shiny::tagList(studio_icon("save", "Guardar"), " Guardar Plantilla"), class = "btn-sm"),
-                  shiny::actionButton("load_template", shiny::tagList(studio_icon("open", "Cargar"), " Cargar Plantilla"), class = "btn-sm")
-                ),
-                shiny::textInput("var_search", NULL, placeholder = "Filtrar por nombre...", width = "200px")
+                shiny::tags$h3("Tabla principal por variable"),
+                shiny::tags$p("Vista principal release-safe por variable. El flujo visual anterior sigue disponible como apoyo temporal.")
               )
             ),
-            shiny::uiOutput("role_board_ui")
+            shiny::uiOutput("release_variable_table_ui"),
+            shiny::tags$div(
+              class = "legacy-role-board",
+              shiny::tags$div(
+                class = "section-header legacy-role-board-header",
+                shiny::tags$div(
+                  shiny::tags$h4("Clasificacion visual heredada"),
+                  shiny::tags$p("Arrastra variables entre zonas solo si necesitas apoyar o corregir el flujo transitorio.")
+                ),
+                shiny::tags$div(
+                  class = "search-wrapper",
+                  shiny::tags$div(
+                    class = "btn-group-custom",
+                    shiny::actionButton("confirm_suggestions", shiny::tagList(studio_icon("check", "Confirmar"), " Confirmar Todo"), class = "btn-sm"),
+                    shiny::actionButton("save_template", shiny::tagList(studio_icon("save", "Guardar"), " Guardar Plantilla"), class = "btn-sm"),
+                    shiny::actionButton("load_template", shiny::tagList(studio_icon("open", "Cargar"), " Cargar Plantilla"), class = "btn-sm")
+                  ),
+                  shiny::textInput("var_search", NULL, placeholder = "Filtrar por nombre...", width = "200px")
+                )
+              ),
+              shiny::uiOutput("role_board_ui")
+            )
           ),
           shiny::tags$div(
             class = "panel-card",
@@ -1252,6 +1479,20 @@ run_obfuscator_app <- function() {
         return(shiny::tags$p("Carga un dataset para ver como quedarian separados los quasi-identificadores, sensibles y privados."))
       }
       build_release_role_summary(df, role_state(), k_enabled = isTRUE(input$enable_k))
+    })
+
+    output$release_variable_table_ui <- shiny::renderUI({
+      df <- source_data()
+      if (is.null(df)) {
+        return(shiny::tags$p("Carga un dataset para revisar variables en la tabla principal release-safe."))
+      }
+
+      render_release_variable_table(
+        df,
+        role_state = role_state(),
+        suggested_roles = suggested_roles(),
+        search_term = input$var_search %||% ""
+      )
     })
 
     output$role_board_ui <- shiny::renderUI({
