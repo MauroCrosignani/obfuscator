@@ -98,6 +98,19 @@ test_that("internal obfuscation output is not automatically marked releasable", 
   expect_true(can_export_external_release(releasable))
 })
 
+test_that("empty final result is not marked releasable even if k-anonymity is satisfied", {
+  state <- derive_release_state_from_obfuscation(
+    privacy_enabled = TRUE,
+    privacy_satisfied = TRUE,
+    has_internal_preview = TRUE,
+    final_row_count = 0
+  )
+
+  expect_equal(state$status, "No liberable sin rediseno")
+  expect_false(can_export_external_release(state))
+  expect_true(any(grepl("elimina todas las filas", unlist(state$reasons, use.names = FALSE), fixed = TRUE)))
+})
+
 test_that("nominal high-risk detector includes approved patterns", {
   cols <- c("pers_id", "emp", "telefono", "comentario", "monto")
   flagged <- detect_high_risk_name_patterns(cols)

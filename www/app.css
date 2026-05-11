@@ -954,6 +954,24 @@ body {
   opacity: 0.9;
 }
 
+.preview-empty-state {
+  margin-bottom: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  color: #9a3412;
+}
+
+.preview-empty-state strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.preview-empty-state p {
+  margin: 0;
+}
+
 /* Micro-interactions & Glassmorphism 2.0 */
 .draggable-var {
   transition: transform 0.2s, box-shadow 0.2s, opacity 0.2s;

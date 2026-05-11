@@ -440,6 +440,7 @@ Resultado esperado:
 - el resumen no debe ser solo un log crudo;
 - debe explicar por que el dataset queda bloqueado o liberable;
 - debe sugerir pasos siguientes cuando no se puede liberar.
+- si el resultado final queda sin filas, la vista previa debe mostrar un mensaje explicito y el estado no debe quedar como `Liberable`.
 
 Caso bloqueado sugerido:
 

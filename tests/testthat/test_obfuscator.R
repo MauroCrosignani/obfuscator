@@ -364,6 +364,14 @@ test_that("preview mode control locks after obfuscation exists", {
   expect_match(editable_html, "live_preview")
 })
 
+test_that("preview notice explains when the final artifact is empty", {
+  html <- as.character(build_preview_notice(data.frame(a = numeric(0)), build_release_state("No liberable sin rediseno")))
+
+  expect_match(html, "No liberable sin rediseno")
+  expect_match(html, "resultado")
+  expect_match(html, "vacio|vacío", ignore.case = TRUE)
+})
+
 test_that("template notifications are human-readable", {
   saved_msg <- build_template_notification("abcd1234", action = "saved")
   loaded_msg <- build_template_notification("abcd1234", suggested_count = 2, action = "loaded")

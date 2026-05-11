@@ -72,7 +72,8 @@ transition_release_state <- function(current_state, event, context = list()) {
 derive_release_state_from_obfuscation <- function(
   privacy_enabled,
   privacy_satisfied = FALSE,
-  has_internal_preview = TRUE
+  has_internal_preview = TRUE,
+  final_row_count = NULL
 ) {
   metadata <- list(
     has_internal_preview = isTRUE(has_internal_preview),
@@ -83,6 +84,14 @@ derive_release_state_from_obfuscation <- function(
     return(build_release_state(
       "Bloqueado",
       reasons = list("La liberacion externa requiere activar k-anonymity."),
+      metadata = metadata
+    ))
+  }
+
+  if (!is.null(final_row_count) && is.numeric(final_row_count) && length(final_row_count) == 1 && final_row_count <= 0) {
+    return(build_release_state(
+      "No liberable sin rediseno",
+      reasons = list("La configuracion actual elimina todas las filas utiles del artefacto final."),
       metadata = metadata
     ))
   }
@@ -131,7 +140,8 @@ derive_release_state_from_result <- function(
   derive_release_state_from_obfuscation(
     privacy_enabled = isTRUE(privacy_enabled),
     privacy_satisfied = privacy_satisfied,
-    has_internal_preview = has_internal_preview
+    has_internal_preview = has_internal_preview,
+    final_row_count = nrow(result)
   )
 }
 

@@ -33,6 +33,21 @@ Alternativas a evaluar mas adelante:
 - adjunto del resumen como metadata del artefacto exportado;
 - combinacion de registro operativo + informe descargable.
 
+### 0A. Gestion explicita de plantillas de clasificacion
+
+**Estado:** activo  
+**Prioridad:** media
+
+La persistencia automatica por esquema resulto util, pero en pruebas manuales aparecio una limitacion importante: el usuario puede no advertir que se reaplico una clasificacion previa y, si esa clasificacion era solo experimental, puede inducir una reutilizacion no deseada.
+
+Pendientes recomendados:
+
+- boton para volver a las sugerencias automaticas de la app;
+- posibilidad de nombrar plantillas con un nombre amigable;
+- selector visible de plantillas compatibles, en lugar de depender solo del hash de esquema;
+- advertencia clara cuando se cargue automaticamente una plantilla previa;
+- posibilidad de distinguir entre plantillas personales de prueba y plantillas estables de trabajo.
+
 ### 1. Documentacion retrospectiva de tasks ya completados y estables
 
 **Estado:** parcialmente cumplido  

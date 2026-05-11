@@ -399,6 +399,25 @@ build_preview_mode_control <- function(has_obfuscated_data = FALSE) {
   shiny::checkboxInput("live_preview", "Vista previa de ofuscacion (solo 10 filas)", value = FALSE)
 }
 
+build_preview_notice <- function(df, release_state = NULL) {
+  if (!is.data.frame(df) || nrow(df) > 0) {
+    return(NULL)
+  }
+
+  status <- release_state$status %||% "Sin estado"
+  message <- if (identical(status, "No liberable sin rediseno")) {
+    "La configuracion actual elimina todas las filas del resultado. El artefacto final queda vacio y requiere rediseñar el criterio de liberacion."
+  } else {
+    "La ofuscacion actual produjo un resultado sin filas visibles."
+  }
+
+  shiny::tags$div(
+    class = "preview-empty-state",
+    shiny::tags$strong(sprintf("Estado: %s", status)),
+    shiny::tags$p(message)
+  )
+}
+
 apply_persisted_template_to_roles <- function(dataset, persisted) {
   roles <- build_default_ui_roles(dataset)
 
@@ -1543,6 +1562,7 @@ build_obfuscator_app_ui <- function(asset_version) {
               shiny::tags$h3("Vista previa"),
               shiny::uiOutput("preview_mode_ui")
             ),
+            shiny::uiOutput("preview_notice_ui"),
             shiny::tags$div(
               class = "preview-table-wrapper",
               shiny::tableOutput("preview_table")
@@ -2220,6 +2240,11 @@ run_obfuscator_app <- function() {
       build_preview_mode_control(has_obfuscated_data = !is.null(obfuscated_data()))
     })
 
+    output$preview_notice_ui <- shiny::renderUI({
+      preview_df <- obfuscated_data()
+      build_preview_notice(preview_df, release_state())
+    })
+
     output$role_board_ui <- shiny::renderUI({
       df <- source_data()
       if (is.null(df)) {
@@ -2295,6 +2320,10 @@ run_obfuscator_app <- function() {
           privacy_model = privacy_model
         )
         df <- obfuscate_dataset(utils::head(df, 10), config = config)
+      }
+
+      if (nrow(df) == 0) {
+        return(NULL)
       }
 
       utils::head(format_preview_dataset(df), 10)
@@ -2382,7 +2411,8 @@ run_obfuscator_app <- function() {
         release_state(derive_release_state_from_obfuscation(
           privacy_enabled = isTRUE(input$enable_k),
           privacy_satisfied = isTRUE(privacy_report$after$satisfied),
-          has_internal_preview = TRUE
+          has_internal_preview = TRUE,
+          final_row_count = nrow(result)
         ))
       })
 
