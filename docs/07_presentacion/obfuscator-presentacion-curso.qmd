@@ -164,19 +164,56 @@ Eso también es parte de la metodología: no solo definir bien el problema, sino
 
 ## Qué devuelve hoy el sistema
 
-![](capturas/04a-resultado-auditoria-recorte.png){fig-alt="Vista previa del resultado ofuscado y resumen de auditoría resultante" width="88%"}
+No devuelve solo una transformación.
 
-- Resultado transformado.
-- Resumen de auditoría legible.
-- Estado final de liberación.
-- Posibilidad de bloquear, advertir o habilitar según el caso.
+Devuelve tres cosas que importan al mismo tiempo:
+
+- un artefacto resultante;
+- una explicación auditable;
+- y una conclusión operativa de liberación.
 
 ::: notes
-Esta captura muestra el corazón del MVP.
+Esta sección la voy a contar en tres pasos, porque es mucho más fácil de ver en proyector que una sola captura con todo junto.
 
-La herramienta no se queda en “ya transformé columnas”. Devuelve un resultado y además una explicación operativa: qué se hizo, bajo qué criterio, y cuál es el estado final.
+La idea principal es que el sistema no devuelve únicamente columnas transformadas. Devuelve también una explicación y una conclusión.
+:::
 
-Ese resumen de auditoría me parece clave porque traduce decisiones técnicas a una conclusión revisable. No reemplaza el criterio humano ni la política institucional, pero ordena mucho mejor la conversación.
+## Qué devuelve hoy el sistema
+
+![](capturas/04b-resultado-vista-previa.png){fig-alt="Recorte ampliado de la vista previa del resultado ofuscado" width="94%"}
+
+**1. Un resultado transformado que ya puede mirarse como artefacto de salida.**
+
+::: notes
+Primero muestro el artefacto resultante.
+
+Quiero que se vea que el sistema no se queda en configuración abstracta: produce un resultado concreto, visible, revisable. Eso es importante para una herramienta pensada para uso real.
+:::
+
+## Qué devuelve hoy el sistema
+
+![](capturas/04c-resumen-auditoria-detalle.png){fig-alt="Recorte ampliado del resumen de auditoría" width="94%"}
+
+**2. Un resumen de auditoría que traduce decisiones técnicas a una lectura operativa.**
+
+::: notes
+Segundo, enfoco el resumen de auditoría.
+
+Esto me interesa mucho porque ordena la conversación: no obliga a leer un log crudo, sino que intenta decir qué controles se aplicaron y cómo interpretar el resultado.
+:::
+
+## Qué devuelve hoy el sistema
+
+![](capturas/04d-estado-liberacion-detalle.png){fig-alt="Recorte ampliado del estado final de liberación" width="78%"}
+
+**3. Un estado final de liberación: habilita, advierte, exige revisión o bloquea.**
+
+::: notes
+Y tercero, cierro en la conclusión operativa.
+
+Ese estado final es importante porque convierte una transformación técnica en una decisión más defendible. Esa es, para mí, la diferencia entre una app que ofusca y una app que gobierna liberación controlada.
+
+No reemplaza el criterio humano ni la política institucional, pero ordena mucho mejor la conversación.
 :::
 
 ## Qué sí hace hoy y qué no promete
