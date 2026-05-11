@@ -1,0 +1,70 @@
+.reveal {
+  font-family: "Aptos", "Trebuchet MS", "Segoe UI", sans-serif;
+  color: #122033;
+}
+
+.reveal .slides {
+  text-align: left;
+}
+
+.reveal .slide-background-content {
+  background: linear-gradient(180deg, #f7f4ee 0%, #fdfcf8 100%);
+}
+
+.reveal h1,
+.reveal h2,
+.reveal h3 {
+  color: #16324f;
+  font-family: "Aptos Display", "Gill Sans", "Segoe UI", sans-serif;
+  letter-spacing: -0.02em;
+}
+
+.reveal h2 {
+  font-size: 1.75em;
+  margin-bottom: 0.45em;
+}
+
+.reveal p,
+.reveal li {
+  font-size: 0.95em;
+  line-height: 1.45;
+}
+
+.reveal strong {
+  color: #0f5132;
+}
+
+.reveal blockquote {
+  border-left: 6px solid #d77a2b;
+  background: rgba(215, 122, 43, 0.08);
+  padding: 0.8em 1em;
+  width: 100%;
+  box-shadow: none;
+}
+
+.reveal ul {
+  margin-top: 0.4em;
+}
+
+.reveal li {
+  margin-bottom: 0.35em;
+}
+
+.reveal .columns {
+  gap: 1.2rem;
+}
+
+.reveal img {
+  border: 1px solid #d8dfeb;
+  border-radius: 18px;
+  box-shadow: 0 18px 40px rgba(20, 39, 62, 0.12);
+}
+
+.reveal .footer,
+.reveal .slide-number {
+  color: #5c6d7f !important;
+}
+
+.reveal .progress {
+  color: #d77a2b;
+}

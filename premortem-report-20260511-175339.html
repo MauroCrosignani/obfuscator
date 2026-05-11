@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Premortem - Presentacion ObfuscatoR</title>
+  <style>
+    :root {
+      --bg: #0a0e1a;
+      --panel: #121a2b;
+      --panel-2: #18233a;
+      --text: #eef3ff;
+      --muted: #a9b5d1;
+      --line: #2b3a5f;
+      --danger: #ff6b6b;
+      --warn: #ffb347;
+      --info: #67c5ff;
+      --ok: #7ee787;
+      --accent-1: #ff7b72;
+      --accent-2: #f2cc60;
+      --accent-3: #7ee787;
+      --accent-4: #79c0ff;
+      --accent-5: #d2a8ff;
+      --accent-6: #ffa657;
+      --accent-7: #56d4dd;
+      --accent-8: #ff9bd2;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: linear-gradient(180deg, #09101d 0%, #0a0e1a 100%);
+      color: var(--text);
+      line-height: 1.45;
+    }
+    .wrap {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 32px 24px 56px;
+    }
+    h1, h2, h3 { margin: 0 0 12px; line-height: 1.15; }
+    h1 { font-size: 2.2rem; }
+    h2 { font-size: 1.4rem; margin-top: 28px; }
+    h3 { font-size: 1.05rem; }
+    p { margin: 0 0 10px; color: var(--text); }
+    .muted { color: var(--muted); }
+    .hero, .panel, .card {
+      background: rgba(18, 26, 43, 0.88);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: 0 10px 28px rgba(0,0,0,0.28);
+    }
+    .hero { padding: 24px; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+      margin-top: 18px;
+    }
+    .panel { padding: 20px; margin-top: 22px; }
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0,1fr));
+      gap: 14px;
+      margin-top: 18px;
+    }
+    .metric {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px;
+    }
+    .metric .k {
+      color: var(--muted);
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .metric .v {
+      font-size: 1.55rem;
+      font-weight: 700;
+      margin-top: 6px;
+    }
+    .pill {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      margin-right: 8px;
+      margin-bottom: 8px;
+      border: 1px solid transparent;
+    }
+    .p-danger { background: rgba(255,107,107,0.12); color: var(--danger); border-color: rgba(255,107,107,0.3); }
+    .p-warn { background: rgba(255,179,71,0.12); color: var(--warn); border-color: rgba(255,179,71,0.3); }
+    .p-info { background: rgba(103,197,255,0.12); color: var(--info); border-color: rgba(103,197,255,0.3); }
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+      gap: 16px;
+      margin-top: 18px;
+    }
+    .card {
+      padding: 18px;
+      border-top-width: 4px;
+    }
+    .card:nth-child(1) { border-top-color: var(--accent-1); }
+    .card:nth-child(2) { border-top-color: var(--accent-2); }
+    .card:nth-child(3) { border-top-color: var(--accent-3); }
+    .card:nth-child(4) { border-top-color: var(--accent-4); }
+    .card:nth-child(5) { border-top-color: var(--accent-5); }
+    .card:nth-child(6) { border-top-color: var(--accent-6); }
+    .card:nth-child(7) { border-top-color: var(--accent-7); }
+    .card:nth-child(8) { border-top-color: var(--accent-8); }
+    .rating {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+    ul {
+      margin: 10px 0 0 20px;
+      color: var(--text);
+      padding: 0;
+    }
+    li { margin: 7px 0; }
+    .footer {
+      margin-top: 28px;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+    @media (max-width: 900px) {
+      .metrics { grid-template-columns: repeat(2, minmax(0,1fr)); }
+    }
+    @media (max-width: 560px) {
+      .metrics { grid-template-columns: 1fr; }
+      .wrap { padding: 18px 14px 40px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <h1>Premortem de la presentacion</h1>
+      <p class="muted">Objeto: presentacion de ObfuscatoR como herramienta de liberacion controlada para uso institucional de IA, en el contexto de un curso centrado en informes solidos y CRISP-DM.</p>
+      <div class="metrics">
+        <div class="metric">
+          <div class="k">Falla mas probable</div>
+          <div class="v">Narrativa mal encuadrada</div>
+        </div>
+        <div class="metric">
+          <div class="k">Falla mas peligrosa</div>
+          <div class="v">Sobrepromesa del MVP</div>
+        </div>
+        <div class="metric">
+          <div class="k">Supuesto oculto</div>
+          <div class="v">La audiencia inferira sola la cadena metodologica</div>
+        </div>
+        <div class="metric">
+          <div class="k">Agentes profundos</div>
+          <div class="v">8 modos de falla</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Sintesis ejecutiva</h2>
+      <p><strong>Falla mas probable:</strong> que la presentacion se perciba como una demo de producto interesante, pero no como un caso metodologico serio alineado con CRISP-DM.</p>
+      <p><strong>Falla mas peligrosa:</strong> que el discurso prometa una madurez mayor a la que el MVP tiene hoy, debilitando confianza tecnica e institucional.</p>
+      <p><strong>Revision mas importante del plan:</strong> estructurar la presentacion en cuatro actos visibles: problema institucional, metodo de trabajo, MVP actual con limites honestos, y flujo practico de uso con IA.</p>
+    </section>
+
+    <section class="panel">
+      <h2>Plan revisado</h2>
+      <ul>
+        <li>Abrir con el problema institucional: no podemos dar contexto util a Copilot o Cursor con datos reales sin una herramienta de liberacion controlada.</li>
+        <li>Enmarcar el trabajo explicitamente en CRISP-DM y mostrar como la especificacion viva responde a hallazgos de investigacion, validacion y UX/UI.</li>
+        <li>Separar con honestidad lo que el MVP ya hace de lo que todavia esta en backlog.</li>
+        <li>Mostrar un flujo de uso concreto con IA, no solo pantallas del sistema.</li>
+        <li>Usar pocas capturas, cada una al servicio de una pregunta metodologica o funcional clara.</li>
+        <li>Cerrar con un mensaje de madurez realista: utilidad presente, limites visibles y proximo camino.</li>
+      </ul>
+    </section>
+
+    <section class="panel">
+      <h2>Checklist previo</h2>
+      <ul>
+        <li>Confirmar el tiempo exacto de exposicion y preguntas.</li>
+        <li>Tener una diapositiva de honestidad tecnica: hace hoy / no hace todavia / por que igual importa.</li>
+        <li>Preparar un ejemplo operativo de uso con Copilot.</li>
+        <li>Elegir capturas autoexplicativas y narrarlas en menos de 30 segundos cada una.</li>
+        <li>Tener una respuesta breve a: "por que esto es metodologicamente serio y no solo una demo?"</li>
+      </ul>
+    </section>
+
+    <section class="panel">
+      <h2>Mapa de fallas</h2>
+      <div class="cards">
+        <article class="card">
+          <div class="rating">
+            <span class="pill p-danger">Probabilidad alta</span>
+            <span class="pill p-warn">Impacto alto</span>
+          </div>
+          <h3>1. Demo de producto en vez de caso metodologico</h3>
+          <p>La audiencia ve interfaz y funcionalidad, pero no una cadena clara entre problema, metodo, validacion y utilidad institucional.</p>
+          <p><strong>Supuesto:</strong> si el producto luce riguroso, la audiencia inferira la metodologia.</p>
+          <p><strong>Senales:</strong> preguntas tempranas sobre problema de negocio o institucional; demasiado tiempo en pantallas y poco en decisiones.</p>
+        </article>
+
+        <article class="card">
+          <div class="rating">
+            <span class="pill p-danger">Probabilidad media</span>
+            <span class="pill p-danger">Impacto critico</span>
+          </div>
+          <h3>2. Sobrepromesa del estado del MVP</h3>
+          <p>Se habla con fuerza de liberacion controlada y uso con IA, pero preguntas sobre limites exponen huecos reales del MVP.</p>
+          <p><strong>Supuesto:</strong> conviene sonar mas cerrado de lo que hoy esta el producto.</p>
+          <p><strong>Senales:</strong> varios "eso esta en backlog" despues de afirmaciones fuertes.</p>
+        </article>
+
+        <article class="card">
+          <div class="rating">
+            <span class="pill p-warn">Probabilidad media</span>
+            <span class="pill p-warn">Impacto alto</span>
+          </div>
+          <h3>3. Puente debil entre normativa y funcionalidad</h3>
+          <p>La parte legal queda teorica y la parte tecnica aplicada, pero no se siente la cadena causal entre ambas.</p>
+          <p><strong>Supuesto:</strong> exponer norma y luego exponer herramienta alcanza para unirlas.</p>
+          <p><strong>Senales:</strong> nadie recupera la normativa cuando mira las decisiones de producto.</p>
+        </article>
+
+        <article class="card">
+          <div class="rating">
+            <span class="pill p-info">Probabilidad media</span>
+            <span class="pill p-warn">Impacto medio</span>
+          </div>
+          <h3>4. Historia autorreferencial del proyecto</h3>
+          <p>Hay demasiado proceso interno y demasiado poco valor externo visible para la audiencia.</p>
+          <p><strong>Supuesto:</strong> mas proceso contado siempre significa mas confianza.</p>
+          <p><strong>Senales:</strong> varias diapositivas sobre backlog, documentos o decisiones internas.</p>
+        </article>
+
+        <article class="card">
+          <div class="rating">
+            <span class="pill p-danger">Probabilidad alta</span>
+            <span class="pill p-warn">Impacto alto</span>
+          </div>
+          <h3>5. Logica de liberacion poco comprensible</h3>
+          <p>Se ven estados y advertencias, pero no queda claro por que un caso libera, otro bloquea y otro pide revision manual.</p>
+          <p><strong>Supuesto:</strong> la interfaz y el resumen de auditoria ya se explican solos.</p>
+          <p><strong>Senales:</strong> preguntas del tipo "entonces cuando exactamente deja liberar?"</p>
+        </article>
+
+        <article class="card">
+          <div class="rating">
+            <span class="pill p-danger">Probabilidad media</span>
+            <span class="pill p-danger">Impacto critico</span>
+          </div>
+          <h3>6. Falla pedagogica respecto del curso</h3>
+          <p>La audiencia admira el software, pero no aprende mejor como construir informes o soluciones utiles en la practica.</p>
+          <p><strong>Supuesto:</strong> el valor pedagogico del proceso ya es obvio.</p>
+          <p><strong>Senales:</strong> la docente vuelve a preguntar por la estructura metodologica y no por la UI.</p>
+        </article>
+
+        <article class="card">
+          <div class="rating">
+            <span class="pill p-warn">Probabilidad media</span>
+            <span class="pill p-warn">Impacto alto</span>
+          </div>
+          <h3>7. Demo visual fragil u opaca</h3>
+          <p>Las capturas o la corrida en vivo requieren demasiado contexto o se vuelven fragiles frente a pequeños desajustes.</p>
+          <p><strong>Supuesto:</strong> lo que hoy tu entiendes sera obvio para quien recien conoce el sistema.</p>
+          <p><strong>Senales:</strong> necesitas traducir demasiado cada captura.</p>
+        </article>
+
+        <article class="card">
+          <div class="rating">
+            <span class="pill p-info">Probabilidad media</span>
+            <span class="pill p-warn">Impacto alto</span>
+          </div>
+          <h3>8. Falta de via de adopcion creible</h3>
+          <p>La herramienta parece interesante, pero no queda claro como se usaria realmente en la institucion con Copilot o Cursor.</p>
+          <p><strong>Supuesto:</strong> la utilidad institucional es implicita por el problema original.</p>
+          <p><strong>Senales:</strong> no hay una escena concreta de uso al cierre.</p>
+        </article>
+      </div>
+    </section>
+
+    <p class="footer">Generado el 2026-05-11 17:53:39. Premortem sobre presentacion de ObfuscatoR en contexto de curso orientado a informes metodologicamente solidos y utiles en la practica.</p>
+  </div>
+</body>
+</html>
