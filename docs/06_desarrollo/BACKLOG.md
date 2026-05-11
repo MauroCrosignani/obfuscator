@@ -96,6 +96,28 @@ Pendientes recomendados:
 - ejemplos guiados en el plan manual con expectativa explicita de resultado;
 - mensajes mas explicativos cuando el resultado final queda vacio o practicamente inutil para analisis.
 
+### 0D. Liberacion sin cuasi-identificadores relevantes
+
+**Estado:** activo  
+**Prioridad:** media
+
+En pruebas manuales aparecio un caso de borde importante: datasets donde los identificadores directos se transforman o excluyen, pero no quedan variables `QI` sobre las que aplicar `k-anonymity`.
+
+Pendientes recomendados:
+
+- permitir liberacion controlada sin `k-anonymity` cuando no existan `QI` relevantes y el resto del artefacto no active bloqueos duros;
+- diferenciar explicitamente en auditoria entre:
+  - `k-anonymity satisfecho`;
+  - `k-anonymity no aplicado por ausencia de cuasi-identificadores`;
+  - `revision manual requerida`;
+  - `bloqueado`;
+- definir una llamada a la accion mas clara cuando existan `SENS` o `PRIV` en este escenario;
+- evitar que la ausencia de `QI` se trate como error de configuracion si el riesgo de cuasi-identificacion ya no existe.
+
+Documento base:
+
+- [2026-05-11-liberacion-controlada-sin-cuasi-identificadores.md](c:/Users/mcros/Documents/obfuscator/docs/02_diseno/2026-05-11-liberacion-controlada-sin-cuasi-identificadores.md)
+
 ### 1. Documentacion retrospectiva de tasks ya completados y estables
 
 **Estado:** parcialmente cumplido  
