@@ -171,6 +171,47 @@ La mejor evolucion es:
 
 Eso conserva la comodidad actual, pero reduce mucho el riesgo de heredar clasificaciones equivocadas sin darse cuenta.
 
+## Anexo UX/UI: aplicacion visible y reversible
+
+La ruta recomendada para este modulo no es "aplicar automaticamente y despues ofrecer deshacer" como experiencia principal. Aunque esa opcion mejora la continuidad, sigue introduciendo un problema UX: el usuario recibe un estado ya alterado y puede interpretar que la clasificacion actual es la sugerencia fresca de la app.
+
+La recomendacion UX/UI para el MVP evolucionado es esta:
+
+1. al cargar un dataset, la tabla debe arrancar en `sugerencias automaticas`;
+2. si existen plantillas compatibles, la app debe mostrar un bloque visible arriba de la tabla con:
+   - nombre visible de la plantilla recomendada;
+   - nivel de compatibilidad;
+   - fecha o recencia;
+   - acciones `Aplicar recomendada`, `Elegir plantilla` y `Seguir sin plantilla`;
+3. solo despues de una accion explicita debe pasar al estado `Plantilla activa`;
+4. una vez aplicada, la UI debe mostrar de forma persistente:
+   - `Plantilla activa: <nombre>`;
+   - `Origen`;
+   - `Compatibilidad`;
+   - acciones `Volver a sugerencias automaticas`, `Cambiar plantilla` y `Descartar plantilla`;
+5. si el usuario modifica la clasificacion respecto de la plantilla aplicada, el estado debe pasar a `Plantilla modificada` y ofrecer:
+   - `Guardar como nueva`;
+   - `Restaurar plantilla`;
+   - `Volver a sugerencias automaticas`.
+
+### Motivo de esta recomendacion
+
+Este flujo mantiene continuidad, pero evita el anti-patron de decision silenciosa. Tambien se coordina mejor con una presentacion institucional porque hace visible:
+
+- que la app encontro continuidad previa;
+- que la clasificacion actual no se impuso sin intervencion;
+- y que el usuario conserva control explicito sobre el origen de la configuracion.
+
+### Consecuencia para la implementacion
+
+Antes de implementar el primer paquete funcional del nuevo modulo de plantillas conviene disenar el bloque superior de estado con estos tres estados principales:
+
+- `Sin plantilla aplicada`
+- `Plantillas compatibles detectadas`
+- `Plantilla activa / Plantilla modificada`
+
+Eso asegura que `Volver a sugerencias automaticas` y el banner de plantilla activa nazcan dentro de un flujo UX coherente, no como botones sueltos.
+
 ## Siguiente paso recomendado
 
 Convertir este diseño en un plan corto de implementacion por tareas, priorizando:

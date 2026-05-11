@@ -54,6 +54,10 @@ Valor adicional explorado:
 - historial minimo de la plantilla activa: nombre visible, origen y momento de carga;
 - opcion para desactivar la carga automatica durante pruebas exploratorias;
 - criterio para agrupar plantillas por una raiz comun de nombre cuando varias estructuras pertenecen a la misma familia de datasets.
+- antes de implementar el primer paquete funcional, realizar un analisis UX/UI especifico del modulo de plantillas para validar:
+  - visibilidad de plantilla activa;
+  - friccion adecuada de `Volver a sugerencias automáticas`;
+  - y lugar correcto del selector de plantillas dentro del flujo principal.
 
 ### 0B. Guardrails de clasificacion y confianza del usuario
 
