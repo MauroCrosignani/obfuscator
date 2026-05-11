@@ -48,6 +48,50 @@ Pendientes recomendados:
 - advertencia clara cuando se cargue automaticamente una plantilla previa;
 - posibilidad de distinguir entre plantillas personales de prueba y plantillas estables de trabajo.
 
+Valor adicional explorado:
+
+- banner persistente que indique cuando una clasificacion fue aplicada automaticamente;
+- historial minimo de la plantilla activa: nombre visible, origen y momento de carga;
+- opcion para desactivar la carga automatica durante pruebas exploratorias;
+- criterio para agrupar plantillas por una raiz comun de nombre cuando varias estructuras pertenecen a la misma familia de datasets.
+
+### 0B. Guardrails de clasificacion y confianza del usuario
+
+**Estado:** activo  
+**Prioridad:** media
+
+En las pruebas manuales aparecio una necesidad clara de reforzar la gobernanza del flujo de clasificacion, especialmente cuando un usuario cambia variables sugeridas como quasi-identificadores o conserva variables sensibles/privadas sin una señal suficientemente fuerte.
+
+Pendientes recomendados:
+
+- advertencia o confirmacion reforzada al cambiar una variable sugerida como `QI` a `ID`, `KEEP` o `EXC`;
+- call-to-action mas visible cuando existan variables `SENS` o `PRIV` sin revision manual formal;
+- explicacion mas fuerte del costo analitico de la generalizacion extrema;
+- criterios visibles para distinguir artefacto interno, liberacion bloqueada y liberacion controlada.
+
+Valor adicional explorado:
+
+- posibilidad de exigir una justificacion corta del usuario en cambios de rol particularmente riesgosos;
+- semaforo de “cambios sensibles de clasificacion” dentro de la tabla principal;
+- registro de decisiones de clasificacion relevantes para una futura trazabilidad operativa.
+
+### 0C. Casos de laboratorio y pruebas guiadas de bloqueo
+
+**Estado:** activo  
+**Prioridad:** media
+
+El testeo manual mostro que no siempre es obvio construir casos donde la app bloquee, suprima filas o degrade completamente la utilidad. Conviene fortalecer el set de laboratorios guiados para que el producto pueda presentarse y validarse con ejemplos reproducibles.
+
+Pendientes recomendados:
+
+- uno o mas datasets demo adicionales pensados especificamente para:
+  - bloqueo;
+  - supresion residual efectiva;
+  - homogeneidad sensible;
+  - y reenlazabilidad por alta dimensionalidad;
+- ejemplos guiados en el plan manual con expectativa explicita de resultado;
+- mensajes mas explicativos cuando el resultado final queda vacio o practicamente inutil para analisis.
+
 ### 1. Documentacion retrospectiva de tasks ya completados y estables
 
 **Estado:** parcialmente cumplido  
