@@ -132,12 +132,11 @@ Ese pasaje de un problema difuso a reglas concretas es, en sí mismo, parte del 
 
 ## Estado actual del MVP
 
-![](capturas/02-dataset-cargado.png){fig-alt="Pantalla principal de ObfuscatoR con un dataset cargado" width="84%"}
+![](capturas/02a-estado-mvp-recorte.png){fig-alt="Vista principal del MVP con dataset cargado, medidor, parámetros y resumen de clasificación" width="92%"}
 
 - Carga de dataset y lectura del esquema.
-- Clasificación principal por variable y por riesgo.
-- Medidor preliminar y guía breve de trabajo.
-- Flujo visible de liberación controlada.
+- Medidor preliminar y clasificación inicial visible.
+- Flujo de liberación controlada desde la pantalla principal.
 
 ::: notes
 Esta es la pantalla principal actual del MVP.
@@ -149,14 +148,11 @@ También intenté que la herramienta sea más comprensible para usuarios no téc
 
 ## Cómo se clasifica el riesgo
 
-![](capturas/03-tabla-y-ficha-variable.png){fig-alt="Tabla principal por variable y ficha lateral de detalle" width="82%"}
+![](capturas/03a-clasificacion-riesgo-recorte.png){fig-alt="Tabla principal por variable y ficha de detalle para una variable clasificada como cuasi-identificadora" width="86%"}
 
 - Cada variable tiene un rol principal visible.
 - La tabla permite revisar rápido.
-- La ficha por variable explica:
-  - por qué se sugirió ese rol;
-  - qué tratamiento técnico se propone;
-  - y qué impacto tiene en la liberación.
+- La ficha explica motivo, tratamiento e impacto.
 
 ::: notes
 Acá muestro una decisión de UX/UI que fue importante.
@@ -168,7 +164,7 @@ Eso también es parte de la metodología: no solo definir bien el problema, sino
 
 ## Qué devuelve hoy el sistema
 
-![](capturas/04-resultado-y-auditoria.png){fig-alt="Resultado ofuscado y resumen de auditoría" width="82%"}
+![](capturas/04a-resultado-auditoria-recorte.png){fig-alt="Vista previa del resultado ofuscado y resumen de auditoría resultante" width="88%"}
 
 - Resultado transformado.
 - Resumen de auditoría legible.
