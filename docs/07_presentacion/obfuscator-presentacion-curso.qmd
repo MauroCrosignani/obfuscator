@@ -132,7 +132,7 @@ Ese pasaje de un problema difuso a reglas concretas es, en sí mismo, parte del 
 
 ## Estado actual del MVP
 
-![](capturas/02a-estado-mvp-recorte.png){fig-alt="Vista principal del MVP con dataset cargado, medidor, parámetros y resumen de clasificación" width="92%"}
+![](capturas/05a-personas-estado-mvp-recorte.png){fig-alt="Vista principal del MVP con obfuscator_demo_personas cargado, medidor, resumen de clasificación y roles visibles" width="92%"}
 
 - Carga de dataset y lectura del esquema.
 - Medidor preliminar y clasificación inicial visible.
@@ -143,12 +143,14 @@ Esta es la pantalla principal actual del MVP.
 
 Lo importante no es memorizar cada control, sino ver la lógica: se carga un dataset, el sistema propone una lectura inicial del riesgo, organiza la clasificación por variable y hace visible desde temprano que estamos en un flujo de liberación controlada, no simplemente de transformación cosmética.
 
+Para la demo elegí un dataset de ejemplo más expresivo: `obfuscator_demo_personas`. Se ve enseguida un identificador directo, variables cuasi-identificadoras, una variable sensible y texto libre. Eso ayuda a que la lógica del sistema se entienda mucho mejor que con un dataset puramente estadístico.
+
 También intenté que la herramienta sea más comprensible para usuarios no técnicos, por eso aparecen ayudas breves y roles visibles en vez de depender solo de listas difíciles de interpretar.
 :::
 
 ## Cómo se clasifica el riesgo
 
-![](capturas/03a-clasificacion-riesgo-recorte.png){fig-alt="Tabla principal por variable y ficha de detalle para una variable clasificada como cuasi-identificadora" width="86%"}
+![](capturas/06a-personas-clasificacion-riesgo-recorte.png){fig-alt="Tabla principal por variable y ficha de detalle mostrando persona_id como identificador directo" width="86%"}
 
 - Cada variable tiene un rol principal visible.
 - La tabla permite revisar rápido.
@@ -158,6 +160,8 @@ También intenté que la herramienta sea más comprensible para usuarios no téc
 Acá muestro una decisión de UX/UI que fue importante.
 
 Al principio la herramienta tenía una lógica más basada en listas y arrastre. Con las pruebas apareció que eso era difícil de usar y difícil de defender ante usuarios comunes. Entonces el rediseño llevó a una tabla principal por variable, con una ficha de detalle que explica el rol y el impacto.
+
+En esta captura se ve algo importante para el relato: `persona_id` se detecta como identificador directo, mientras que otras variables quedan como cuasi-identificadoras, sensibles o privadas. Esa diferenciación es una traducción directa de la especificación de requerimientos.
 
 Eso también es parte de la metodología: no solo definir bien el problema, sino ajustar la solución cuando la experiencia de uso muestra que algo no se entiende bien.
 :::
@@ -180,7 +184,7 @@ La idea principal es que el sistema no devuelve únicamente columnas transformad
 
 ## Qué devuelve hoy el sistema
 
-![](capturas/04b-resultado-vista-previa.png){fig-alt="Recorte ampliado de la vista previa del resultado ofuscado" width="94%"}
+![](capturas/07b-personas-resultado-vista-previa.png){fig-alt="Recorte ampliado de la vista previa del resultado ofuscado para obfuscator_demo_personas" width="94%"}
 
 **1. Un resultado transformado que ya puede mirarse como artefacto de salida.**
 
@@ -192,7 +196,7 @@ Quiero que se vea que el sistema no se queda en configuración abstracta: produc
 
 ## Qué devuelve hoy el sistema
 
-![](capturas/04c-resumen-auditoria-detalle.png){fig-alt="Recorte ampliado del resumen de auditoría" width="94%"}
+![](capturas/07c-personas-resumen-auditoria-detalle.png){fig-alt="Recorte ampliado del resumen de auditoría para obfuscator_demo_personas" width="94%"}
 
 **2. Un resumen de auditoría que traduce decisiones técnicas a una lectura operativa.**
 
@@ -204,7 +208,7 @@ Esto me interesa mucho porque ordena la conversación: no obliga a leer un log c
 
 ## Qué devuelve hoy el sistema
 
-![](capturas/04d-estado-liberacion-detalle.png){fig-alt="Recorte ampliado del estado final de liberación" width="78%"}
+![](capturas/07d-personas-estado-liberacion-detalle.png){fig-alt="Recorte ampliado del estado final de liberación para obfuscator_demo_personas" width="78%"}
 
 **3. Un estado final de liberación: habilita, advierte, exige revisión o bloquea.**
 

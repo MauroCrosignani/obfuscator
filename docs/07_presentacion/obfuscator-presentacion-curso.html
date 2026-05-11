@@ -300,7 +300,7 @@ Es un MVP construido en mi tiempo libre y en mi computadora, pensado para elevar
 <section id="estado-actual-del-mvp" class="slide level2">
 <h2>Estado actual del MVP</h2>
 
-<img data-src="capturas/02a-estado-mvp-recorte.png" style="width:92.0%" alt="Vista principal del MVP con dataset cargado, medidor, parámetros y resumen de clasificación" class="r-stretch"><ul>
+<img data-src="capturas/05a-personas-estado-mvp-recorte.png" style="width:92.0%" alt="Vista principal del MVP con obfuscator_demo_personas cargado, medidor, resumen de clasificación y roles visibles" class="r-stretch"><ul>
 <li>Carga de dataset y lectura del esquema.</li>
 <li>Medidor preliminar y clasificación inicial visible.</li>
 <li>Flujo de liberación controlada desde la pantalla principal.</li>
@@ -308,6 +308,7 @@ Es un MVP construido en mi tiempo libre y en mi computadora, pensado para elevar
 <aside class="notes">
 <p>Esta es la pantalla principal actual del MVP.</p>
 <p>Lo importante no es memorizar cada control, sino ver la lógica: se carga un dataset, el sistema propone una lectura inicial del riesgo, organiza la clasificación por variable y hace visible desde temprano que estamos en un flujo de liberación controlada, no simplemente de transformación cosmética.</p>
+<p>Para la demo elegí un dataset de ejemplo más expresivo: <code>obfuscator_demo_personas</code>. Se ve enseguida un identificador directo, variables cuasi-identificadoras, una variable sensible y texto libre. Eso ayuda a que la lógica del sistema se entienda mucho mejor que con un dataset puramente estadístico.</p>
 <p>También intenté que la herramienta sea más comprensible para usuarios no técnicos, por eso aparecen ayudas breves y roles visibles en vez de depender solo de listas difíciles de interpretar.</p>
 <style type="text/css">
         span.MJX_Assistive_MathML {
@@ -324,7 +325,7 @@ Es un MVP construido en mi tiempo libre y en mi computadora, pensado para elevar
 <section id="cómo-se-clasifica-el-riesgo" class="slide level2">
 <h2>Cómo se clasifica el riesgo</h2>
 
-<img data-src="capturas/03a-clasificacion-riesgo-recorte.png" style="width:86.0%" alt="Tabla principal por variable y ficha de detalle para una variable clasificada como cuasi-identificadora" class="r-stretch"><ul>
+<img data-src="capturas/06a-personas-clasificacion-riesgo-recorte.png" style="width:86.0%" alt="Tabla principal por variable y ficha de detalle mostrando persona_id como identificador directo" class="r-stretch"><ul>
 <li>Cada variable tiene un rol principal visible.</li>
 <li>La tabla permite revisar rápido.</li>
 <li>La ficha explica motivo, tratamiento e impacto.</li>
@@ -332,6 +333,7 @@ Es un MVP construido en mi tiempo libre y en mi computadora, pensado para elevar
 <aside class="notes">
 <p>Acá muestro una decisión de UX/UI que fue importante.</p>
 <p>Al principio la herramienta tenía una lógica más basada en listas y arrastre. Con las pruebas apareció que eso era difícil de usar y difícil de defender ante usuarios comunes. Entonces el rediseño llevó a una tabla principal por variable, con una ficha de detalle que explica el rol y el impacto.</p>
+<p>En esta captura se ve algo importante para el relato: <code>persona_id</code> se detecta como identificador directo, mientras que otras variables quedan como cuasi-identificadoras, sensibles o privadas. Esa diferenciación es una traducción directa de la especificación de requerimientos.</p>
 <p>Eso también es parte de la metodología: no solo definir bien el problema, sino ajustar la solución cuando la experiencia de uso muestra que algo no se entiende bien.</p>
 <style type="text/css">
         span.MJX_Assistive_MathML {
@@ -372,7 +374,7 @@ Es un MVP construido en mi tiempo libre y en mi computadora, pensado para elevar
 <section id="qué-devuelve-hoy-el-sistema-1" class="slide level2">
 <h2>Qué devuelve hoy el sistema</h2>
 
-<img data-src="capturas/04b-resultado-vista-previa.png" style="width:94.0%" alt="Recorte ampliado de la vista previa del resultado ofuscado" class="r-stretch"><p><strong>1. Un resultado transformado que ya puede mirarse como artefacto de salida.</strong></p>
+<img data-src="capturas/07b-personas-resultado-vista-previa.png" style="width:94.0%" alt="Recorte ampliado de la vista previa del resultado ofuscado para obfuscator_demo_personas" class="r-stretch"><p><strong>1. Un resultado transformado que ya puede mirarse como artefacto de salida.</strong></p>
 <aside class="notes">
 <p>Primero muestro el artefacto resultante.</p>
 <p>Quiero que se vea que el sistema no se queda en configuración abstracta: produce un resultado concreto, visible, revisable. Eso es importante para una herramienta pensada para uso real.</p>
@@ -391,7 +393,7 @@ Es un MVP construido en mi tiempo libre y en mi computadora, pensado para elevar
 <section id="qué-devuelve-hoy-el-sistema-2" class="slide level2">
 <h2>Qué devuelve hoy el sistema</h2>
 
-<img data-src="capturas/04c-resumen-auditoria-detalle.png" style="width:94.0%" alt="Recorte ampliado del resumen de auditoría" class="r-stretch"><p><strong>2. Un resumen de auditoría que traduce decisiones técnicas a una lectura operativa.</strong></p>
+<img data-src="capturas/07c-personas-resumen-auditoria-detalle.png" style="width:94.0%" alt="Recorte ampliado del resumen de auditoría para obfuscator_demo_personas" class="r-stretch"><p><strong>2. Un resumen de auditoría que traduce decisiones técnicas a una lectura operativa.</strong></p>
 <aside class="notes">
 <p>Segundo, enfoco el resumen de auditoría.</p>
 <p>Esto me interesa mucho porque ordena la conversación: no obliga a leer un log crudo, sino que intenta decir qué controles se aplicaron y cómo interpretar el resultado.</p>
@@ -410,7 +412,7 @@ Es un MVP construido en mi tiempo libre y en mi computadora, pensado para elevar
 <section id="qué-devuelve-hoy-el-sistema-3" class="slide level2">
 <h2>Qué devuelve hoy el sistema</h2>
 
-<img data-src="capturas/04d-estado-liberacion-detalle.png" style="width:78.0%" alt="Recorte ampliado del estado final de liberación" class="r-stretch"><p><strong>3. Un estado final de liberación: habilita, advierte, exige revisión o bloquea.</strong></p>
+<img data-src="capturas/07d-personas-estado-liberacion-detalle.png" style="width:78.0%" alt="Recorte ampliado del estado final de liberación para obfuscator_demo_personas" class="r-stretch"><p><strong>3. Un estado final de liberación: habilita, advierte, exige revisión o bloquea.</strong></p>
 <aside class="notes">
 <p>Y tercero, cierro en la conclusión operativa.</p>
 <p>Ese estado final es importante porque convierte una transformación técnica en una decisión más defendible. Esa es, para mí, la diferencia entre una app que ofusca y una app que gobierna liberación controlada.</p>
