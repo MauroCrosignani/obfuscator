@@ -23,6 +23,22 @@ test_that("render_dataset_profile_for_ai devuelve texto compacto util", {
   expect_match(rendered, "Sepal\\.Length")
 })
 
+test_that("el perfil y el renderer incluyen porcentaje de faltantes por variable", {
+  df <- data.frame(
+    edad = c(23, NA, 31, NA),
+    tramo = c("A", "B", NA, "C"),
+    stringsAsFactors = FALSE
+  )
+
+  profile <- profile_dataset_for_ai(df, dataset_name = "faltantes")
+  rendered <- render_dataset_profile_for_ai(profile)
+
+  expect_equal(profile$variables$edad$missing_pct, 50)
+  expect_equal(profile$variables$tramo$missing_pct, 25)
+  expect_match(rendered, "faltantes 50\\.0%", ignore.case = TRUE)
+  expect_match(rendered, "faltantes 25\\.0%", ignore.case = TRUE)
+})
+
 test_that("fechas importadas como texto se infieren como datetime con advertencia", {
   df <- data.frame(
     fecha_evento = c(

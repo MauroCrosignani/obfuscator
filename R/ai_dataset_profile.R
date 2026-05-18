@@ -457,14 +457,16 @@ render_ai_profile_variable <- function(variable_profile, mode = "compact") {
   inferred_type <- variable_profile$inferred_type
   summary <- variable_profile$summary
   role_guess <- variable_profile$role_guess
+  missing_text <- sprintf("; faltantes %.1f%%", variable_profile$missing_pct %||% 0)
 
   if (identical(inferred_type, "identifier")) {
     return(sprintf(
-      "- %s: identificador; importado como %s; unicidad aproximada %.1f%%; patron aproximado: %s.",
+      "- %s: identificador; importado como %s; unicidad aproximada %.1f%%; patron aproximado: %s%s.",
       name,
       imported_type,
       summary$approximate_uniqueness %||% 0,
-      summary$approximate_pattern %||% "alfanumerico estructurado"
+      summary$approximate_pattern %||% "alfanumerico estructurado",
+      missing_text
     ))
   }
 
@@ -478,30 +480,34 @@ render_ai_profile_variable <- function(variable_profile, mode = "compact") {
       max_value_length > 4
     ) {
       return(sprintf(
-        "- %s: categorica; niveles observados: %s; valores no listados por modo conservador.",
+        "- %s: categorica; niveles observados: %s; valores no listados por modo conservador%s.",
         name,
-        summary$level_count %||% length(summary$values %||% character(0))
+        summary$level_count %||% length(summary$values %||% character(0)),
+        missing_text
       ))
     }
     if (isTRUE(summary$values_redacted)) {
       return(sprintf(
-        "- %s: categorica sensible; niveles observados: %s; valores no listados por seguridad.",
+        "- %s: categorica sensible; niveles observados: %s; valores no listados por seguridad%s.",
         name,
-        summary$level_count %||% 0
+        summary$level_count %||% 0,
+        missing_text
       ))
     }
     if (!is.null(summary$values)) {
       return(sprintf(
-        "- %s: categorica; valores observados: %s.",
+        "- %s: categorica; valores observados: %s%s.",
         name,
-        paste(summary$values, collapse = ", ")
+        paste(summary$values, collapse = ", "),
+        missing_text
       ))
     }
     return(sprintf(
-      "- %s: categorica; niveles observados: %s; top niveles: %s.",
+      "- %s: categorica; niveles observados: %s; top niveles: %s%s.",
       name,
       summary$level_count %||% 0,
-      paste(summary$top_levels %||% character(0), collapse = ", ")
+      paste(summary$top_levels %||% character(0), collapse = ", "),
+      missing_text
     ))
   }
 
@@ -512,11 +518,12 @@ render_ai_profile_variable <- function(variable_profile, mode = "compact") {
       ""
     }
     return(sprintf(
-      "- %s: numerica; rango aproximado %s-%s%s.",
+      "- %s: numerica; rango aproximado %s-%s%s%s.",
       name,
       format(summary$min, trim = TRUE, scientific = FALSE),
       format(summary$max, trim = TRUE, scientific = FALSE),
-      suffix
+      suffix,
+      missing_text
     ))
   }
 
@@ -532,25 +539,27 @@ render_ai_profile_variable <- function(variable_profile, mode = "compact") {
       ""
     }
     return(sprintf(
-      "- %s: %s; importada como %s%s%s; rango aproximado %s.",
+      "- %s: %s; importada como %s%s%s; rango aproximado %s%s.",
       name,
       if (identical(inferred_type, "date")) "fecha" else "fecha-hora",
       imported_type,
       detail,
       granularity,
-      summary$range %||% "no disponible"
+      summary$range %||% "no disponible",
+      missing_text
     ))
   }
 
   if (identical(inferred_type, "free_text")) {
     return(sprintf(
-      "- %s: texto libre; longitud tipica %s; alta variabilidad; no se incluyen ejemplos por seguridad.",
+      "- %s: texto libre; longitud tipica %s; alta variabilidad; no se incluyen ejemplos por seguridad%s.",
       name,
-      summary$typical_length %||% "no disponible"
+      summary$typical_length %||% "no disponible",
+      missing_text
     ))
   }
 
-  sprintf("- %s: tipo inferido %s; importado como %s.", name, inferred_type, imported_type)
+  sprintf("- %s: tipo inferido %s; importado como %s%s.", name, inferred_type, imported_type, missing_text)
 }
 
 render_dataset_profile_for_ai <- function(profile, mode = "compact") {
