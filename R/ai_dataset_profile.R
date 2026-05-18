@@ -76,6 +76,30 @@ ai_profile_observed_temporal_pattern <- function(values) {
   NULL
 }
 
+ai_profile_temporal_granularity <- function(observed_pattern, inferred_type) {
+  if (is.null(observed_pattern)) {
+    if (identical(inferred_type, "date")) {
+      return("dia")
+    }
+    if (identical(inferred_type, "datetime")) {
+      return("segundos")
+    }
+    return(NULL)
+  }
+
+  if (identical(observed_pattern, "YYYY-mm-dd")) {
+    return("dia")
+  }
+  if (identical(observed_pattern, "YYYY-mm-dd HH:MM:SS")) {
+    return("segundos")
+  }
+  if (identical(observed_pattern, "YYYY-mm-dd HH:MM:SS.ffffff")) {
+    return("microsegundos")
+  }
+
+  "ambigua"
+}
+
 ai_profile_infer_type <- function(column_name, x, max_levels = 12) {
   imported_type <- ai_profile_imported_type(x)
   values <- ai_profile_non_missing_values(x)
@@ -286,7 +310,11 @@ ai_profile_variable_summary <- function(column_name, x, inferred_type, role_gues
 
   if (identical(inferred_type, "date") || identical(inferred_type, "datetime")) {
     return(list(
-      range = ai_profile_temporal_range(values, inferred_type)
+      range = ai_profile_temporal_range(values, inferred_type),
+      granularity = ai_profile_temporal_granularity(
+        observed_pattern = ai_profile_observed_temporal_pattern(values),
+        inferred_type = inferred_type
+      )
     ))
   }
 
@@ -360,6 +388,9 @@ profile_dataset_for_ai <- function(data, dataset_name = NULL, max_levels = 12, t
   )
 }
 
+# Ejemplo de uso desde RStudio:
+# profile <- profile_dataset_for_ai(iris, "iris")
+# cat(render_dataset_profile_for_ai(profile))
 render_ai_profile_variable <- function(variable_profile) {
   name <- variable_profile$name
   imported_type <- variable_profile$imported_type
@@ -414,12 +445,18 @@ render_ai_profile_variable <- function(variable_profile) {
     } else {
       ""
     }
+    granularity <- if (!is.null(summary$granularity)) {
+      sprintf("; granularidad %s", summary$granularity)
+    } else {
+      ""
+    }
     return(sprintf(
-      "- %s: %s; importada como %s%s; rango aproximado %s.",
+      "- %s: %s; importada como %s%s%s; rango aproximado %s.",
       name,
       if (identical(inferred_type, "date")) "fecha" else "fecha-hora",
       imported_type,
       detail,
+      granularity,
       summary$range %||% "no disponible"
     ))
   }

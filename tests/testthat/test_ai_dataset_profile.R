@@ -37,7 +37,26 @@ test_that("fechas importadas como texto se infieren como datetime con advertenci
 
   expect_equal(var_profile$imported_type, "character")
   expect_equal(var_profile$inferred_type, "datetime")
+  expect_equal(var_profile$summary$granularity, "microsegundos")
+  expect_equal(var_profile$role_guess, "quasi_identifier")
   expect_true(any(grepl("normalizacion|parse", var_profile$warnings, ignore.case = TRUE)))
+})
+
+test_that("variables semanticas reciben role_guess liviano y render temporal mas informativo", {
+  df <- data.frame(
+    edad = c(23, 24, 31),
+    indicador_privado = c("alto", "medio", "bajo"),
+    fecha_alta = c("2026-05-17", "2026-05-18", "2026-05-19"),
+    stringsAsFactors = FALSE
+  )
+
+  profile <- profile_dataset_for_ai(df, dataset_name = "roles_semanticos")
+  rendered <- render_dataset_profile_for_ai(profile)
+
+  expect_equal(profile$variables$edad$role_guess, "quasi_identifier")
+  expect_equal(profile$variables$indicador_privado$role_guess, "sensitive")
+  expect_equal(profile$variables$fecha_alta$summary$granularity, "dia")
+  expect_match(rendered, "granularidad dia", ignore.case = TRUE)
 })
 
 test_that("identificadores se describen sin exponer ejemplos literales completos", {

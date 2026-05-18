@@ -52,6 +52,11 @@ La muestra de filas seguia siendo demasiado dependiente del azar y podia exponer
 - refinamiento de heuristicas para no confundir:
   - categoricas cortas como `tramo`
   - texto libre expresivo con pocos niveles como `observacion`
+- granularidad temporal explicita:
+  - `dia`
+  - `segundos`
+  - `microsegundos`
+- ejemplo directo de uso desde RStudio dentro del propio archivo helper
 
 ## Verificacion ejecutada
 
@@ -66,6 +71,14 @@ Casos cubiertos en tests:
 - identificadores sin exposicion literal
 - texto libre sin exposicion de ejemplos
 - categoricas cortas que no deben degradarse a `free_text`
+- granularidad temporal y `role_guess` liviano para columnas como `edad`, `fecha_alta` e `indicador_privado`
+
+Ejemplo de uso actual:
+
+```r
+profile <- profile_dataset_for_ai(iris, "iris")
+cat(render_dataset_profile_for_ai(profile))
+```
 
 ## Riesgos, limites o deuda remanente
 
