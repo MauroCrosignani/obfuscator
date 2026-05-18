@@ -56,6 +56,14 @@ ai_profile_quasi_identifier_name <- function(column_name) {
   )
 }
 
+ai_profile_expected_missingness_name <- function(column_name) {
+  normalized_name <- normalize_release_safe_column_name(column_name)
+  grepl(
+    "fecha_hasta|hasta$|end_date|fecha_fin|fin_vigencia|baja_fecha|cancelacion_fecha|cese_fecha|closed_at|ended_at",
+    normalized_name
+  )
+}
+
 ai_profile_observed_temporal_pattern <- function(values) {
   values <- as.character(values)
   values <- values[nzchar(trimws(values))]
@@ -331,6 +339,19 @@ ai_profile_role_guess <- function(column_name, inferred_type, x) {
   "unknown"
 }
 
+ai_profile_missingness_hint <- function(column_name, missing_pct) {
+  if (ai_profile_expected_missingness_name(column_name) && missing_pct > 0) {
+    return("expected")
+  }
+  if (missing_pct >= 40) {
+    return("high_unexpected")
+  }
+  if (missing_pct > 0) {
+    return("present")
+  }
+  "none"
+}
+
 ai_profile_variable_summary <- function(column_name, x, inferred_type, role_guess, round_digits, max_levels, top_n) {
   values <- ai_profile_non_missing_values(x)
 
@@ -413,6 +434,7 @@ build_variable_profile_for_ai <- function(column_name, x, round_digits = 2, max_
     inference_confidence = inference$confidence,
     role_guess = role_guess,
     missing_pct = missing_pct,
+    missingness_hint = ai_profile_missingness_hint(column_name, missing_pct),
     summary = summary,
     warnings = unique(inference$warnings)
   )
@@ -457,7 +479,16 @@ render_ai_profile_variable <- function(variable_profile, mode = "compact") {
   inferred_type <- variable_profile$inferred_type
   summary <- variable_profile$summary
   role_guess <- variable_profile$role_guess
-  missing_text <- sprintf("; faltantes %.1f%%", variable_profile$missing_pct %||% 0)
+  missing_pct <- variable_profile$missing_pct %||% 0
+  missingness_hint <- variable_profile$missingness_hint %||% "none"
+  missing_text <- switch(
+    missingness_hint,
+    expected = sprintf("; faltantes %.1f%% (esperables)", missing_pct),
+    high_unexpected = sprintf("; faltantes %.1f%% (revisar)", missing_pct),
+    present = sprintf("; faltantes %.1f%%", missing_pct),
+    none = sprintf("; faltantes %.1f%%", missing_pct),
+    sprintf("; faltantes %.1f%%", missing_pct)
+  )
 
   if (identical(inferred_type, "identifier")) {
     return(sprintf(

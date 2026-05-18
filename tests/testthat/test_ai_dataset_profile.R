@@ -39,6 +39,32 @@ test_that("el perfil y el renderer incluyen porcentaje de faltantes por variable
   expect_match(rendered, "faltantes 25\\.0%", ignore.case = TRUE)
 })
 
+test_that("faltantes estructuralmente esperables no se presentan como alarma de calidad", {
+  df <- data.frame(
+    fecha_hasta = c(NA, NA, "2026-05-01", NA),
+    stringsAsFactors = FALSE
+  )
+
+  profile <- profile_dataset_for_ai(df, dataset_name = "faltantes_esperables")
+  rendered <- render_dataset_profile_for_ai(profile)
+
+  expect_equal(profile$variables$fecha_hasta$missingness_hint, "expected")
+  expect_match(rendered, "faltantes 75\\.0% \\(esperables\\)", ignore.case = TRUE)
+})
+
+test_that("faltantes altos no esperables generan senal de cautela", {
+  df <- data.frame(
+    ingreso = c(12000, NA, NA, 18000, NA),
+    stringsAsFactors = FALSE
+  )
+
+  profile <- profile_dataset_for_ai(df, dataset_name = "faltantes_altos")
+  rendered <- render_dataset_profile_for_ai(profile)
+
+  expect_equal(profile$variables$ingreso$missingness_hint, "high_unexpected")
+  expect_match(rendered, "faltantes 60\\.0% \\(revisar\\)", ignore.case = TRUE)
+})
+
 test_that("fechas importadas como texto se infieren como datetime con advertencia", {
   df <- data.frame(
     fecha_evento = c(
