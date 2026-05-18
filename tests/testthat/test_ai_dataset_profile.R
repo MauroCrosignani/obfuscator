@@ -99,3 +99,32 @@ test_that("categoricas cortas no se confunden con texto libre por muestras chica
   expect_match(rendered, "tramo: categorica", ignore.case = TRUE)
   expect_match(rendered, "A, B, C")
 })
+
+test_that("categorias sensibles no listan sus valores reales por defecto", {
+  df <- data.frame(
+    diagnostico = c("VIH", "Cancer", "Diabetes"),
+    stringsAsFactors = FALSE
+  )
+
+  profile <- profile_dataset_for_ai(df, dataset_name = "categoria_sensible")
+  rendered <- render_dataset_profile_for_ai(profile)
+
+  expect_equal(profile$variables$diagnostico$inferred_type, "categorical")
+  expect_equal(profile$variables$diagnostico$role_guess, "sensitive")
+  expect_false(grepl("VIH|Cancer|Diabetes", rendered))
+  expect_match(rendered, "valores no listados por seguridad", ignore.case = TRUE)
+})
+
+test_that("correos y otros identificadores complejos no se exponen literalmente", {
+  df <- data.frame(
+    correo_contacto = c("ana@example.org", "bruno@example.org", "carla@example.org"),
+    stringsAsFactors = FALSE
+  )
+
+  profile <- profile_dataset_for_ai(df, dataset_name = "ids_complejos")
+  rendered <- render_dataset_profile_for_ai(profile)
+
+  expect_equal(profile$variables$correo_contacto$inferred_type, "identifier")
+  expect_false(grepl("ana@example|bruno@example|carla@example", rendered))
+  expect_match(rendered, "correo electronico|patron aproximado", ignore.case = TRUE)
+})

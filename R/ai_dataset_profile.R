@@ -35,7 +35,7 @@ ai_profile_imported_type <- function(x) {
 ai_profile_identifier_name <- function(column_name) {
   normalized_name <- normalize_release_safe_column_name(column_name)
   grepl(
-    "(^|_)(id|rut|cedula|dni|nie|nic)(_|$)|identificador|persona_id|pers_id|expediente|matricula|contribuyente",
+    "(^|_)(id|rut|cedula|dni|nie|nic)(_|$)|identificador|persona_id|pers_id|expediente|matricula|contribuyente|correo|mail|email|e_mail|telefono|celular",
     normalized_name
   )
 }
@@ -71,6 +71,34 @@ ai_profile_observed_temporal_pattern <- function(values) {
   }
   if (all(grepl("^\\d{4}-\\d{2}-\\d{2}$", values))) {
     return("YYYY-mm-dd")
+  }
+
+  NULL
+}
+
+ai_profile_identifier_content <- function(values) {
+  values <- as.character(values)
+  values <- values[nzchar(trimws(values))]
+  if (length(values) == 0) {
+    return(NULL)
+  }
+
+  if (all(grepl("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$", values))) {
+    return(list(
+      inferred_type = "identifier",
+      observed_pattern = "email",
+      warnings = "No se incluiran ejemplos literales de correos electronicos.",
+      confidence = "high"
+    ))
+  }
+
+  if (all(grepl("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", values))) {
+    return(list(
+      inferred_type = "identifier",
+      observed_pattern = "uuid",
+      warnings = "No se incluiran ejemplos literales de identificadores unicos.",
+      confidence = "high"
+    ))
   }
 
   NULL
@@ -145,6 +173,11 @@ ai_profile_infer_type <- function(column_name, x, max_levels = 12) {
   }
 
   if (is.character(x) || is.factor(x)) {
+    identifier_by_content <- ai_profile_identifier_content(values)
+    if (!is.null(identifier_by_content)) {
+      return(identifier_by_content)
+    }
+
     observed_pattern <- ai_profile_observed_temporal_pattern(values)
     if (!is.null(observed_pattern)) {
       warnings <- c(
@@ -212,6 +245,14 @@ ai_profile_identifier_pattern <- function(values) {
   values <- values[nzchar(trimws(values))]
   if (length(values) == 0) {
     return("alfanumerico estructurado")
+  }
+
+  if (all(grepl("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$", values))) {
+    return("correo electronico")
+  }
+
+  if (all(grepl("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", values))) {
+    return("uuid")
   }
 
   if (all(grepl("^[A-Za-z]+[-_]?\\d+$", values))) {
@@ -289,6 +330,12 @@ ai_profile_variable_summary <- function(column_name, x, inferred_type, role_gues
   }
 
   if (identical(inferred_type, "categorical")) {
+    if (identical(role_guess, "sensitive")) {
+      return(list(
+        level_count = length(sort(unique(as.character(values)))),
+        values_redacted = TRUE
+      ))
+    }
     levels_seen <- sort(unique(as.character(values)))
     if (length(levels_seen) <= max_levels) {
       return(list(level_count = length(levels_seen), values = levels_seen))
@@ -409,6 +456,13 @@ render_ai_profile_variable <- function(variable_profile) {
   }
 
   if (identical(inferred_type, "categorical")) {
+    if (isTRUE(summary$values_redacted)) {
+      return(sprintf(
+        "- %s: categorica sensible; niveles observados: %s; valores no listados por seguridad.",
+        name,
+        summary$level_count %||% 0
+      ))
+    }
     if (!is.null(summary$values)) {
       return(sprintf(
         "- %s: categorica; valores observados: %s.",
