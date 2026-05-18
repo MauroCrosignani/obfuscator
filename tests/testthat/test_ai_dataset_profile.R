@@ -2,6 +2,12 @@ library(testthat)
 
 source(file.path("..", "..", "R", "obfuscator_core.R"))
 
+write_test_workbook <- function(path, sheets) {
+  expect_true(requireNamespace("writexl", quietly = TRUE))
+  writexl::write_xlsx(sheets, path = path)
+  path
+}
+
 test_that("profile_dataset_for_ai devuelve estructura base", {
   profile <- profile_dataset_for_ai(iris, dataset_name = "iris")
 
@@ -66,6 +72,101 @@ test_that("valores invalidos de tipo_fuente advierten y sugieren oracle", {
   expect_equal(profile$source_context$source, "none")
   expect_true(any(grepl("oracle", profile$warnings, ignore.case = TRUE)))
   expect_true(any(grepl("tipo_fuente", profile$warnings, ignore.case = TRUE)))
+})
+
+test_that("profile_dataset_for_ai sigue funcionando sin archivo_fuente", {
+  profile <- profile_dataset_for_ai(iris, dataset_name = "iris")
+
+  expect_true("source_context" %in% names(profile))
+  expect_true(is.null(profile$source_context$file))
+})
+
+test_that("archivo_fuente inexistente agrega advertencia sin romper el helper", {
+  missing_file <- file.path(tempdir(), "no_existe_fuente.xlsx")
+  profile <- profile_dataset_for_ai(
+    iris,
+    dataset_name = "iris",
+    archivo_fuente = missing_file
+  )
+
+  expect_equal(profile$source_context$file$status, "missing")
+  expect_true(any(grepl("archivo_fuente", profile$warnings, ignore.case = TRUE)))
+})
+
+test_that("archivo_fuente con firma GCA detecta contexto de origen", {
+  workbook_path <- file.path(tempdir(), "gca_signature.xlsx")
+  meta <- data.frame(
+    X1 = c(
+      "Planilla generada por el GCA: Martes, 19 de Diciembre de 2023",
+      NA,
+      "TituloL",
+      "Plan de Codigo de la Cuenta",
+      NA,
+      "Descripcion:",
+      "Es la tabla entera cta_plan_codigo de produccion",
+      NA,
+      "Parametros:"
+    ),
+    stringsAsFactors = FALSE
+  )
+  datos <- data.frame(CODIGO_CAJA = c("A", "B"), stringsAsFactors = FALSE)
+  write_test_workbook(
+    workbook_path,
+    list("Informacion de la consulta" = meta, "Datos_Consulta1" = datos)
+  )
+
+  profile <- profile_dataset_for_ai(
+    datos,
+    dataset_name = "gca_dataset",
+    archivo_fuente = workbook_path
+  )
+
+  expect_equal(profile$source_context$type, "gca")
+  expect_equal(profile$source_context$source, "detected_from_file")
+  expect_equal(profile$source_context$confidence, "medium")
+  expect_match(profile$source_context$source_id, "^gca:unresolved:")
+})
+
+test_that("archivo_fuente con firma GCA2 detecta contexto de origen", {
+  workbook_path <- file.path(tempdir(), "consulta_18631_123456.xlsx")
+  caratula <- data.frame(
+    col1 = c(NA, "Planilla generada por GCA2", "Nombre", "Id de Consulta", "Descripcion", "Id. Ejecucion"),
+    col2 = c(NA, NA, "Consulta demo", "18631", "GCA2_18631_demo", "123456"),
+    stringsAsFactors = FALSE
+  )
+  salida <- data.frame(persona_id = c("P001", "P002"), stringsAsFactors = FALSE)
+  write_test_workbook(
+    workbook_path,
+    list("Caratula" = caratula, "salida_gca" = salida)
+  )
+
+  profile <- profile_dataset_for_ai(
+    salida,
+    dataset_name = "gca2_dataset",
+    archivo_fuente = workbook_path
+  )
+
+  expect_equal(profile$source_context$type, "gca2")
+  expect_equal(profile$source_context$source, "detected_from_file")
+  expect_equal(profile$source_context$confidence, "high")
+  expect_equal(profile$source_context$source_id, "gca2:18631")
+})
+
+test_that("archivo_fuente ambiguo o incompleto no fuerza contexto fuerte", {
+  workbook_path <- file.path(tempdir(), "ambiguous_source.xlsx")
+  sheet <- data.frame(a = c("sin", "firma", "clara"), stringsAsFactors = FALSE)
+  write_test_workbook(workbook_path, list("Hoja1" = sheet))
+
+  profile <- profile_dataset_for_ai(
+    sheet,
+    dataset_name = "ambiguous_dataset",
+    archivo_fuente = workbook_path
+  )
+
+  expect_null(profile$source_context$type)
+  expect_equal(profile$source_context$source, "none")
+  expect_equal(profile$source_context$file$status, "unresolved")
+  expect_true(any(grepl("No se pudo resolver", profile$warnings, ignore.case = TRUE)))
 })
 
 test_that("el perfil y el renderer incluyen porcentaje de faltantes por variable", {
