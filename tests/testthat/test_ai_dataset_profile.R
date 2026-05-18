@@ -65,6 +65,72 @@ test_that("faltantes altos no esperables generan senal de cautela", {
   expect_match(rendered, "faltantes 60\\.0% \\(revisar\\)", ignore.case = TRUE)
 })
 
+test_that("config opcional en espanol aplica overrides y registra origen", {
+  df <- data.frame(
+    fecha_hasta = c(NA, "2026-05-01", NA),
+    diagnostico = c("A", "B", "C"),
+    correo_contacto = c("ana@x.org", "bruno@x.org", "carla@x.org"),
+    observacion = c("uno", "dos", "tres"),
+    stringsAsFactors = FALSE
+  )
+
+  config <- list(
+    faltantes_esperables = c("fecha_hasta"),
+    columnas_sensibles = c("diagnostico"),
+    columnas_identificatorias = c("correo_contacto"),
+    columnas_texto_libre = c("observacion")
+  )
+
+  profile <- profile_dataset_for_ai(df, dataset_name = "config_basica", config = config)
+  rendered <- render_dataset_profile_for_ai(profile)
+
+  expect_equal(profile$variables$fecha_hasta$missingness_hint, "expected")
+  expect_equal(profile$variables$diagnostico$role_guess, "sensitive")
+  expect_equal(profile$variables$correo_contacto$inferred_type, "identifier")
+  expect_equal(profile$variables$observacion$inferred_type, "free_text")
+  expect_equal(profile$variables$diagnostico$classification_source, "declared_by_user")
+  expect_equal(profile$variables$fecha_hasta$missingness_source, "declared_by_user")
+  expect_true("columnas_sensibles" %in% profile$variables$diagnostico$applied_rules)
+  expect_match(rendered, "Reglas declaradas por usuario", ignore.case = TRUE)
+  expect_match(rendered, "diagnostico: columnas_sensibles", ignore.case = TRUE)
+})
+
+test_that("config puede sobreescribir una heuristica automatica", {
+  df <- data.frame(tramo = c("A", "B", "C"), stringsAsFactors = FALSE)
+
+  config <- list(columnas_sensibles = c("tramo"))
+  profile <- profile_dataset_for_ai(df, dataset_name = "override", config = config)
+
+  expect_equal(profile$variables$tramo$inferred_type, "categorical")
+  expect_equal(profile$variables$tramo$role_guess, "sensitive")
+  expect_equal(profile$variables$tramo$classification_source, "declared_by_user")
+})
+
+test_that("config advierte por columnas inexistentes sin romper el helper", {
+  df <- data.frame(tramo = c("A", "B", "C"), stringsAsFactors = FALSE)
+
+  config <- list(columnas_sensibles = c("no_existe"))
+  profile <- profile_dataset_for_ai(df, dataset_name = "columna_inexistente", config = config)
+
+  expect_true(any(grepl("no_existe", profile$warnings, fixed = TRUE)))
+  expect_equal(profile$variables$tramo$classification_source, "inferred_automatically")
+})
+
+test_that("config resuelve conflictos priorizando la categoria mas restrictiva", {
+  df <- data.frame(diagnostico = c("A", "B", "C"), stringsAsFactors = FALSE)
+
+  config <- list(
+    columnas_sensibles = c("diagnostico"),
+    columnas_identificatorias = c("diagnostico")
+  )
+
+  profile <- profile_dataset_for_ai(df, dataset_name = "conflicto", config = config)
+
+  expect_equal(profile$variables$diagnostico$inferred_type, "identifier")
+  expect_equal(profile$variables$diagnostico$role_guess, "identifier")
+  expect_true(any(grepl("categorias incompatibles", profile$warnings, ignore.case = TRUE)))
+})
+
 test_that("fechas importadas como texto se infieren como datetime con advertencia", {
   df <- data.frame(
     fecha_evento = c(

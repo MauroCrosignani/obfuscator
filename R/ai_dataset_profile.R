@@ -64,6 +64,78 @@ ai_profile_expected_missingness_name <- function(column_name) {
   )
 }
 
+ai_profile_empty_config <- function() {
+  list(
+    faltantes_esperables = character(0),
+    columnas_sensibles = character(0),
+    columnas_identificatorias = character(0),
+    columnas_texto_libre = character(0)
+  )
+}
+
+ai_profile_normalize_config <- function(config) {
+  normalized <- ai_profile_empty_config()
+  warnings <- character(0)
+
+  if (is.null(config)) {
+    return(list(config = normalized, warnings = warnings))
+  }
+
+  if (!is.list(config)) {
+    stop("`config` debe ser NULL o una lista declarativa.")
+  }
+
+  known_keys <- names(normalized)
+  provided_keys <- names(config) %||% character(0)
+  unknown_keys <- setdiff(provided_keys, known_keys)
+  if (length(unknown_keys) > 0) {
+    warnings <- c(
+      warnings,
+      sprintf(
+        "Se ignoraron claves desconocidas en config: %s.",
+        paste(sort(unknown_keys), collapse = ", ")
+      )
+    )
+  }
+
+  for (key in intersect(provided_keys, known_keys)) {
+    values <- config[[key]]
+    if (is.null(values)) {
+      next
+    }
+    normalized[[key]] <- unique(as.character(values))
+    normalized[[key]] <- normalized[[key]][nzchar(normalized[[key]])]
+  }
+
+  list(config = normalized, warnings = warnings)
+}
+
+ai_profile_validate_config <- function(config, data_names) {
+  warnings <- character(0)
+
+  for (key in names(config)) {
+    missing_columns <- setdiff(config[[key]], data_names)
+    if (length(missing_columns) > 0) {
+      warnings <- c(
+        warnings,
+        vapply(
+          missing_columns,
+          function(column_name) {
+            sprintf(
+              "La columna '%s' fue declarada en %s pero no esta presente en el dataset.",
+              column_name,
+              key
+            )
+          },
+          character(1)
+        )
+      )
+    }
+  }
+
+  warnings
+}
+
 ai_profile_observed_temporal_pattern <- function(values) {
   values <- as.character(values)
   values <- values[nzchar(trimws(values))]
@@ -352,6 +424,66 @@ ai_profile_missingness_hint <- function(column_name, missing_pct) {
   "none"
 }
 
+ai_profile_config_rules_for_column <- function(column_name, config) {
+  rules <- names(config)[vapply(config, function(values) column_name %in% values, logical(1))]
+  rules
+}
+
+ai_profile_apply_config_overrides <- function(column_name, inferred_type, role_guess, missingness_hint, config) {
+  applied_rules <- ai_profile_config_rules_for_column(column_name, config)
+  warnings <- character(0)
+
+  classification_rules <- intersect(
+    applied_rules,
+    c("columnas_identificatorias", "columnas_texto_libre", "columnas_sensibles")
+  )
+
+  if (length(classification_rules) > 1) {
+    warnings <- c(
+      warnings,
+      sprintf(
+        "La columna '%s' aparece en categorias incompatibles; se prioriza 'columnas_identificatorias', luego 'columnas_texto_libre' y luego 'columnas_sensibles'.",
+        column_name
+      )
+    )
+  }
+
+  classification_source <- "inferred_automatically"
+  missingness_source <- "inferred_automatically"
+
+  final_inferred_type <- inferred_type
+  final_role_guess <- role_guess
+  final_missingness_hint <- missingness_hint
+
+  if ("columnas_identificatorias" %in% applied_rules) {
+    final_inferred_type <- "identifier"
+    final_role_guess <- "identifier"
+    classification_source <- "declared_by_user"
+  } else if ("columnas_texto_libre" %in% applied_rules) {
+    final_inferred_type <- "free_text"
+    final_role_guess <- "free_text"
+    classification_source <- "declared_by_user"
+  } else if ("columnas_sensibles" %in% applied_rules) {
+    final_role_guess <- "sensitive"
+    classification_source <- "declared_by_user"
+  }
+
+  if ("faltantes_esperables" %in% applied_rules) {
+    final_missingness_hint <- "expected"
+    missingness_source <- "declared_by_user"
+  }
+
+  list(
+    inferred_type = final_inferred_type,
+    role_guess = final_role_guess,
+    missingness_hint = final_missingness_hint,
+    classification_source = classification_source,
+    missingness_source = missingness_source,
+    applied_rules = applied_rules,
+    warnings = warnings
+  )
+}
+
 ai_profile_variable_summary <- function(column_name, x, inferred_type, role_guess, round_digits, max_levels, top_n) {
   values <- ai_profile_non_missing_values(x)
 
@@ -411,16 +543,24 @@ ai_profile_variable_summary <- function(column_name, x, inferred_type, role_gues
   list()
 }
 
-build_variable_profile_for_ai <- function(column_name, x, round_digits = 2, max_levels = 12, top_n = 10) {
+build_variable_profile_for_ai <- function(column_name, x, config = NULL, round_digits = 2, max_levels = 12, top_n = 10) {
   inference <- ai_profile_infer_type(column_name, x, max_levels = max_levels)
   imported_type <- ai_profile_imported_type(x)
   role_guess <- ai_profile_role_guess(column_name, inference$inferred_type, x)
   missing_pct <- round(mean(is.na(x)) * 100, 2)
+  missingness_hint <- ai_profile_missingness_hint(column_name, missing_pct)
+  override <- ai_profile_apply_config_overrides(
+    column_name = column_name,
+    inferred_type = inference$inferred_type,
+    role_guess = role_guess,
+    missingness_hint = missingness_hint,
+    config = config %||% ai_profile_empty_config()
+  )
   summary <- ai_profile_variable_summary(
     column_name = column_name,
     x = x,
-    inferred_type = inference$inferred_type,
-    role_guess = role_guess,
+    inferred_type = override$inferred_type,
+    role_guess = override$role_guess,
     round_digits = round_digits,
     max_levels = max_levels,
     top_n = top_n
@@ -430,27 +570,37 @@ build_variable_profile_for_ai <- function(column_name, x, round_digits = 2, max_
     name = column_name,
     imported_type = imported_type,
     observed_pattern = inference$observed_pattern,
-    inferred_type = inference$inferred_type,
+    inferred_type = override$inferred_type,
     inference_confidence = inference$confidence,
-    role_guess = role_guess,
+    role_guess = override$role_guess,
+    classification_source = override$classification_source,
     missing_pct = missing_pct,
-    missingness_hint = ai_profile_missingness_hint(column_name, missing_pct),
+    missingness_hint = override$missingness_hint,
+    missingness_source = override$missingness_source,
+    applied_rules = override$applied_rules,
     summary = summary,
-    warnings = unique(inference$warnings)
+    warnings = unique(c(inference$warnings, override$warnings))
   )
 }
 
-profile_dataset_for_ai <- function(data, dataset_name = NULL, max_levels = 12, top_n = 10, round_digits = 2) {
+profile_dataset_for_ai <- function(data, dataset_name = NULL, config = NULL, max_levels = 12, top_n = 10, round_digits = 2) {
   if (!is.data.frame(data)) {
     stop("`data` debe ser un data.frame o tibble.")
   }
 
   dataset_name <- dataset_name %||% deparse(substitute(data))
+  normalized_config_result <- ai_profile_normalize_config(config)
+  normalized_config <- normalized_config_result$config
+  config_warnings <- c(
+    normalized_config_result$warnings,
+    ai_profile_validate_config(normalized_config, names(data))
+  )
   variable_profiles <- stats::setNames(
     lapply(names(data), function(column_name) {
       build_variable_profile_for_ai(
         column_name,
         data[[column_name]],
+        config = normalized_config,
         round_digits = round_digits,
         max_levels = max_levels,
         top_n = top_n
@@ -459,13 +609,20 @@ profile_dataset_for_ai <- function(data, dataset_name = NULL, max_levels = 12, t
     names(data)
   )
 
-  global_warnings <- unique(unlist(lapply(variable_profiles, `[[`, "warnings"), use.names = FALSE))
+  config_applied <- lapply(variable_profiles, `[[`, "applied_rules")
+  config_applied <- config_applied[vapply(config_applied, length, integer(1)) > 0]
+
+  global_warnings <- unique(c(
+    unlist(lapply(variable_profiles, `[[`, "warnings"), use.names = FALSE),
+    config_warnings
+  ))
 
   list(
     dataset_name = dataset_name,
     dimensions = list(rows = nrow(data), cols = ncol(data)),
     generated_at = format(Sys.time(), "%Y-%m-%d %H:%M:%S"),
     variables = variable_profiles,
+    config_applied = config_applied,
     warnings = global_warnings
   )
 }
@@ -621,6 +778,18 @@ render_dataset_profile_for_ai <- function(profile, mode = "compact") {
   if (length(warnings) > 0) {
     lines <- c(lines, "", "Advertencias:")
     lines <- c(lines, paste0("- ", warnings))
+  }
+
+  if (length(profile$config_applied %||% list()) > 0) {
+    lines <- c(lines, "", "Reglas declaradas por usuario:")
+    config_lines <- vapply(
+      names(profile$config_applied),
+      function(column_name) {
+        sprintf("- %s: %s", column_name, paste(profile$config_applied[[column_name]], collapse = ", "))
+      },
+      character(1)
+    )
+    lines <- c(lines, config_lines)
   }
 
   paste(lines, collapse = "\n")
