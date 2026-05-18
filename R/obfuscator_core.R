@@ -181,6 +181,7 @@ load_obfuscator_companion <- function(filename, target_env = parent.frame()) {
 }
 
 load_obfuscator_companion("release_decision_helpers.R")
+load_obfuscator_companion("ai_dataset_profile.R")
 rm(load_obfuscator_companion)
 
 obfuscator_config <- function(
