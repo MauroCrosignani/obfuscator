@@ -23,6 +23,51 @@ test_that("render_dataset_profile_for_ai devuelve texto compacto util", {
   expect_match(rendered, "Sepal\\.Length")
 })
 
+test_that("profile_dataset_for_ai sigue funcionando sin tipo_fuente", {
+  profile <- profile_dataset_for_ai(iris, dataset_name = "iris")
+
+  expect_true("source_context" %in% names(profile))
+  expect_null(profile$source_context$type)
+  expect_equal(profile$source_context$source, "none")
+})
+
+test_that("tipo_fuente declarado se registra en el perfil", {
+  profile <- profile_dataset_for_ai(
+    iris,
+    dataset_name = "iris",
+    tipo_fuente = "gca2"
+  )
+  rendered <- render_dataset_profile_for_ai(profile)
+
+  expect_equal(profile$source_context$type, "gca2")
+  expect_equal(profile$source_context$source, "declared_by_user")
+  expect_match(rendered, "Fuente declarada por el usuario: gca2\\.", ignore.case = TRUE)
+})
+
+test_that("oracle es una categoria valida de tipo_fuente", {
+  profile <- profile_dataset_for_ai(
+    iris,
+    dataset_name = "iris",
+    tipo_fuente = "oracle"
+  )
+
+  expect_equal(profile$source_context$type, "oracle")
+  expect_equal(profile$source_context$source, "declared_by_user")
+})
+
+test_that("valores invalidos de tipo_fuente advierten y sugieren oracle", {
+  profile <- profile_dataset_for_ai(
+    iris,
+    dataset_name = "iris",
+    tipo_fuente = "odbc"
+  )
+
+  expect_null(profile$source_context$type)
+  expect_equal(profile$source_context$source, "none")
+  expect_true(any(grepl("oracle", profile$warnings, ignore.case = TRUE)))
+  expect_true(any(grepl("tipo_fuente", profile$warnings, ignore.case = TRUE)))
+})
+
 test_that("el perfil y el renderer incluyen porcentaje de faltantes por variable", {
   df <- data.frame(
     edad = c(23, NA, 31, NA),

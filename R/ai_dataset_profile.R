@@ -73,6 +73,55 @@ ai_profile_empty_config <- function() {
   )
 }
 
+ai_profile_normalize_tipo_fuente <- function(tipo_fuente) {
+  warnings <- character(0)
+
+  if (is.null(tipo_fuente)) {
+    return(list(tipo_fuente = NULL, source_context = list(
+      type = NULL,
+      source = "none",
+      confidence = NULL,
+      warnings = character(0)
+    ), warnings = warnings))
+  }
+
+  normalized <- tolower(trimws(as.character(tipo_fuente)[1]))
+  valid_types <- c("gca", "gca2", "oracle", "excel", "csv", "desconocida")
+
+  if (!normalized %in% valid_types) {
+    warnings <- c(
+      warnings,
+      if (identical(normalized, "odbc")) {
+        "`tipo_fuente = 'odbc'` no es un valor aprobado; usa `oracle` como categoria semantica."
+      } else {
+        sprintf(
+          "`tipo_fuente = '%s'` no es valido. Valores aceptados: %s.",
+          normalized,
+          paste(valid_types, collapse = ", ")
+        )
+      }
+    )
+
+    return(list(tipo_fuente = NULL, source_context = list(
+      type = NULL,
+      source = "none",
+      confidence = NULL,
+      warnings = warnings
+    ), warnings = warnings))
+  }
+
+  list(
+    tipo_fuente = normalized,
+    source_context = list(
+      type = normalized,
+      source = "declared_by_user",
+      confidence = "declared",
+      warnings = character(0)
+    ),
+    warnings = warnings
+  )
+}
+
 ai_profile_normalize_config <- function(config) {
   normalized <- ai_profile_empty_config()
   warnings <- character(0)
@@ -583,15 +632,17 @@ build_variable_profile_for_ai <- function(column_name, x, config = NULL, round_d
   )
 }
 
-profile_dataset_for_ai <- function(data, dataset_name = NULL, config = NULL, max_levels = 12, top_n = 10, round_digits = 2) {
+profile_dataset_for_ai <- function(data, dataset_name = NULL, config = NULL, tipo_fuente = NULL, max_levels = 12, top_n = 10, round_digits = 2) {
   if (!is.data.frame(data)) {
     stop("`data` debe ser un data.frame o tibble.")
   }
 
   dataset_name <- dataset_name %||% deparse(substitute(data))
+  source_context_result <- ai_profile_normalize_tipo_fuente(tipo_fuente)
   normalized_config_result <- ai_profile_normalize_config(config)
   normalized_config <- normalized_config_result$config
   config_warnings <- c(
+    source_context_result$warnings,
     normalized_config_result$warnings,
     ai_profile_validate_config(normalized_config, names(data))
   )
@@ -621,6 +672,7 @@ profile_dataset_for_ai <- function(data, dataset_name = NULL, config = NULL, max
     dataset_name = dataset_name,
     dimensions = list(rows = nrow(data), cols = ncol(data)),
     generated_at = format(Sys.time(), "%Y-%m-%d %H:%M:%S"),
+    source_context = source_context_result$source_context,
     variables = variable_profiles,
     config_applied = config_applied,
     warnings = global_warnings
@@ -762,10 +814,17 @@ render_dataset_profile_for_ai <- function(profile, mode = "compact") {
       "Dimensiones: %s filas, %s columnas",
       profile$dimensions$rows %||% 0,
       profile$dimensions$cols %||% 0
-    ),
-    "",
-    "Resumen por variable:"
+    )
   )
+
+  if (!is.null(profile$source_context$type)) {
+    lines <- c(
+      lines,
+      sprintf("Fuente declarada por el usuario: %s.", profile$source_context$type)
+    )
+  }
+
+  lines <- c(lines, "", "Resumen por variable:")
 
   variable_lines <- vapply(
     profile$variables,
