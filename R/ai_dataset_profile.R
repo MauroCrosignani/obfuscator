@@ -92,6 +92,15 @@ ai_profile_identifier_content <- function(values) {
     ))
   }
 
+  if (all(grepl("^\\+?[0-9][0-9\\-\\s]{7,}$", values))) {
+    return(list(
+      inferred_type = "identifier",
+      observed_pattern = "phone",
+      warnings = "No se incluiran ejemplos literales de telefonos.",
+      confidence = "high"
+    ))
+  }
+
   if (all(grepl("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", values))) {
     return(list(
       inferred_type = "identifier",
@@ -249,6 +258,10 @@ ai_profile_identifier_pattern <- function(values) {
 
   if (all(grepl("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$", values))) {
     return("correo electronico")
+  }
+
+  if (all(grepl("^\\+?[0-9][0-9\\-\\s]{7,}$", values))) {
+    return("telefono")
   }
 
   if (all(grepl("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", values))) {
@@ -438,7 +451,7 @@ profile_dataset_for_ai <- function(data, dataset_name = NULL, max_levels = 12, t
 # Ejemplo de uso desde RStudio:
 # profile <- profile_dataset_for_ai(iris, "iris")
 # cat(render_dataset_profile_for_ai(profile))
-render_ai_profile_variable <- function(variable_profile) {
+render_ai_profile_variable <- function(variable_profile, mode = "compact") {
   name <- variable_profile$name
   imported_type <- variable_profile$imported_type
   inferred_type <- variable_profile$inferred_type
@@ -456,6 +469,20 @@ render_ai_profile_variable <- function(variable_profile) {
   }
 
   if (identical(inferred_type, "categorical")) {
+    visible_values <- summary$values %||% character(0)
+    max_value_length <- if (length(visible_values) == 0) 0 else max(nchar(visible_values), na.rm = TRUE)
+    if (
+      identical(mode, "conservative") &&
+      !isTRUE(summary$values_redacted) &&
+      !identical(role_guess, "sensitive") &&
+      max_value_length > 4
+    ) {
+      return(sprintf(
+        "- %s: categorica; niveles observados: %s; valores no listados por modo conservador.",
+        name,
+        summary$level_count %||% length(summary$values %||% character(0))
+      ))
+    }
     if (isTRUE(summary$values_redacted)) {
       return(sprintf(
         "- %s: categorica sensible; niveles observados: %s; valores no listados por seguridad.",
@@ -528,8 +555,8 @@ render_ai_profile_variable <- function(variable_profile) {
 
 render_dataset_profile_for_ai <- function(profile, mode = "compact") {
   stopifnot(is.list(profile), !is.null(profile$variables))
-  if (!identical(mode, "compact")) {
-    stop("Por ahora solo se implementa `mode = 'compact'`.")
+  if (!mode %in% c("compact", "conservative")) {
+    stop("`mode` debe ser 'compact' o 'conservative'.")
   }
 
   lines <- c(
@@ -543,7 +570,11 @@ render_dataset_profile_for_ai <- function(profile, mode = "compact") {
     "Resumen por variable:"
   )
 
-  variable_lines <- vapply(profile$variables, render_ai_profile_variable, character(1))
+  variable_lines <- vapply(
+    profile$variables,
+    function(variable_profile) render_ai_profile_variable(variable_profile, mode = mode),
+    character(1)
+  )
   lines <- c(lines, variable_lines)
 
   warnings <- unique(profile$warnings)

@@ -128,3 +128,37 @@ test_that("correos y otros identificadores complejos no se exponen literalmente"
   expect_false(grepl("ana@example|bruno@example|carla@example", rendered))
   expect_match(rendered, "correo electronico|patron aproximado", ignore.case = TRUE)
 })
+
+test_that("telefonos se tratan como identificadores y texto de direccion como privado", {
+  df <- data.frame(
+    telefono_contacto = c("099123456", "098765432", "091111222"),
+    direccion = c(
+      "Av. Siempre Viva 742",
+      "Calle Falsa 1234",
+      "Ruta 8 km 17"
+    ),
+    stringsAsFactors = FALSE
+  )
+
+  profile <- profile_dataset_for_ai(df, dataset_name = "contacto")
+  rendered <- render_dataset_profile_for_ai(profile)
+
+  expect_equal(profile$variables$telefono_contacto$inferred_type, "identifier")
+  expect_equal(profile$variables$direccion$inferred_type, "free_text")
+  expect_false(grepl("099123456|098765432|091111222", rendered))
+  expect_false(grepl("Siempre Viva|Calle Falsa|Ruta 8", rendered))
+})
+
+test_that("modo conservador redacciona categoricas no triviales aunque no sean sensibles", {
+  df <- data.frame(
+    departamento = c("Montevideo", "Canelones", "Salto"),
+    tramo = c("A", "B", "C"),
+    stringsAsFactors = FALSE
+  )
+
+  profile <- profile_dataset_for_ai(df, dataset_name = "modo_conservador")
+  rendered <- render_dataset_profile_for_ai(profile, mode = "conservative")
+
+  expect_match(rendered, "departamento: categorica; niveles observados: 3; valores no listados por modo conservador", ignore.case = TRUE)
+  expect_match(rendered, "tramo: categorica; valores observados: A, B, C", ignore.case = TRUE)
+})
