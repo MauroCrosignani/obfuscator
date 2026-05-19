@@ -8,6 +8,12 @@ write_test_workbook <- function(path, sheets) {
   path
 }
 
+write_test_json <- function(path, content) {
+  expect_true(requireNamespace("jsonlite", quietly = TRUE))
+  jsonlite::write_json(content, path = path, auto_unbox = TRUE, pretty = TRUE, null = "null")
+  path
+}
+
 test_that("profile_dataset_for_ai devuelve estructura base", {
   profile <- profile_dataset_for_ai(iris, dataset_name = "iris")
 
@@ -167,6 +173,201 @@ test_that("archivo_fuente ambiguo o incompleto no fuerza contexto fuerte", {
   expect_equal(profile$source_context$source, "none")
   expect_equal(profile$source_context$file$status, "unresolved")
   expect_true(any(grepl("No se pudo resolver", profile$warnings, ignore.case = TRUE)))
+})
+
+test_that("metadata_dir NULL no rompe el helper ni fuerza metadata", {
+  profile <- profile_dataset_for_ai(
+    iris,
+    dataset_name = "iris",
+    tipo_fuente = "gca2"
+  )
+
+  expect_true("source_metadata" %in% names(profile))
+  expect_equal(profile$source_metadata$status, "none")
+})
+
+test_that("metadata_dir inexistente agrega advertencia y degrada con seguridad", {
+  missing_dir <- file.path(tempdir(), "metadata_dir_inexistente")
+  profile <- profile_dataset_for_ai(
+    iris,
+    dataset_name = "iris",
+    tipo_fuente = "gca2",
+    metadata_dir = missing_dir
+  )
+
+  expect_equal(profile$source_metadata$status, "missing_dir")
+  expect_true(any(grepl("metadata_dir", profile$warnings, ignore.case = TRUE)))
+})
+
+test_that("metadata valida matchea por source_id exacto", {
+  workbook_path <- file.path(tempdir(), "consulta_18631_123456.xlsx")
+  caratula <- data.frame(
+    col1 = c(NA, "Planilla generada por GCA2", "Nombre", "Id de Consulta", "Descripcion", "Id. Ejecucion"),
+    col2 = c(NA, NA, "Consulta demo", "18631", "GCA2_18631_demo", "123456"),
+    stringsAsFactors = FALSE
+  )
+  salida <- data.frame(persona_id = c("P001", "P002"), stringsAsFactors = FALSE)
+  write_test_workbook(
+    workbook_path,
+    list("Caratula" = caratula, "salida_gca" = salida)
+  )
+
+  metadata_dir <- file.path(tempdir(), "metadata_exacta")
+  dir.create(metadata_dir, recursive = TRUE, showWarnings = FALSE)
+  write_test_json(
+    file.path(metadata_dir, "gca2_18631.json"),
+    list(
+      version = 1,
+      source_type = "gca2",
+      source_id = "gca2:18631",
+      display_name = "Consulta demo",
+      aliases = list("Consulta demo"),
+      related_sources = list(),
+      source_details = list(query_id = "18631"),
+      columnas = list(persona_id = list(rol = "identificatoria"))
+    )
+  )
+
+  profile <- profile_dataset_for_ai(
+    salida,
+    dataset_name = "gca2_dataset",
+    archivo_fuente = workbook_path,
+    metadata_dir = metadata_dir
+  )
+
+  expect_equal(profile$source_metadata$status, "matched")
+  expect_equal(profile$source_metadata$matched_by, "source_id")
+  expect_equal(profile$source_metadata$metadata$display_name, "Consulta demo")
+})
+
+test_that("metadata puede matchear por alias cuando no hay source_id canonico", {
+  workbook_path <- file.path(tempdir(), "gca_alias.xlsx")
+  meta <- data.frame(
+    X1 = c(
+      "Planilla generada por el GCA: Martes, 19 de Diciembre de 2023",
+      NA,
+      "TituloL",
+      "Plan de Codigo de la Cuenta",
+      NA,
+      "Descripcion:",
+      "Es la tabla entera cta_plan_codigo de produccion",
+      NA,
+      "Parametros:"
+    ),
+    stringsAsFactors = FALSE
+  )
+  datos <- data.frame(CODIGO_CAJA = c("A", "B"), stringsAsFactors = FALSE)
+  write_test_workbook(
+    workbook_path,
+    list("Informacion de la consulta" = meta, "Datos_Consulta1" = datos)
+  )
+
+  metadata_dir <- file.path(tempdir(), "metadata_alias")
+  dir.create(metadata_dir, recursive = TRUE, showWarnings = FALSE)
+  write_test_json(
+    file.path(metadata_dir, "gca_alias.json"),
+    list(
+      version = 1,
+      source_type = "gca",
+      source_id = "gca:5553",
+      display_name = "Plan de Codigo de la Cuenta",
+      aliases = list("Plan de Codigo de la Cuenta"),
+      related_sources = list(),
+      source_details = list(query_id = "5553"),
+      columnas = list(CODIGO_CAJA = list(rol = "identificatoria"))
+    )
+  )
+
+  profile <- profile_dataset_for_ai(
+    datos,
+    dataset_name = "gca_dataset",
+    archivo_fuente = workbook_path,
+    metadata_dir = metadata_dir
+  )
+
+  expect_equal(profile$source_metadata$status, "matched")
+  expect_equal(profile$source_metadata$matched_by, "alias")
+  expect_equal(profile$source_metadata$metadata$source_id, "gca:5553")
+})
+
+test_that("metadata ambigua por alias no se aplica automaticamente", {
+  workbook_path <- file.path(tempdir(), "gca_alias_ambigua.xlsx")
+  meta <- data.frame(
+    X1 = c(
+      "Planilla generada por el GCA: Martes, 19 de Diciembre de 2023",
+      NA,
+      "TituloL",
+      "Plan de Codigo de la Cuenta",
+      NA,
+      "Descripcion:",
+      "Es la tabla entera cta_plan_codigo de produccion",
+      NA,
+      "Parametros:"
+    ),
+    stringsAsFactors = FALSE
+  )
+  datos <- data.frame(CODIGO_CAJA = c("A", "B"), stringsAsFactors = FALSE)
+  write_test_workbook(
+    workbook_path,
+    list("Informacion de la consulta" = meta, "Datos_Consulta1" = datos)
+  )
+
+  metadata_dir <- file.path(tempdir(), "metadata_ambigua")
+  dir.create(metadata_dir, recursive = TRUE, showWarnings = FALSE)
+  shared_alias <- list("Plan de Codigo de la Cuenta")
+  write_test_json(
+    file.path(metadata_dir, "gca_alias_1.json"),
+    list(
+      version = 1,
+      source_type = "gca",
+      source_id = "gca:1111",
+      display_name = "Consulta A",
+      aliases = shared_alias,
+      related_sources = list(),
+      source_details = list(query_id = "1111"),
+      columnas = list(CODIGO_CAJA = list(rol = "identificatoria"))
+    )
+  )
+  write_test_json(
+    file.path(metadata_dir, "gca_alias_2.json"),
+    list(
+      version = 1,
+      source_type = "gca",
+      source_id = "gca:2222",
+      display_name = "Consulta B",
+      aliases = shared_alias,
+      related_sources = list(),
+      source_details = list(query_id = "2222"),
+      columnas = list(CODIGO_CAJA = list(rol = "identificatoria"))
+    )
+  )
+
+  profile <- profile_dataset_for_ai(
+    datos,
+    dataset_name = "gca_dataset",
+    archivo_fuente = workbook_path,
+    metadata_dir = metadata_dir
+  )
+
+  expect_equal(profile$source_metadata$status, "ambiguous")
+  expect_true(is.null(profile$source_metadata$metadata))
+  expect_true(any(grepl("ambigua", profile$warnings, ignore.case = TRUE)))
+})
+
+test_that("metadata JSON invalida advierte y degrada sin romper", {
+  metadata_dir <- file.path(tempdir(), "metadata_invalida")
+  dir.create(metadata_dir, recursive = TRUE, showWarnings = FALSE)
+  writeLines("{\"version\": 1, \"source_type\": \"gca2\"}", con = file.path(metadata_dir, "invalida.json"))
+
+  profile <- profile_dataset_for_ai(
+    iris,
+    dataset_name = "iris",
+    tipo_fuente = "gca2",
+    metadata_dir = metadata_dir
+  )
+
+  expect_true(profile$source_metadata$status %in% c("none", "no_match"))
+  expect_true(any(grepl("metadata", profile$warnings, ignore.case = TRUE)))
 })
 
 test_that("el perfil y el renderer incluyen porcentaje de faltantes por variable", {

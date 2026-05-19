@@ -384,6 +384,196 @@ ai_profile_merge_source_context <- function(tipo_fuente_context, file_context) {
   list(source_context = source_context, warnings = unique(warnings))
 }
 
+ai_profile_empty_source_metadata <- function() {
+  list(
+    status = "none",
+    matched_by = NULL,
+    path = NULL,
+    metadata = NULL,
+    warnings = character(0)
+  )
+}
+
+ai_profile_validate_source_metadata_entry <- function(metadata, path) {
+  warnings <- character(0)
+  required_fields <- c("version", "source_type", "source_id", "display_name", "columnas")
+  missing_fields <- setdiff(required_fields, names(metadata))
+
+  if (length(missing_fields) > 0) {
+    warnings <- c(
+      warnings,
+      sprintf(
+        "La metadata '%s' no tiene el formato minimo requerido. Faltan campos: %s.",
+        basename(path),
+        paste(sort(missing_fields), collapse = ", ")
+      )
+    )
+    return(list(valid = FALSE, metadata = NULL, warnings = warnings))
+  }
+
+  if (!is.list(metadata$columnas)) {
+    warnings <- c(
+      warnings,
+      sprintf(
+        "La metadata '%s' no tiene un bloque 'columnas' valido.",
+        basename(path)
+      )
+    )
+    return(list(valid = FALSE, metadata = NULL, warnings = warnings))
+  }
+
+  metadata$aliases <- unique(as.character(unlist(metadata$aliases %||% character(0), use.names = FALSE)))
+  metadata$aliases <- metadata$aliases[nzchar(metadata$aliases)]
+  metadata$path <- path
+
+  list(valid = TRUE, metadata = metadata, warnings = warnings)
+}
+
+ai_profile_load_source_metadata <- function(metadata_dir) {
+  empty_metadata <- ai_profile_empty_source_metadata()
+
+  if (is.null(metadata_dir)) {
+    return(empty_metadata)
+  }
+
+  path <- normalizePath(metadata_dir, winslash = "/", mustWork = FALSE)
+  if (!dir.exists(path)) {
+    warning_text <- sprintf("El metadata_dir '%s' no existe o no esta accesible.", metadata_dir)
+    result <- empty_metadata
+    result$status <- "missing_dir"
+    result$path <- path
+    result$warnings <- warning_text
+    return(result)
+  }
+
+  json_files <- list.files(path, pattern = "\\.json$", full.names = TRUE)
+  warnings <- character(0)
+  entries <- list()
+
+  for (json_file in json_files) {
+    parsed <- tryCatch(
+      jsonlite::fromJSON(json_file, simplifyVector = FALSE),
+      error = function(e) e
+    )
+
+    if (inherits(parsed, "error")) {
+      warnings <- c(
+        warnings,
+        sprintf(
+          "No se pudo leer la metadata '%s': %s",
+          basename(json_file),
+          conditionMessage(parsed)
+        )
+      )
+      next
+    }
+
+    validated <- ai_profile_validate_source_metadata_entry(parsed, json_file)
+    warnings <- c(warnings, validated$warnings)
+    if (isTRUE(validated$valid)) {
+      entries[[length(entries) + 1L]] <- validated$metadata
+    }
+  }
+
+  result <- empty_metadata
+  result$status <- "loaded"
+  result$path <- path
+  result$entries <- entries
+  result$warnings <- unique(warnings)
+  result
+}
+
+ai_profile_metadata_candidate_names <- function(source_context, dataset_name) {
+  candidates <- c(
+    source_context$details$query_title %||% character(0),
+    source_context$details$query_name %||% character(0),
+    dataset_name %||% character(0)
+  )
+  candidates <- unique(trimws(as.character(candidates)))
+  candidates[nzchar(candidates)]
+}
+
+ai_profile_resolve_source_metadata <- function(metadata_dir, source_context, dataset_name = NULL) {
+  loaded <- ai_profile_load_source_metadata(metadata_dir)
+  base_result <- ai_profile_empty_source_metadata()
+  base_result$status <- loaded$status
+  base_result$path <- loaded$path
+  base_result$warnings <- loaded$warnings
+
+  if (!identical(loaded$status, "loaded")) {
+    return(base_result)
+  }
+
+  entries <- loaded$entries %||% list()
+  if (length(entries) == 0) {
+    base_result$status <- "no_match"
+    return(base_result)
+  }
+
+  source_id <- source_context$source_id %||% NULL
+  if (!is.null(source_id)) {
+    exact_matches <- entries[vapply(
+      entries,
+      function(entry) identical(entry$source_id %||% NULL, source_id),
+      logical(1)
+    )]
+
+    if (length(exact_matches) == 1) {
+      base_result$status <- "matched"
+      base_result$matched_by <- "source_id"
+      base_result$metadata <- exact_matches[[1]]
+      return(base_result)
+    }
+
+    if (length(exact_matches) > 1) {
+      base_result$status <- "ambiguous"
+      base_result$warnings <- unique(c(
+        base_result$warnings,
+        sprintf("La metadata para source_id '%s' es ambigua y no se aplico automaticamente.", source_id)
+      ))
+      return(base_result)
+    }
+  }
+
+  candidate_names <- ai_profile_metadata_candidate_names(source_context, dataset_name)
+  if (length(candidate_names) == 0) {
+    base_result$status <- "no_match"
+    return(base_result)
+  }
+
+  alias_matches <- entries[vapply(
+    entries,
+    function(entry) {
+      aliases <- unique(c(entry$display_name %||% character(0), entry$aliases %||% character(0)))
+      aliases <- tolower(trimws(as.character(aliases)))
+      any(tolower(candidate_names) %in% aliases)
+    },
+    logical(1)
+  )]
+
+  if (length(alias_matches) == 1) {
+    base_result$status <- "matched"
+    base_result$matched_by <- "alias"
+    base_result$metadata <- alias_matches[[1]]
+    return(base_result)
+  }
+
+  if (length(alias_matches) > 1) {
+    base_result$status <- "ambiguous"
+    base_result$warnings <- unique(c(
+      base_result$warnings,
+      sprintf(
+        "La metadata candidata para '%s' es ambigua y no se aplico automaticamente.",
+        candidate_names[1]
+      )
+    ))
+    return(base_result)
+  }
+
+  base_result$status <- "no_match"
+  base_result
+}
+
 ai_profile_normalize_config <- function(config) {
   normalized <- ai_profile_empty_config()
   warnings <- character(0)
@@ -894,7 +1084,7 @@ build_variable_profile_for_ai <- function(column_name, x, config = NULL, round_d
   )
 }
 
-profile_dataset_for_ai <- function(data, dataset_name = NULL, config = NULL, tipo_fuente = NULL, archivo_fuente = NULL, max_levels = 12, top_n = 10, round_digits = 2) {
+profile_dataset_for_ai <- function(data, dataset_name = NULL, config = NULL, tipo_fuente = NULL, archivo_fuente = NULL, metadata_dir = NULL, max_levels = 12, top_n = 10, round_digits = 2) {
   if (!is.data.frame(data)) {
     stop("`data` debe ser un data.frame o tibble.")
   }
@@ -906,10 +1096,16 @@ profile_dataset_for_ai <- function(data, dataset_name = NULL, config = NULL, tip
     tipo_fuente_context = source_context_result,
     file_context = file_context_result
   )
+  source_metadata <- ai_profile_resolve_source_metadata(
+    metadata_dir = metadata_dir,
+    source_context = merged_source_context_result$source_context,
+    dataset_name = dataset_name
+  )
   normalized_config_result <- ai_profile_normalize_config(config)
   normalized_config <- normalized_config_result$config
   config_warnings <- c(
     merged_source_context_result$warnings,
+    source_metadata$warnings,
     normalized_config_result$warnings,
     ai_profile_validate_config(normalized_config, names(data))
   )
@@ -940,6 +1136,7 @@ profile_dataset_for_ai <- function(data, dataset_name = NULL, config = NULL, tip
     dimensions = list(rows = nrow(data), cols = ncol(data)),
     generated_at = format(Sys.time(), "%Y-%m-%d %H:%M:%S"),
     source_context = merged_source_context_result$source_context,
+    source_metadata = source_metadata,
     variables = variable_profiles,
     config_applied = config_applied,
     warnings = global_warnings
@@ -1088,6 +1285,17 @@ render_dataset_profile_for_ai <- function(profile, mode = "compact") {
     lines <- c(
       lines,
       sprintf("Fuente declarada por el usuario: %s.", profile$source_context$type)
+    )
+  }
+
+  if (identical(profile$source_metadata$status %||% NULL, "matched")) {
+    lines <- c(
+      lines,
+      sprintf(
+        "Metadata de fuente aplicada: %s (match por %s).",
+        profile$source_metadata$metadata$display_name %||% "sin nombre",
+        profile$source_metadata$matched_by %||% "regla interna"
+      )
     )
   }
 
