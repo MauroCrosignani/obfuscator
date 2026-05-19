@@ -533,6 +533,186 @@ test_that("renombre fuerte no se adivina como match automatico", {
   expect_true("FECHA_ULT_ACT" %in% profile$source_metadata$column_resolution$unresolved)
 })
 
+test_that("genera alerta cuando se esperaba datetime y la columna sigue como character", {
+  workbook_path <- file.path(tempdir(), "consulta_22005_123456.xlsx")
+  caratula <- data.frame(
+    col1 = c(NA, "Planilla generada por GCA2", "Nombre", "Id de Consulta"),
+    col2 = c(NA, NA, "Consulta demo fecha", "22005"),
+    stringsAsFactors = FALSE
+  )
+  salida <- data.frame(
+    fecha_evento = c("2024-01-01 10:00:00.123456", "2024-01-02 11:00:00.654321"),
+    stringsAsFactors = FALSE
+  )
+  write_test_workbook(
+    workbook_path,
+    list("Caratula" = caratula, "salida_gca" = salida)
+  )
+
+  metadata_dir <- file.path(tempdir(), "metadata_alerta_datetime")
+  dir.create(metadata_dir, recursive = TRUE, showWarnings = FALSE)
+  write_test_json(
+    file.path(metadata_dir, "gca2_22005.json"),
+    list(
+      version = 1,
+      source_type = "gca2",
+      source_id = "gca2:22005",
+      display_name = "Consulta demo fecha",
+      aliases = list(),
+      related_sources = list(),
+      source_details = list(query_id = "22005"),
+      columnas = list(fecha_evento = list(rol = "temporal", tipo_esperado = "datetime"))
+    )
+  )
+
+  profile <- profile_dataset_for_ai(
+    salida,
+    dataset_name = "gca2_dataset",
+    archivo_fuente = workbook_path,
+    metadata_dir = metadata_dir
+  )
+
+  expect_true(length(profile$source_alerts) > 0)
+  expect_true(any(grepl("fecha_evento", profile$source_alerts, fixed = TRUE)))
+  expect_true(any(grepl("datetime", profile$source_alerts, ignore.case = TRUE)))
+  expect_true(any(grepl("character", profile$source_alerts, ignore.case = TRUE)))
+})
+
+test_that("genera alerta cuando un identificador esperado sigue como numerico", {
+  workbook_path <- file.path(tempdir(), "consulta_22006_123456.xlsx")
+  caratula <- data.frame(
+    col1 = c(NA, "Planilla generada por GCA2", "Nombre", "Id de Consulta"),
+    col2 = c(NA, NA, "Consulta demo identificador", "22006"),
+    stringsAsFactors = FALSE
+  )
+  salida <- data.frame(numero_empresa = c(1234567890123, 2234567890123), stringsAsFactors = FALSE)
+  write_test_workbook(
+    workbook_path,
+    list("Caratula" = caratula, "salida_gca" = salida)
+  )
+
+  metadata_dir <- file.path(tempdir(), "metadata_alerta_id")
+  dir.create(metadata_dir, recursive = TRUE, showWarnings = FALSE)
+  write_test_json(
+    file.path(metadata_dir, "gca2_22006.json"),
+    list(
+      version = 1,
+      source_type = "gca2",
+      source_id = "gca2:22006",
+      display_name = "Consulta demo identificador",
+      aliases = list(),
+      related_sources = list(),
+      source_details = list(query_id = "22006"),
+      columnas = list(numero_empresa = list(rol = "identificatoria", tipo_esperado = "character"))
+    )
+  )
+
+  profile <- profile_dataset_for_ai(
+    salida,
+    dataset_name = "gca2_dataset",
+    archivo_fuente = workbook_path,
+    metadata_dir = metadata_dir
+  )
+
+  expect_true(any(grepl("numero_empresa", profile$source_alerts, fixed = TRUE)))
+  expect_true(any(grepl("identificador", profile$source_alerts, ignore.case = TRUE)))
+  expect_true(any(grepl("numeric", profile$source_alerts, ignore.case = TRUE)))
+})
+
+test_that("registra faltantes altos pero esperables como senal informativa", {
+  workbook_path <- file.path(tempdir(), "consulta_22007_123456.xlsx")
+  caratula <- data.frame(
+    col1 = c(NA, "Planilla generada por GCA2", "Nombre", "Id de Consulta"),
+    col2 = c(NA, NA, "Consulta demo faltantes esperables", "22007"),
+    stringsAsFactors = FALSE
+  )
+  salida <- data.frame(
+    fecha_hasta = c(NA, NA, "2024-03-01", NA, NA),
+    stringsAsFactors = FALSE
+  )
+  write_test_workbook(
+    workbook_path,
+    list("Caratula" = caratula, "salida_gca" = salida)
+  )
+
+  metadata_dir <- file.path(tempdir(), "metadata_alerta_faltantes_esperables")
+  dir.create(metadata_dir, recursive = TRUE, showWarnings = FALSE)
+  write_test_json(
+    file.path(metadata_dir, "gca2_22007.json"),
+    list(
+      version = 1,
+      source_type = "gca2",
+      source_id = "gca2:22007",
+      display_name = "Consulta demo faltantes esperables",
+      aliases = list(),
+      related_sources = list(),
+      source_details = list(query_id = "22007"),
+      columnas = list(fecha_hasta = list(rol = "temporal", faltantes = "esperables"))
+    )
+  )
+
+  profile <- profile_dataset_for_ai(
+    salida,
+    dataset_name = "gca2_dataset",
+    archivo_fuente = workbook_path,
+    metadata_dir = metadata_dir
+  )
+
+  expect_true(any(grepl("fecha_hasta", profile$source_alerts, fixed = TRUE)))
+  expect_true(any(grepl("esperables", profile$source_alerts, ignore.case = TRUE)))
+})
+
+test_that("genera alerta cuando hay faltantes altos inesperados", {
+  workbook_path <- file.path(tempdir(), "consulta_22008_123456.xlsx")
+  caratula <- data.frame(
+    col1 = c(NA, "Planilla generada por GCA2", "Nombre", "Id de Consulta"),
+    col2 = c(NA, NA, "Consulta demo faltantes inesperados", "22008"),
+    stringsAsFactors = FALSE
+  )
+  salida <- data.frame(
+    ingreso = c(100, NA, NA, NA, 200),
+    stringsAsFactors = FALSE
+  )
+  write_test_workbook(
+    workbook_path,
+    list("Caratula" = caratula, "salida_gca" = salida)
+  )
+
+  metadata_dir <- file.path(tempdir(), "metadata_alerta_faltantes_inesperados")
+  dir.create(metadata_dir, recursive = TRUE, showWarnings = FALSE)
+  write_test_json(
+    file.path(metadata_dir, "gca2_22008.json"),
+    list(
+      version = 1,
+      source_type = "gca2",
+      source_id = "gca2:22008",
+      display_name = "Consulta demo faltantes inesperados",
+      aliases = list(),
+      related_sources = list(),
+      source_details = list(query_id = "22008"),
+      columnas = list(ingreso = list(rol = "analitica"))
+    )
+  )
+
+  profile <- profile_dataset_for_ai(
+    salida,
+    dataset_name = "gca2_dataset",
+    archivo_fuente = workbook_path,
+    metadata_dir = metadata_dir
+  )
+
+  expect_true(any(grepl("ingreso", profile$source_alerts, fixed = TRUE)))
+  expect_true(any(grepl("faltantes", profile$source_alerts, ignore.case = TRUE)))
+  expect_true(any(grepl("revis", profile$source_alerts, ignore.case = TRUE)))
+})
+
+test_that("el renderer no muestra seccion de alertas si no hay source_alerts", {
+  profile <- profile_dataset_for_ai(iris, dataset_name = "iris")
+  rendered <- render_dataset_profile_for_ai(profile)
+
+  expect_false(grepl("Alertas de consistencia respecto del origen", rendered, fixed = TRUE))
+})
+
 test_that("el perfil y el renderer incluyen porcentaje de faltantes por variable", {
   df <- data.frame(
     edad = c(23, NA, 31, NA),

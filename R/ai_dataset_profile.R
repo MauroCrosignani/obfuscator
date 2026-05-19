@@ -667,6 +667,96 @@ ai_profile_resolve_source_metadata <- function(metadata_dir, source_context, dat
   base_result
 }
 
+ai_profile_build_source_alerts <- function(source_metadata, variable_profiles) {
+  if (!identical(source_metadata$status %||% NULL, "matched")) {
+    return(character(0))
+  }
+
+  metadata <- source_metadata$metadata %||% NULL
+  column_resolution <- source_metadata$column_resolution %||% NULL
+  if (is.null(metadata) || is.null(column_resolution)) {
+    return(character(0))
+  }
+
+  alerts <- character(0)
+  matched_columns <- column_resolution$matched %||% list()
+  if (length(matched_columns) == 0) {
+    return(character(0))
+  }
+
+  for (expected_name in names(matched_columns)) {
+    resolution_entry <- matched_columns[[expected_name]]
+    actual_name <- resolution_entry$actual_name %||% NULL
+    metadata_column <- metadata$columnas[[expected_name]] %||% NULL
+    variable_profile <- variable_profiles[[actual_name]] %||% NULL
+
+    if (is.null(actual_name) || is.null(metadata_column) || is.null(variable_profile)) {
+      next
+    }
+
+    expected_role <- metadata_column$rol %||% NULL
+    expected_type <- metadata_column$tipo_esperado %||% NULL
+    imported_type <- variable_profile$imported_type %||% NULL
+    observed_pattern <- variable_profile$observed_pattern %||% NULL
+    missing_pct <- variable_profile$missing_pct %||% 0
+    missingness_hint <- variable_profile$missingness_hint %||% "none"
+
+    if (!is.null(expected_type) &&
+        expected_type %in% c("date", "datetime") &&
+        identical(imported_type, "character")) {
+      alerts <- c(
+        alerts,
+        sprintf(
+          "%s: se esperaba %s segun la metadata de origen; estado actual character%s.",
+          actual_name,
+          expected_type,
+          if (!is.null(observed_pattern)) {
+            sprintf(" con patron %s", observed_pattern)
+          } else {
+            ""
+          }
+        )
+      )
+    }
+
+    if (identical(expected_role, "identificatoria") && imported_type %in% c("numeric", "integer")) {
+      alerts <- c(
+        alerts,
+        sprintf(
+          "%s: se esperaba identificador normalizado; estado actual %s.",
+          actual_name,
+          imported_type
+        )
+      )
+    }
+
+    if (identical(metadata_column$faltantes %||% NULL, "esperables") && missing_pct >= 40) {
+      alerts <- c(
+        alerts,
+        sprintf(
+          "%s: faltantes altos detectados (%.1f%%), consistentes con metadata declarada como esperables.",
+          actual_name,
+          missing_pct
+        )
+      )
+    }
+
+    if (!identical(metadata_column$faltantes %||% NULL, "esperables") &&
+        identical(missingness_hint, "high_unexpected")) {
+      alerts <- c(
+        alerts,
+        sprintf(
+          "%s: faltantes altos detectados (%.1f%%); revisar porque no estaban declarados como esperables.",
+          actual_name,
+          missing_pct
+        )
+      )
+    }
+  }
+
+  unique(alerts)
+}
+
 ai_profile_normalize_config <- function(config) {
   normalized <- ai_profile_empty_config()
   warnings <- character(0)
@@ -1224,6 +1314,10 @@ profile_dataset_for_ai <- function(data, dataset_name = NULL, config = NULL, tip
     unlist(lapply(variable_profiles, `[[`, "warnings"), use.names = FALSE),
     config_warnings
   ))
+  source_alerts <- ai_profile_build_source_alerts(
+    source_metadata = source_metadata,
+    variable_profiles = variable_profiles
+  )
 
   list(
     dataset_name = dataset_name,
@@ -1231,6 +1325,7 @@ profile_dataset_for_ai <- function(data, dataset_name = NULL, config = NULL, tip
     generated_at = format(Sys.time(), "%Y-%m-%d %H:%M:%S"),
     source_context = merged_source_context_result$source_context,
     source_metadata = source_metadata,
+    source_alerts = source_alerts,
     variables = variable_profiles,
     config_applied = config_applied,
     warnings = global_warnings
@@ -1414,6 +1509,11 @@ render_dataset_profile_for_ai <- function(profile, mode = "compact") {
     character(1)
   )
   lines <- c(lines, variable_lines)
+
+  if (length(profile$source_alerts %||% character(0)) > 0) {
+    lines <- c(lines, "", "Alertas de consistencia respecto del origen:")
+    lines <- c(lines, paste0("- ", profile$source_alerts))
+  }
 
   warnings <- unique(profile$warnings)
   if (length(warnings) > 0) {
