@@ -63,6 +63,8 @@ Cuando corresponda, cada documento deberia distinguir explicitamente:
   - [2026-05-19_guia-rapida-de-adopcion-de-resumen_de-desde-rstudio.md](c:/Users/mcros/Documents/obfuscator/docs/03_planes/2026-05-19_guia-rapida-de-adopcion-de-resumen_de-desde-rstudio.md)
 - diseno vigente de la interfaz amigable para ese helper:
   - [2026-05-18-diseno-de-resumen_de-como-interfaz-amigable-para-perfilado-ia.md](c:/Users/mcros/Documents/obfuscator/docs/02_diseno/2026-05-18-diseno-de-resumen_de-como-interfaz-amigable-para-perfilado-ia.md)
+- diseno vigente de mejoras semanticas para ese helper:
+  - [2026-05-19-diseno-de-mejoras-semanticas-para-resumen_de-y-profile_dataset_for_ai.md](c:/Users/mcros/Documents/obfuscator/docs/02_diseno/2026-05-19-diseno-de-mejoras-semanticas-para-resumen_de-y-profile_dataset_for_ai.md)
 - plan vigente para implementar esa interfaz amigable:
   - [2026-05-18-resumen_de-como-interfaz-amigable-para-perfilado-ia-implementation-plan.md](c:/Users/mcros/Documents/obfuscator/docs/03_planes/2026-05-18-resumen_de-como-interfaz-amigable-para-perfilado-ia-implementation-plan.md)
 - cierre vigente del bloque de resolvedor de fuente y metadata para perfilado IA:
