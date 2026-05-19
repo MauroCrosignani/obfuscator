@@ -120,6 +120,12 @@ source("R/obfuscator_core.R")
 cat(resumen_de(iris))
 ```
 
+Ejemplos listos para correr:
+
+- [demo_resumen_de_minimo.R](c:/Users/mcros/Documents/obfuscator/scripts/demo_resumen_de_minimo.R)
+- [demo_resumen_de_config.R](c:/Users/mcros/Documents/obfuscator/scripts/demo_resumen_de_config.R)
+- [2026-05-19_guia-rapida-de-adopcion-de-resumen_de-desde-rstudio.md](c:/Users/mcros/Documents/obfuscator/docs/03_planes/2026-05-19_guia-rapida-de-adopcion-de-resumen_de-desde-rstudio.md)
+
 ## Uso rapido
 
 ```r

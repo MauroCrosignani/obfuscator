@@ -40,6 +40,12 @@ perfil <- resumen_de(iris, salida = "estructura")
 str(perfil, max.level = 1)
 ```
 
+Si quieres ejemplos listos para correr desde RStudio:
+
+- [demo_resumen_de_minimo.R](c:/Users/mcros/Documents/obfuscator/scripts/demo_resumen_de_minimo.R)
+- [demo_resumen_de_config.R](c:/Users/mcros/Documents/obfuscator/scripts/demo_resumen_de_config.R)
+- [2026-05-19_guia-rapida-de-adopcion-de-resumen_de-desde-rstudio.md](c:/Users/mcros/Documents/obfuscator/docs/03_planes/2026-05-19_guia-rapida-de-adopcion-de-resumen_de-desde-rstudio.md)
+
 ## Capas vigentes
 
 ### 1. Interfaz amigable

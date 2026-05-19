@@ -59,6 +59,8 @@ Cuando corresponda, cada documento deberia distinguir explicitamente:
   - [2026-05-06-liberacion-segura-a-terceros-implementation-plan.md](c:/Users/mcros/Documents/obfuscator/docs/03_planes/2026-05-06-liberacion-segura-a-terceros-implementation-plan.md)
 - guia operativa vigente del helper de perfilado seguro para IA:
   - [2026-05-18_guia-operativa-profile_dataset_for_ai.md](c:/Users/mcros/Documents/obfuscator/docs/03_planes/2026-05-18_guia-operativa-profile_dataset_for_ai.md)
+- guia rapida de adopcion desde RStudio para ese helper:
+  - [2026-05-19_guia-rapida-de-adopcion-de-resumen_de-desde-rstudio.md](c:/Users/mcros/Documents/obfuscator/docs/03_planes/2026-05-19_guia-rapida-de-adopcion-de-resumen_de-desde-rstudio.md)
 - diseno vigente de la interfaz amigable para ese helper:
   - [2026-05-18-diseno-de-resumen_de-como-interfaz-amigable-para-perfilado-ia.md](c:/Users/mcros/Documents/obfuscator/docs/02_diseno/2026-05-18-diseno-de-resumen_de-como-interfaz-amigable-para-perfilado-ia.md)
 - plan vigente para implementar esa interfaz amigable:
