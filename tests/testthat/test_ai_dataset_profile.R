@@ -370,6 +370,169 @@ test_that("metadata JSON invalida advierte y degrada sin romper", {
   expect_true(any(grepl("metadata", profile$warnings, ignore.case = TRUE)))
 })
 
+test_that("metadata en mayusculas puede matchear contra nombres normalizados en minusculas", {
+  workbook_path <- file.path(tempdir(), "consulta_22001_123456.xlsx")
+  caratula <- data.frame(
+    col1 = c(NA, "Planilla generada por GCA2", "Nombre", "Id de Consulta"),
+    col2 = c(NA, NA, "Consulta demo columnas", "22001"),
+    stringsAsFactors = FALSE
+  )
+  salida <- data.frame(persona_id = c("P001", "P002"), stringsAsFactors = FALSE)
+  write_test_workbook(
+    workbook_path,
+    list("Caratula" = caratula, "salida_gca" = salida)
+  )
+
+  metadata_dir <- file.path(tempdir(), "metadata_columnas_mayusculas")
+  dir.create(metadata_dir, recursive = TRUE, showWarnings = FALSE)
+  write_test_json(
+    file.path(metadata_dir, "gca2_22001.json"),
+    list(
+      version = 1,
+      source_type = "gca2",
+      source_id = "gca2:22001",
+      display_name = "Consulta demo columnas",
+      aliases = list(),
+      related_sources = list(),
+      source_details = list(query_id = "22001"),
+      columnas = list(PERSONA_ID = list(rol = "identificatoria"))
+    )
+  )
+
+  profile <- profile_dataset_for_ai(
+    salida,
+    dataset_name = "gca2_dataset",
+    archivo_fuente = workbook_path,
+    metadata_dir = metadata_dir
+  )
+
+  expect_equal(profile$source_metadata$column_resolution$matched$PERSONA_ID$actual_name, "persona_id")
+  expect_equal(profile$source_metadata$column_resolution$matched$PERSONA_ID$match_type, "normalized")
+})
+
+test_that("metadata con puntuacion puede matchear por normalizacion tipo snake_case", {
+  workbook_path <- file.path(tempdir(), "consulta_22002_123456.xlsx")
+  caratula <- data.frame(
+    col1 = c(NA, "Planilla generada por GCA2", "Nombre", "Id de Consulta"),
+    col2 = c(NA, NA, "Consulta demo codigos", "22002"),
+    stringsAsFactors = FALSE
+  )
+  salida <- data.frame(codigo_pago = c("A", "B"), stringsAsFactors = FALSE)
+  write_test_workbook(
+    workbook_path,
+    list("Caratula" = caratula, "salida_gca" = salida)
+  )
+
+  metadata_dir <- file.path(tempdir(), "metadata_columnas_puntuacion")
+  dir.create(metadata_dir, recursive = TRUE, showWarnings = FALSE)
+  write_test_json(
+    file.path(metadata_dir, "gca2_22002.json"),
+    list(
+      version = 1,
+      source_type = "gca2",
+      source_id = "gca2:22002",
+      display_name = "Consulta demo codigos",
+      aliases = list(),
+      related_sources = list(),
+      source_details = list(query_id = "22002"),
+      columnas = structure(
+        list(list(rol = "analitica")),
+        names = "CODIGO.PAGO"
+      )
+    )
+  )
+
+  profile <- profile_dataset_for_ai(
+    salida,
+    dataset_name = "gca2_dataset",
+    archivo_fuente = workbook_path,
+    metadata_dir = metadata_dir
+  )
+
+  expect_equal(profile$source_metadata$column_resolution$matched[["CODIGO.PAGO"]]$actual_name, "codigo_pago")
+  expect_equal(profile$source_metadata$column_resolution$matched[["CODIGO.PAGO"]]$match_type, "normalized")
+})
+
+test_that("columnas sin match ni por normalizacion quedan sin resolver", {
+  workbook_path <- file.path(tempdir(), "consulta_22003_123456.xlsx")
+  caratula <- data.frame(
+    col1 = c(NA, "Planilla generada por GCA2", "Nombre", "Id de Consulta"),
+    col2 = c(NA, NA, "Consulta demo faltante", "22003"),
+    stringsAsFactors = FALSE
+  )
+  salida <- data.frame(persona_id = c("P001", "P002"), stringsAsFactors = FALSE)
+  write_test_workbook(
+    workbook_path,
+    list("Caratula" = caratula, "salida_gca" = salida)
+  )
+
+  metadata_dir <- file.path(tempdir(), "metadata_columna_faltante")
+  dir.create(metadata_dir, recursive = TRUE, showWarnings = FALSE)
+  write_test_json(
+    file.path(metadata_dir, "gca2_22003.json"),
+    list(
+      version = 1,
+      source_type = "gca2",
+      source_id = "gca2:22003",
+      display_name = "Consulta demo faltante",
+      aliases = list(),
+      related_sources = list(),
+      source_details = list(query_id = "22003"),
+      columnas = list(FECHA_ULT_ACT = list(rol = "temporal"))
+    )
+  )
+
+  profile <- profile_dataset_for_ai(
+    salida,
+    dataset_name = "gca2_dataset",
+    archivo_fuente = workbook_path,
+    metadata_dir = metadata_dir
+  )
+
+  expect_true("FECHA_ULT_ACT" %in% profile$source_metadata$column_resolution$unresolved)
+  expect_true(any(grepl("FECHA_ULT_ACT", profile$warnings, fixed = TRUE)))
+})
+
+test_that("renombre fuerte no se adivina como match automatico", {
+  workbook_path <- file.path(tempdir(), "consulta_22004_123456.xlsx")
+  caratula <- data.frame(
+    col1 = c(NA, "Planilla generada por GCA2", "Nombre", "Id de Consulta"),
+    col2 = c(NA, NA, "Consulta demo renombre", "22004"),
+    stringsAsFactors = FALSE
+  )
+  salida <- data.frame(fecha_ultima_actualizacion = c("2024-01-01", "2024-01-02"), stringsAsFactors = FALSE)
+  write_test_workbook(
+    workbook_path,
+    list("Caratula" = caratula, "salida_gca" = salida)
+  )
+
+  metadata_dir <- file.path(tempdir(), "metadata_renombre_fuerte")
+  dir.create(metadata_dir, recursive = TRUE, showWarnings = FALSE)
+  write_test_json(
+    file.path(metadata_dir, "gca2_22004.json"),
+    list(
+      version = 1,
+      source_type = "gca2",
+      source_id = "gca2:22004",
+      display_name = "Consulta demo renombre",
+      aliases = list(),
+      related_sources = list(),
+      source_details = list(query_id = "22004"),
+      columnas = list(FECHA_ULT_ACT = list(rol = "temporal"))
+    )
+  )
+
+  profile <- profile_dataset_for_ai(
+    salida,
+    dataset_name = "gca2_dataset",
+    archivo_fuente = workbook_path,
+    metadata_dir = metadata_dir
+  )
+
+  expect_false("FECHA_ULT_ACT" %in% names(profile$source_metadata$column_resolution$matched))
+  expect_true("FECHA_ULT_ACT" %in% profile$source_metadata$column_resolution$unresolved)
+})
+
 test_that("el perfil y el renderer incluyen porcentaje de faltantes por variable", {
   df <- data.frame(
     edad = c(23, NA, 31, NA),

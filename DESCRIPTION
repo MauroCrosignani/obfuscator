@@ -12,7 +12,8 @@ Imports:
     shiny,
     tibble,
     readr,
-    readxl
+    readxl,
+    jsonlite
 Suggests:
     testthat
 LazyData: true

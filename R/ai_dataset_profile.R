@@ -493,7 +493,96 @@ ai_profile_metadata_candidate_names <- function(source_context, dataset_name) {
   candidates[nzchar(candidates)]
 }
 
-ai_profile_resolve_source_metadata <- function(metadata_dir, source_context, dataset_name = NULL) {
+ai_profile_normalize_column_name_for_matching <- function(name) {
+  normalize_release_safe_column_name(name %||% "")
+}
+
+ai_profile_empty_column_resolution <- function() {
+  list(
+    matched = list(),
+    unresolved = character(0),
+    ambiguous = character(0),
+    warnings = character(0),
+    summary = list(
+      exact = 0L,
+      normalized = 0L,
+      unresolved = 0L,
+      ambiguous = 0L
+    )
+  )
+}
+
+ai_profile_resolve_metadata_columns <- function(metadata, data_names) {
+  resolution <- ai_profile_empty_column_resolution()
+  expected_names <- names(metadata$columnas %||% list())
+
+  if (length(expected_names) == 0) {
+    return(resolution)
+  }
+
+  normalized_actual <- vapply(data_names, ai_profile_normalize_column_name_for_matching, character(1))
+  actual_by_normalized <- split(data_names, normalized_actual)
+
+  for (expected_name in expected_names) {
+    if (expected_name %in% data_names) {
+      resolution$matched[[expected_name]] <- list(
+        actual_name = expected_name,
+        match_type = "exact",
+        normalized_name = ai_profile_normalize_column_name_for_matching(expected_name)
+      )
+      next
+    }
+
+    expected_normalized <- ai_profile_normalize_column_name_for_matching(expected_name)
+    candidates <- actual_by_normalized[[expected_normalized]] %||% character(0)
+
+    if (length(candidates) == 1) {
+      resolution$matched[[expected_name]] <- list(
+        actual_name = candidates[[1]],
+        match_type = "normalized",
+        normalized_name = expected_normalized
+      )
+      next
+    }
+
+    if (length(candidates) > 1) {
+      resolution$ambiguous <- c(resolution$ambiguous, expected_name)
+      resolution$warnings <- c(
+        resolution$warnings,
+        sprintf(
+          "La columna esperada '%s' tiene un matching ambiguo despues de normalizar nombres.",
+          expected_name
+        )
+      )
+      next
+    }
+
+    resolution$unresolved <- c(resolution$unresolved, expected_name)
+    resolution$warnings <- c(
+      resolution$warnings,
+      sprintf(
+        "La columna esperada '%s' no se encontro ni por nombre exacto ni por normalizacion; posible renombre o desajuste.",
+        expected_name
+      )
+    )
+  }
+
+  matched_types <- vapply(
+    resolution$matched,
+    function(entry) entry$match_type %||% "unknown",
+    character(1)
+  )
+  resolution$summary <- list(
+    exact = sum(matched_types == "exact"),
+    normalized = sum(matched_types == "normalized"),
+    unresolved = length(resolution$unresolved),
+    ambiguous = length(resolution$ambiguous)
+  )
+  resolution$warnings <- unique(resolution$warnings)
+  resolution
+}
+
+ai_profile_resolve_source_metadata <- function(metadata_dir, source_context, dataset_name = NULL, data_names = character(0)) {
   loaded <- ai_profile_load_source_metadata(metadata_dir)
   base_result <- ai_profile_empty_source_metadata()
   base_result$status <- loaded$status
@@ -522,6 +611,8 @@ ai_profile_resolve_source_metadata <- function(metadata_dir, source_context, dat
       base_result$status <- "matched"
       base_result$matched_by <- "source_id"
       base_result$metadata <- exact_matches[[1]]
+      base_result$column_resolution <- ai_profile_resolve_metadata_columns(exact_matches[[1]], data_names)
+      base_result$warnings <- unique(c(base_result$warnings, base_result$column_resolution$warnings))
       return(base_result)
     }
 
@@ -555,6 +646,8 @@ ai_profile_resolve_source_metadata <- function(metadata_dir, source_context, dat
     base_result$status <- "matched"
     base_result$matched_by <- "alias"
     base_result$metadata <- alias_matches[[1]]
+    base_result$column_resolution <- ai_profile_resolve_metadata_columns(alias_matches[[1]], data_names)
+    base_result$warnings <- unique(c(base_result$warnings, base_result$column_resolution$warnings))
     return(base_result)
   }
 
@@ -1099,7 +1192,8 @@ profile_dataset_for_ai <- function(data, dataset_name = NULL, config = NULL, tip
   source_metadata <- ai_profile_resolve_source_metadata(
     metadata_dir = metadata_dir,
     source_context = merged_source_context_result$source_context,
-    dataset_name = dataset_name
+    dataset_name = dataset_name,
+    data_names = names(data)
   )
   normalized_config_result <- ai_profile_normalize_config(config)
   normalized_config <- normalized_config_result$config
@@ -1297,6 +1391,19 @@ render_dataset_profile_for_ai <- function(profile, mode = "compact") {
         profile$source_metadata$matched_by %||% "regla interna"
       )
     )
+    if (!is.null(profile$source_metadata$column_resolution$summary)) {
+      summary <- profile$source_metadata$column_resolution$summary
+      lines <- c(
+        lines,
+        sprintf(
+          "Matching de columnas con metadata: %s exactas, %s normalizadas, %s sin resolver, %s ambiguas.",
+          summary$exact %||% 0,
+          summary$normalized %||% 0,
+          summary$unresolved %||% 0,
+          summary$ambiguous %||% 0
+        )
+      )
+    }
   }
 
   lines <- c(lines, "", "Resumen por variable:")
