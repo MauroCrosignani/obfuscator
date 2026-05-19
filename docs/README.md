@@ -67,6 +67,8 @@ Cuando corresponda, cada documento deberia distinguir explicitamente:
   - [2026-05-19-diseno-de-mejoras-semanticas-para-resumen_de-y-profile_dataset_for_ai.md](c:/Users/mcros/Documents/obfuscator/docs/02_diseno/2026-05-19-diseno-de-mejoras-semanticas-para-resumen_de-y-profile_dataset_for_ai.md)
 - plan vigente para implementar esa interfaz amigable:
   - [2026-05-18-resumen_de-como-interfaz-amigable-para-perfilado-ia-implementation-plan.md](c:/Users/mcros/Documents/obfuscator/docs/03_planes/2026-05-18-resumen_de-como-interfaz-amigable-para-perfilado-ia-implementation-plan.md)
+- plan vigente de mejoras semanticas para ese helper:
+  - [2026-05-19-mejoras-semanticas-para-resumen_de-y-profile_dataset_for_ai-implementation-plan.md](c:/Users/mcros/Documents/obfuscator/docs/03_planes/2026-05-19-mejoras-semanticas-para-resumen_de-y-profile_dataset_for_ai-implementation-plan.md)
 - cierre vigente del bloque de resolvedor de fuente y metadata para perfilado IA:
   - [2026-05-18_cierre_del_bloque_resolvedor_de_fuente_y_metadata_para_perfilado_ia.md](c:/Users/mcros/Documents/obfuscator/docs/06_desarrollo/fases/2026-05-18_cierre_del_bloque_resolvedor_de_fuente_y_metadata_para_perfilado_ia.md)
 - plan vigente de pruebas manuales:
