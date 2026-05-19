@@ -67,6 +67,19 @@ resumen_de(
 
 `resumen_de()` se apoya sobre estas dos funciones, que siguen siendo utiles para pruebas, depuracion y uso avanzado.
 
+## Mejoras semanticas vigentes
+
+Hoy el helper ya no se limita a resumir por tipo importado. Tambien preserva mejor parte de la semantica estructural que hace util a `glimpse()`, pero sin exponer muestras crudas.
+
+Esto incluye:
+
+- distincion entre `numerica entera` y `numerica decimal`;
+- deteccion de categorias compuestas cuando una misma celda contiene varias etiquetas separadas;
+- mejor tratamiento de `character` nominales de alta cardinalidad para no caer innecesariamente en `unknown`;
+- descripcion estructural de `list-columns` como colecciones por fila;
+- diferenciacion entre `texto libre` y `etiqueta nominal de entidad` cuando la evidencia alcanza;
+- advertencias mas precisas por familia de riesgo en vez de una sola advertencia demasiado general.
+
 ## Firmas vigentes del core
 
 ### 1. Perfil estructurado
@@ -231,6 +244,32 @@ Hoy el helper puede señalar, entre otras, estas situaciones:
 - faltantes altos esperables;
 - faltantes altos inesperados;
 - columnas esperadas no resueltas por nombre exacto o normalizado.
+
+## Semantica vigente por familia de columna
+
+### Numericas
+
+- distinguen entre `integer` y `double`;
+- se renderizan como `numerica entera` o `numerica decimal`;
+- mantienen rango aproximado y faltantes.
+
+### Categoricas
+
+- si son cortas y simples, listan valores observados;
+- si tienen alta cardinalidad, pasan a `niveles observados` y `top niveles`;
+- si contienen varias etiquetas en una misma celda, se tratan como `categorica compuesta` y evitan render engañoso por comas internas.
+
+### Etiquetas de entidad y texto libre
+
+- nombres o etiquetas nominales de entidad pueden clasificarse aparte como `etiqueta nominal de entidad`;
+- el texto libre abierto sigue sin exponer ejemplos reales;
+- ambas familias dejan advertencias distintas para no exagerar ni ocultar riesgo.
+
+### `list-columns`
+
+- ya no quedan como `unknown` por defecto;
+- se describen como `columna lista`;
+- cuando la evidencia alcanza, informan tipo de elemento y cardinalidad aproximada por fila.
 
 ## Ejemplos de uso vigentes
 

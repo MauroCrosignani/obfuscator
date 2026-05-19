@@ -971,6 +971,179 @@ test_that("modo conservador redacciona categoricas no triviales aunque no sean s
   expect_match(rendered, "tramo: categorica; valores observados: A, B, C", ignore.case = TRUE)
 })
 
+test_that("semantica_starwars preserva mejor la estructura informativa", {
+  data(starwars, package = "dplyr")
+  profile <- profile_dataset_for_ai(tibble::as_tibble(starwars), dataset_name = "starwars")
+  rendered <- render_dataset_profile_for_ai(profile)
+
+  expect_false(identical(profile$variables$homeworld$inferred_type, "unknown"))
+  expect_false(identical(profile$variables$films$inferred_type, "unknown"))
+  expect_false(identical(profile$variables$height$summary$numeric_kind %||% NULL, NULL))
+  expect_false(identical(profile$variables$mass$summary$numeric_kind %||% NULL, NULL))
+  expect_false(grepl("Luke Skywalker|Leia Organa|Han Solo", rendered))
+  expect_false(grepl("hair_color: categorica; valores observados: .*auburn, auburn, grey", rendered, perl = TRUE))
+})
+
+test_that("semantica_categorias_compuestas detecta valores delimitados sin render engañoso", {
+  df <- data.frame(
+    color = c("white, blue", "white", "black", "auburn, grey"),
+    stringsAsFactors = FALSE
+  )
+
+  profile <- profile_dataset_for_ai(df, dataset_name = "categorias_compuestas")
+  rendered <- render_dataset_profile_for_ai(profile)
+
+  expect_equal(profile$variables$color$inferred_type, "categorical")
+  expect_equal(profile$variables$color$summary$value_shape %||% NULL, "compound_delimited")
+  expect_equal(profile$variables$color$summary$delimiter_hint %||% NULL, ",")
+  expect_false(grepl("color: categorica; valores observados: white, blue, white, black, auburn, grey", rendered, fixed = TRUE))
+})
+
+test_that("semantica_categorias_compuestas no rompe codigos cortos con slash", {
+  df <- data.frame(
+    codigo = c("A/1", "B/2", "C/3", "D", "E"),
+    stringsAsFactors = FALSE
+  )
+
+  profile <- profile_dataset_for_ai(df, dataset_name = "codigos_con_slash")
+  rendered <- render_dataset_profile_for_ai(profile)
+
+  expect_equal(profile$variables$codigo$inferred_type, "categorical")
+  expect_equal(profile$variables$codigo$summary$value_shape %||% NULL, "simple")
+  expect_match(rendered, "codigo: categorica; valores observados: A/1, B/2, C/3, D, E", ignore.case = TRUE)
+})
+
+test_that("semantica_alta_cardinalidad_nominal evita unknown cuando la columna es nominal", {
+  df <- data.frame(
+    homeworld = c(
+      "Tatooine", "Naboo", "Alderaan", "Coruscant", "Kamino",
+      "Dagobah", "Bespin", "Endor", "Hoth", "Jakku",
+      "Tatooine", "Naboo"
+    ),
+    stringsAsFactors = FALSE
+  )
+
+  profile <- profile_dataset_for_ai(df, dataset_name = "alta_cardinalidad_nominal")
+  rendered <- render_dataset_profile_for_ai(profile)
+
+  expect_equal(profile$variables$homeworld$inferred_type, "categorical")
+  expect_equal(profile$variables$homeworld$summary$cardinality_class %||% NULL, "high")
+  expect_match(rendered, "niveles observados", ignore.case = TRUE)
+  expect_match(rendered, "top niveles", ignore.case = TRUE)
+})
+
+test_that("semantica_alta_cardinalidad_free_text no sobreclasifica texto observacional", {
+  df <- data.frame(
+    observacion = c(
+      "cambio manual pendiente de revision",
+      "requiere ajuste por inconsistencia detectada",
+      "validado por analista en etapa previa",
+      "resultado observado con diferencias menores"
+    ),
+    stringsAsFactors = FALSE
+  )
+
+  profile <- profile_dataset_for_ai(df, dataset_name = "alta_cardinalidad_free_text")
+
+  expect_equal(profile$variables$observacion$inferred_type, "free_text")
+})
+
+test_that("semantica_list_columns describe colecciones no atomicas", {
+  df <- tibble::tibble(
+    films = list(
+      c("A New Hope", "Return of the Jedi"),
+      character(0),
+      "The Empire Strikes Back"
+    )
+  )
+
+  profile <- profile_dataset_for_ai(df, dataset_name = "list_columns")
+  rendered <- render_dataset_profile_for_ai(profile)
+
+  expect_equal(profile$variables$films$inferred_type, "collection")
+  expect_equal(profile$variables$films$summary$element_type %||% NULL, "character")
+  expect_match(rendered, "colecciones de texto", ignore.case = TRUE)
+})
+
+test_that("semantica_numeric_kind distingue integer de double", {
+  df <- data.frame(
+    altura = c(170L, 180L, 190L),
+    peso = c(70.5, 80.0, 90.2)
+  )
+
+  profile <- profile_dataset_for_ai(df, dataset_name = "numeric_kind")
+  rendered <- render_dataset_profile_for_ai(profile)
+
+  expect_equal(profile$variables$altura$summary$numeric_kind %||% NULL, "integer")
+  expect_equal(profile$variables$peso$summary$numeric_kind %||% NULL, "double")
+  expect_match(rendered, "altura: numerica entera", ignore.case = TRUE)
+  expect_match(rendered, "peso: numerica decimal", ignore.case = TRUE)
+})
+
+test_that("semantica_regresion_renderer_simple mantiene categoricas simples y modo conservador", {
+  df <- data.frame(
+    tramo = c("A", "B", "C"),
+    departamento = c("Montevideo", "Canelones", "Salto"),
+    stringsAsFactors = FALSE
+  )
+
+  profile <- profile_dataset_for_ai(df, dataset_name = "regresion_simple")
+  rendered_normal <- render_dataset_profile_for_ai(profile)
+  rendered_conservative <- render_dataset_profile_for_ai(profile, mode = "conservative")
+
+  expect_match(rendered_normal, "tramo: categorica; valores observados: A, B, C", ignore.case = TRUE)
+  expect_match(rendered_conservative, "departamento: categorica; niveles observados: 3; valores no listados por modo conservador", ignore.case = TRUE)
+})
+
+test_that("semantica_entity_label diferencia nombres de entidad de texto libre abierto", {
+  df <- data.frame(
+    nombre = c("Luke Skywalker", "Leia Organa", "Han Solo"),
+    stringsAsFactors = FALSE
+  )
+
+  profile <- profile_dataset_for_ai(df, dataset_name = "entity_label")
+  rendered <- render_dataset_profile_for_ai(profile)
+
+  expect_equal(profile$variables$nombre$inferred_type, "entity_label")
+  expect_match(rendered, "etiqueta nominal de entidad", ignore.case = TRUE)
+  expect_false(grepl("Luke Skywalker|Leia Organa|Han Solo", rendered))
+})
+
+test_that("semantica_entity_label reconoce etiquetas de entidad aunque el nombre no sea name", {
+  df <- data.frame(
+    cliente = c("Luke Skywalker", "Leia Organa", "Han Solo"),
+    stringsAsFactors = FALSE
+  )
+
+  profile <- profile_dataset_for_ai(df, dataset_name = "entity_label_cliente")
+
+  expect_equal(profile$variables$cliente$inferred_type, "entity_label")
+})
+
+test_that("semantica_warning_precision separa advertencias por familia de riesgo", {
+  df <- tibble::tibble(
+    nombre = c("Luke Skywalker", "Leia Organa", "Han Solo"),
+    observacion = c(
+      "cambio manual pendiente de revision",
+      "requiere ajuste por inconsistencia detectada",
+      "validado por analista en etapa previa"
+    ),
+    films = list(
+      c("A New Hope", "Return of the Jedi"),
+      character(0),
+      "The Empire Strikes Back"
+    )
+  )
+
+  profile <- profile_dataset_for_ai(df, dataset_name = "warning_precision")
+  rendered <- render_dataset_profile_for_ai(profile)
+
+  expect_true(any(grepl("texto libre", profile$warnings, ignore.case = TRUE)))
+  expect_true(any(grepl("nombres o etiquetas de entidad", profile$warnings, ignore.case = TRUE)))
+  expect_true(any(grepl("columnas lista", profile$warnings, ignore.case = TRUE)))
+  expect_match(rendered, "Advertencias:", ignore.case = TRUE)
+})
+
 test_that("resumen_de devuelve texto por defecto", {
   rendered <- resumen_de(iris)
 

@@ -840,6 +840,122 @@ ai_profile_observed_temporal_pattern <- function(values) {
   NULL
 }
 
+ai_profile_detect_compound_delimiter <- function(values) {
+  values <- as.character(values)
+  values <- trimws(values)
+  values <- values[nzchar(values)]
+  if (length(values) == 0) {
+    return(NULL)
+  }
+
+  delimiters <- c(",", ";")
+  for (delimiter in delimiters) {
+    hits <- grepl(delimiter, values, fixed = TRUE)
+    if (sum(hits) >= 2 && mean(hits) >= 0.03) {
+      return(delimiter)
+    }
+  }
+
+  NULL
+}
+
+ai_profile_looks_like_nominal_high_cardinality <- function(values, max_levels) {
+  values <- as.character(values)
+  values <- trimws(values)
+  values <- values[nzchar(values)]
+  if (length(values) == 0) {
+    return(FALSE)
+  }
+
+  unique_values <- unique(values)
+  if (length(unique_values) <= max_levels) {
+    return(FALSE)
+  }
+
+  max_length <- max(nchar(values), na.rm = TRUE)
+  avg_words <- mean(lengths(strsplit(values, "\\s+")))
+  punctuation_rate <- mean(grepl("[\\.!\\?;:]", values))
+
+  max_length <= 30 && avg_words <= 3 && punctuation_rate < 0.1
+}
+
+ai_profile_looks_like_entity_label <- function(column_name, values) {
+  values <- as.character(values)
+  values <- trimws(values)
+  values <- values[nzchar(values)]
+  if (length(values) == 0) {
+    return(FALSE)
+  }
+
+  unique_ratio <- length(unique(values)) / length(values)
+  max_length <- max(nchar(values), na.rm = TRUE)
+  word_counts <- lengths(strsplit(values, "\\s+"))
+  avg_words <- mean(word_counts)
+  punctuation_rate <- mean(grepl("[\\.!\\?;:]", values))
+  digit_rate <- mean(grepl("\\d", values))
+  title_case_rate <- mean(grepl("^[[:upper:]][[:alpha:]'`.-]*( [[:upper:]][[:alpha:]'`.-]*)*$", values))
+  explicit_name_hint <- grepl("(^|_)(name|nombre|label|etiqueta|title|titulo|cliente|persona|paciente|proveedor)($|_)", column_name, ignore.case = TRUE)
+
+  unique_ratio >= 0.7 &&
+    max_length <= 40 &&
+    avg_words >= 1.5 &&
+    avg_words <= 4 &&
+    punctuation_rate < 0.05 &&
+    digit_rate < 0.2 &&
+    (title_case_rate >= 0.6 || explicit_name_hint)
+}
+
+ai_profile_collection_element_type <- function(x) {
+  if (!is.list(x)) {
+    return(NULL)
+  }
+
+  flattened <- unlist(x, recursive = FALSE, use.names = FALSE)
+  if (length(flattened) == 0) {
+    return("unknown")
+  }
+
+  non_missing <- flattened[!vapply(flattened, function(value) {
+    length(value) == 1 && is.na(value)
+  }, logical(1))]
+  if (length(non_missing) == 0) {
+    return("unknown")
+  }
+
+  if (all(vapply(non_missing, is.character, logical(1)))) {
+    return("character")
+  }
+  if (all(vapply(non_missing, is.integer, logical(1)))) {
+    return("integer")
+  }
+  if (all(vapply(non_missing, is.numeric, logical(1)))) {
+    return("double")
+  }
+
+  "unknown"
+}
+
+ai_profile_collection_cardinality <- function(x) {
+  if (!is.list(x)) {
+    return(NULL)
+  }
+
+  sizes <- vapply(x, length, integer(1))
+  if (length(sizes) == 0) {
+    return("empty")
+  }
+  if (all(sizes == 0)) {
+    return("mostly_empty")
+  }
+  if (mean(sizes == 0) >= 0.4) {
+    return("mostly_empty")
+  }
+  if (all(sizes <= 1)) {
+    return("single_value")
+  }
+  "variable"
+}
+
 ai_profile_identifier_content <- function(values) {
   values <- as.character(values)
   values <- values[nzchar(trimws(values))]
@@ -945,6 +1061,15 @@ ai_profile_infer_type <- function(column_name, x, max_levels = 12) {
     ))
   }
 
+  if (is.list(x)) {
+    return(list(
+      inferred_type = "collection",
+      observed_pattern = NULL,
+      warnings = "Se detectaron columnas lista; la salida describira su estructura sin expandir sus elementos.",
+      confidence = "high"
+    ))
+  }
+
   if (is.character(x) || is.factor(x)) {
     identifier_by_content <- ai_profile_identifier_content(values)
     if (!is.null(identifier_by_content)) {
@@ -965,6 +1090,15 @@ ai_profile_infer_type <- function(column_name, x, max_levels = 12) {
       ))
     }
 
+    if (ai_profile_looks_like_entity_label(column_name, values)) {
+      return(list(
+        inferred_type = "entity_label",
+        observed_pattern = NULL,
+        warnings = "Se detectaron nombres o etiquetas de entidad; no se incluiran ejemplos reales por seguridad.",
+        confidence = "high"
+      ))
+    }
+
     unique_values <- unique(as.character(values))
     max_length <- if (length(values) == 0) 0 else max(nchar(as.character(values)), na.rm = TRUE)
     if ((length(unique_values) <= max_levels && max_length <= 12) ||
@@ -981,12 +1115,21 @@ ai_profile_infer_type <- function(column_name, x, max_levels = 12) {
       return(list(
         inferred_type = "free_text",
         observed_pattern = NULL,
-        warnings = "Se detecto texto libre; no se incluiran ejemplos reales por seguridad.",
+        warnings = "Se detectaron columnas de texto libre; no se incluiran ejemplos reales por seguridad.",
         confidence = "high"
       ))
     }
 
     if (length(unique_values) <= max(12L, floor(n_values * 0.5))) {
+      return(list(
+        inferred_type = "categorical",
+        observed_pattern = NULL,
+        warnings = warnings,
+        confidence = "medium"
+      ))
+    }
+
+    if (ai_profile_looks_like_nominal_high_cardinality(values, max_levels = max_levels)) {
       return(list(
         inferred_type = "categorical",
         observed_pattern = NULL,
@@ -1076,6 +1219,9 @@ ai_profile_role_guess <- function(column_name, inferred_type, x) {
   }
   if (identical(inferred_type, "free_text")) {
     return("free_text")
+  }
+  if (identical(inferred_type, "entity_label")) {
+    return("entity_label")
   }
   if (ai_profile_sensitive_name(column_name)) {
     return("sensitive")
@@ -1180,20 +1326,53 @@ ai_profile_variable_summary <- function(column_name, x, inferred_type, role_gues
   }
 
   if (identical(inferred_type, "categorical")) {
+    values_chr <- as.character(values)
+    delimiter_hint <- ai_profile_detect_compound_delimiter(values_chr)
+    value_shape <- if (is.null(delimiter_hint)) "simple" else "compound_delimited"
+
+    flattened_values <- values_chr
+    if (!is.null(delimiter_hint)) {
+      split_values <- strsplit(values_chr, delimiter_hint, fixed = TRUE)
+      flattened_values <- trimws(unlist(split_values, use.names = FALSE))
+      flattened_values <- flattened_values[nzchar(flattened_values)]
+    }
+
+    levels_seen <- sort(unique(flattened_values))
+    unique_ratio <- if (length(flattened_values) == 0) 0 else length(levels_seen) / length(flattened_values)
+    cardinality_class <- if (
+      length(levels_seen) > max_levels ||
+      (length(levels_seen) >= 8 && unique_ratio >= 0.7)
+    ) {
+      "high"
+    } else {
+      "low"
+    }
+
     if (identical(role_guess, "sensitive")) {
       return(list(
-        level_count = length(sort(unique(as.character(values)))),
-        values_redacted = TRUE
+        level_count = length(levels_seen),
+        values_redacted = TRUE,
+        value_shape = value_shape,
+        delimiter_hint = delimiter_hint,
+        cardinality_class = cardinality_class
       ))
     }
-    levels_seen <- sort(unique(as.character(values)))
-    if (length(levels_seen) <= max_levels) {
-      return(list(level_count = length(levels_seen), values = levels_seen))
+    if (length(levels_seen) <= max_levels && !identical(cardinality_class, "high")) {
+      return(list(
+        level_count = length(levels_seen),
+        values = levels_seen,
+        value_shape = value_shape,
+        delimiter_hint = delimiter_hint,
+        cardinality_class = cardinality_class
+      ))
     }
-    freq <- sort(table(as.character(values)), decreasing = TRUE)
+    freq <- sort(table(flattened_values), decreasing = TRUE)
     return(list(
       level_count = length(levels_seen),
-      top_levels = head(names(freq), top_n)
+      top_levels = head(names(freq), top_n),
+      value_shape = value_shape,
+      delimiter_hint = delimiter_hint,
+      cardinality_class = cardinality_class
     ))
   }
 
@@ -1201,7 +1380,8 @@ ai_profile_variable_summary <- function(column_name, x, inferred_type, role_gues
     numeric_values <- as.numeric(values)
     return(list(
       min = round(min(numeric_values), round_digits),
-      max = round(max(numeric_values), round_digits)
+      max = round(max(numeric_values), round_digits),
+      numeric_kind = if (is.integer(x)) "integer" else "double"
     ))
   }
 
@@ -1221,6 +1401,23 @@ ai_profile_variable_summary <- function(column_name, x, inferred_type, role_gues
     return(list(
       typical_length = sprintf("%s-%s caracteres", min(lengths), max(lengths)),
       variability = "alta"
+    ))
+  }
+
+  if (identical(inferred_type, "entity_label")) {
+    text_values <- as.character(values)
+    lengths <- nchar(text_values)
+    unique_ratio <- if (length(text_values) == 0) 0 else length(unique(text_values)) / length(text_values)
+    return(list(
+      typical_length = sprintf("%s-%s caracteres", min(lengths), max(lengths)),
+      approximate_uniqueness = round(unique_ratio * 100, 1)
+    ))
+  }
+
+  if (identical(inferred_type, "collection")) {
+    return(list(
+      element_type = ai_profile_collection_element_type(x),
+      collection_cardinality = ai_profile_collection_cardinality(x)
     ))
   }
 
@@ -1366,6 +1563,13 @@ render_ai_profile_variable <- function(variable_profile, mode = "compact") {
   if (identical(inferred_type, "categorical")) {
     visible_values <- summary$values %||% character(0)
     max_value_length <- if (length(visible_values) == 0) 0 else max(nchar(visible_values), na.rm = TRUE)
+    categorical_label <- if (identical(summary$value_shape %||% NULL, "compound_delimited")) {
+      "categorica compuesta"
+    } else {
+      "categorica"
+    }
+    top_label <- if (identical(summary$value_shape %||% NULL, "compound_delimited")) "top etiquetas" else "top niveles"
+    values_label <- if (identical(summary$value_shape %||% NULL, "compound_delimited")) "etiquetas observadas" else "valores observados"
     if (
       identical(mode, "conservative") &&
       !isTRUE(summary$values_redacted) &&
@@ -1373,32 +1577,38 @@ render_ai_profile_variable <- function(variable_profile, mode = "compact") {
       max_value_length > 4
     ) {
       return(sprintf(
-        "- %s: categorica; niveles observados: %s; valores no listados por modo conservador%s.",
+        "- %s: %s; niveles observados: %s; valores no listados por modo conservador%s.",
         name,
+        categorical_label,
         summary$level_count %||% length(summary$values %||% character(0)),
         missing_text
       ))
     }
     if (isTRUE(summary$values_redacted)) {
       return(sprintf(
-        "- %s: categorica sensible; niveles observados: %s; valores no listados por seguridad%s.",
+        "- %s: %s sensible; niveles observados: %s; valores no listados por seguridad%s.",
         name,
+        categorical_label,
         summary$level_count %||% 0,
         missing_text
       ))
     }
     if (!is.null(summary$values)) {
       return(sprintf(
-        "- %s: categorica; valores observados: %s%s.",
+        "- %s: %s; %s: %s%s.",
         name,
+        categorical_label,
+        values_label,
         paste(summary$values, collapse = ", "),
         missing_text
       ))
     }
     return(sprintf(
-      "- %s: categorica; niveles observados: %s; top niveles: %s%s.",
+      "- %s: %s; niveles observados: %s; %s: %s%s.",
       name,
+      categorical_label,
       summary$level_count %||% 0,
+      top_label,
       paste(summary$top_levels %||% character(0), collapse = ", "),
       missing_text
     ))
@@ -1410,9 +1620,16 @@ render_ai_profile_variable <- function(variable_profile, mode = "compact") {
     } else {
       ""
     }
+    numeric_label <- switch(
+      summary$numeric_kind %||% "double",
+      integer = "numerica entera",
+      double = "numerica decimal",
+      "numerica"
+    )
     return(sprintf(
-      "- %s: numerica; rango aproximado %s-%s%s%s.",
+      "- %s: %s; rango aproximado %s-%s%s%s.",
       name,
+      numeric_label,
       format(summary$min, trim = TRUE, scientific = FALSE),
       format(summary$max, trim = TRUE, scientific = FALSE),
       suffix,
@@ -1448,6 +1665,46 @@ render_ai_profile_variable <- function(variable_profile, mode = "compact") {
       "- %s: texto libre; longitud tipica %s; alta variabilidad; no se incluyen ejemplos por seguridad%s.",
       name,
       summary$typical_length %||% "no disponible",
+      missing_text
+    ))
+  }
+
+  if (identical(inferred_type, "entity_label")) {
+    uniqueness_label <- if ((summary$approximate_uniqueness %||% 0) >= 80) {
+      "alta unicidad"
+    } else {
+      "unicidad moderada"
+    }
+    return(sprintf(
+      "- %s: etiqueta nominal de entidad; %s; longitud tipica %s; no se incluyen ejemplos reales por seguridad%s.",
+      name,
+      uniqueness_label,
+      summary$typical_length %||% "no disponible",
+      missing_text
+    ))
+  }
+
+  if (identical(inferred_type, "collection")) {
+    element_label <- switch(
+      summary$element_type %||% "unknown",
+      character = "texto",
+      integer = "enteros",
+      double = "numeros decimales",
+      unknown = "elementos",
+      summary$element_type %||% "elementos"
+    )
+    collection_detail <- switch(
+      summary$collection_cardinality %||% "variable",
+      mostly_empty = "muchas filas vacias",
+      single_value = "como maximo un elemento por fila",
+      variable = "cardinalidad variable",
+      "cardinalidad variable"
+    )
+    return(sprintf(
+      "- %s: columna lista; contiene colecciones de %s por fila; %s%s.",
+      name,
+      element_label,
+      collection_detail,
       missing_text
     ))
   }

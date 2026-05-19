@@ -77,6 +77,8 @@ La carga por navegador tiene un limite configurado de 300 MB. Para archivos mas 
 Para lanzarla desde la raiz del proyecto:
 
 ```r
+library(datasets)
+data(iris)
 source("R/obfuscator_core.R")
 source("R/shiny_app.R")
 run_obfuscator_app()
@@ -85,7 +87,7 @@ run_obfuscator_app()
 O por linea de comandos:
 
 ```sh
-Rscript -e "source('R/obfuscator_core.R'); source('R/shiny_app.R'); run_obfuscator_app()"
+Rscript -e "library(datasets); data(iris); source('R/obfuscator_core.R'); source('R/shiny_app.R'); run_obfuscator_app()"
 ```
 
 ## Perfilado seguro para IA
@@ -119,6 +121,14 @@ source("R/obfuscator_core.R")
 
 cat(resumen_de(iris))
 ```
+
+Semantica vigente mas importante:
+
+- distingue `numerica entera` de `numerica decimal`;
+- detecta `categorica compuesta` cuando una celda contiene varias etiquetas;
+- evita caer tan facil en `unknown` para columnas nominales de alta cardinalidad;
+- describe `list-columns` como colecciones por fila;
+- separa `texto libre` de `etiqueta nominal de entidad` cuando la evidencia alcanza.
 
 Ejemplos listos para correr:
 

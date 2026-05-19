@@ -63,3 +63,34 @@ Para revisiones futuras de planes:
 
 - conviene pedir al subagente que mire tambien la secuencia exacta de `FAIL -> rerun -> PASS -> commit`, no solo el contenido conceptual del plan;
 - y cuando el riesgo principal sea disciplina de TDD o checkpoints de commit, vale la pena modelar esos pasos con mas literalidad desde la primera version del plan.
+
+## 2026-05-19 - implementacion semantica del helper de perfilado IA
+
+### Contexto
+
+Se utilizo un subagente adicional para intentar una revision paralela del bloque de mejoras semanticas ya implementado en:
+
+- [R/ai_dataset_profile.R](c:/Users/mcros/Documents/obfuscator/R/ai_dataset_profile.R)
+- [test_ai_dataset_profile.R](c:/Users/mcros/Documents/obfuscator/tests/testthat/test_ai_dataset_profile.R)
+
+### Objetivo
+
+- contrastar el cambio contra el diseno y plan vigentes;
+- buscar brechas de especificacion o riesgos de regresion;
+- y sumar una capa de auditoria mientras corria la suite completa.
+
+### Resultado observado
+
+- el intento de paralelizar revisiones encontro un limite de hilos de agentes disponibles;
+- uno de los agentes adicionales no pudo lanzarse;
+- el agente que si se lanzo devolvio una revision util, pero no dentro de la primera espera aplicada;
+- el resultado se recupero al cerrar el agente y sirvio para detectar dos brechas reales:
+  - falsos positivos de `categorica compuesta` con slash en codigos cortos;
+  - dependencia excesiva del nombre de columna para `entity_label`.
+
+### Limitacion y ajuste aplicado
+
+- la primera espera fue demasiado corta para usar el resultado en caliente;
+- aun asi, el hallazgo del agente se reincorporo despues y fue verificado localmente antes del cierre;
+- el cierre del paso se sostuvo con verificacion local directa mas esa auditoria adicional ya contrastada contra el codigo;
+- para futuras pasadas conviene reservar capacidad de agentes antes de abrir varias ramas de revision en paralelo y contemplar tiempos de espera algo mas amplios para revisiones sustantivas.
