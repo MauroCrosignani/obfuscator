@@ -71,6 +71,8 @@ Cuando corresponda, cada documento deberia distinguir explicitamente:
   - [2026-05-19-mejoras-semanticas-para-resumen_de-y-profile_dataset_for_ai-implementation-plan.md](c:/Users/mcros/Documents/obfuscator/docs/03_planes/2026-05-19-mejoras-semanticas-para-resumen_de-y-profile_dataset_for_ai-implementation-plan.md)
 - cierre vigente de implementacion de esas mejoras semanticas:
   - [2026-05-19_mejoras_semanticas_para_el_helper_de_perfilado_ia.md](c:/Users/mcros/Documents/obfuscator/docs/06_desarrollo/fases/2026-05-19_mejoras_semanticas_para_el_helper_de_perfilado_ia.md)
+- ajuste vigente de dependencias de tests para CI:
+  - [2026-05-19_alineacion_de_dependencias_de_tests_para_ci.md](c:/Users/mcros/Documents/obfuscator/docs/06_desarrollo/fases/2026-05-19_alineacion_de_dependencias_de_tests_para_ci.md)
 - cierre vigente del bloque de resolvedor de fuente y metadata para perfilado IA:
   - [2026-05-18_cierre_del_bloque_resolvedor_de_fuente_y_metadata_para_perfilado_ia.md](c:/Users/mcros/Documents/obfuscator/docs/06_desarrollo/fases/2026-05-18_cierre_del_bloque_resolvedor_de_fuente_y_metadata_para_perfilado_ia.md)
 - plan vigente de pruebas manuales:

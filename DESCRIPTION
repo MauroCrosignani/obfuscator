@@ -15,5 +15,7 @@ Imports:
     readxl,
     jsonlite
 Suggests:
-    testthat
+    testthat,
+    writexl,
+    dplyr
 LazyData: true
