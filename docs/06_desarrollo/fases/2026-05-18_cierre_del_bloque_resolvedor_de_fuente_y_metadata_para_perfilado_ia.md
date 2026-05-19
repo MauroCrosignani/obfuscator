@@ -10,7 +10,7 @@ Con la finalización de las etapas 1 a 5, quedó cerrada una primera versión co
 - matching normalizado de columnas,
 - y alertas por desajustes relevantes
 
-para el subproyecto `dataset_profile_for_ai()`.
+para el subproyecto `profile_dataset_for_ai()`.
 
 El resultado es un helper que sigue siendo útil como reemplazo enriquecido de `glimpse()` aun sin configuración adicional, pero que ahora también puede aprovechar:
 
@@ -74,7 +74,7 @@ Rscript -e "library(testthat); test_file('tests/testthat/test_ai_dataset_profile
 
 Resultado final:
 
-- `PASS 156`
+- `PASS 157`
 
 Suite completa del proyecto:
 
@@ -84,7 +84,7 @@ Rscript tests/testthat.R
 
 Resultado final:
 
-- `PASS 540`
+- `PASS 541`
 
 ## Limitaciones que siguen vigentes
 

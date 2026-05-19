@@ -16,6 +16,17 @@ Si necesitas llevarlo a GitLab corporativo o a un entorno con restricciones parc
 - trazabilidad y auditabilidad
 - conservadurismo frente a terceros
 
+## Dos frentes actuales del proyecto
+
+Hoy el repo tiene dos frentes practicos complementarios:
+
+1. el flujo principal de liberacion controlada en la app Shiny;
+2. un helper interno de perfilado seguro para IA pensado para usar desde RStudio sin pasar muestras crudas del dataset.
+
+La guia operativa vigente del helper de perfilado seguro para IA esta en:
+
+- [2026-05-18_guia-operativa-profile_dataset_for_ai.md](c:/Users/mcros/Documents/obfuscator/docs/03_planes/2026-05-18_guia-operativa-profile_dataset_for_ai.md)
+
 ## Que hace hoy
 
 - ofusca identificadores con scrambling o cifrado reversible endurecido
@@ -49,7 +60,8 @@ La app Shiny ofrece:
 - carga de CSV, Excel (`.xls`, `.xlsx`) o RDS
 - seleccion de `data.frame` o tibble desde el entorno global
 - clasificacion visual de variables
-- drag and drop de roles
+- tabla principal por variable como mecanismo dominante de clasificacion
+- modo heredado de drag and drop solo como apoyo experimental
 - persistencia de clasificacion con plantillas JSON basadas en esquema
 - sugerencias por fuzzy matching para recuperacion por nombres parecidos
 - editor visual de jerarquias
@@ -74,6 +86,33 @@ O por linea de comandos:
 
 ```sh
 Rscript -e "source('R/obfuscator_core.R'); source('R/shiny_app.R'); run_obfuscator_app()"
+```
+
+## Perfilado seguro para IA
+
+Ademas del flujo principal de la app, el repo incluye un helper para describir datasets de forma util y prudente antes de darle contexto a una IA.
+
+Funciones vigentes:
+
+- `profile_dataset_for_ai()`
+- `render_dataset_profile_for_ai()`
+
+Ubicaciones:
+
+- implementacion:
+  - [R/ai_dataset_profile.R](c:/Users/mcros/Documents/obfuscator/R/ai_dataset_profile.R)
+- tests:
+  - [test_ai_dataset_profile.R](c:/Users/mcros/Documents/obfuscator/tests/testthat/test_ai_dataset_profile.R)
+- guia operativa:
+  - [2026-05-18_guia-operativa-profile_dataset_for_ai.md](c:/Users/mcros/Documents/obfuscator/docs/03_planes/2026-05-18_guia-operativa-profile_dataset_for_ai.md)
+
+Uso minimo:
+
+```r
+source("R/obfuscator_core.R")
+
+profile <- profile_dataset_for_ai(iris, "iris")
+cat(render_dataset_profile_for_ai(profile))
 ```
 
 ## Uso rapido

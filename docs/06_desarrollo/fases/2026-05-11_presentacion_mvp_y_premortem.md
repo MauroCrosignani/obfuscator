@@ -21,8 +21,8 @@ Motivo:
 
 Artefactos:
 
-- [premortem-report-20260511-175339.html](c:/Users/mcros/Documents/obfuscator/premortem-report-20260511-175339.html)
-- [premortem-transcript-20260511-175339.md](c:/Users/mcros/Documents/obfuscator/premortem-transcript-20260511-175339.md)
+- [premortem-report-20260511-175339.html](c:/Users/mcros/Documents/obfuscator/docs/04_auditorias/premortem-report-20260511-175339.html)
+- [premortem-transcript-20260511-175339.md](c:/Users/mcros/Documents/obfuscator/docs/04_auditorias/premortem-transcript-20260511-175339.md)
 
 ### 2. Se eligio una narrativa principal de utilidad institucional
 

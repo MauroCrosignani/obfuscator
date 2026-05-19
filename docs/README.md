@@ -55,8 +55,12 @@ Cuando corresponda, cada documento deberia distinguir explicitamente:
 
 - especificacion vigente:
   - [ESPECIFICACION_DE_REQUERIMIENTOS_v3.1.md](c:/Users/mcros/Documents/obfuscator/docs/01_especificaciones/ESPECIFICACION_DE_REQUERIMIENTOS_v3.1.md)
-- plan vigente de implementacion:
+- plan vigente del MVP de liberacion controlada:
   - [2026-05-06-liberacion-segura-a-terceros-implementation-plan.md](c:/Users/mcros/Documents/obfuscator/docs/03_planes/2026-05-06-liberacion-segura-a-terceros-implementation-plan.md)
+- guia operativa vigente del helper de perfilado seguro para IA:
+  - [2026-05-18_guia-operativa-profile_dataset_for_ai.md](c:/Users/mcros/Documents/obfuscator/docs/03_planes/2026-05-18_guia-operativa-profile_dataset_for_ai.md)
+- cierre vigente del bloque de resolvedor de fuente y metadata para perfilado IA:
+  - [2026-05-18_cierre_del_bloque_resolvedor_de_fuente_y_metadata_para_perfilado_ia.md](c:/Users/mcros/Documents/obfuscator/docs/06_desarrollo/fases/2026-05-18_cierre_del_bloque_resolvedor_de_fuente_y_metadata_para_perfilado_ia.md)
 - plan vigente de pruebas manuales:
   - [manual_testing_plan.md](c:/Users/mcros/Documents/obfuscator/docs/03_planes/manual_testing_plan.md)
 - diseno principal:

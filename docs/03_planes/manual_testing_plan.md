@@ -1,4 +1,4 @@
-# Plan de Pruebas Manuales del MVP Release-Safe
+# Plan de Pruebas Manuales del MVP de Liberacion Controlada
 
 ## Resumen
 
@@ -11,7 +11,7 @@ Audiencia:
 
 Conclusion practica:
 - el producto ya permite probar un flujo defendible de carga, clasificacion, ofuscacion, `k-anonymity`, bloqueo de exportacion externa y resumen de auditoria;
-- la UI ya ofrece una clasificacion principal por variable, una ficha lateral de detalle y una guia breve de trabajo release-safe;
+- la UI ya ofrece una clasificacion principal por variable, una ficha lateral de detalle y una guia breve de trabajo de liberacion controlada;
 - todavia no implementa modelos avanzados como `l-diversity` o `t-closeness`;
 - y la interfaz aun no implementa una revision manual completa por alertas ni una experiencia final madura de liberacion formal.
 
@@ -57,7 +57,7 @@ Verificar por observacion directa:
   - cambio rapido de rol;
   - ficha lateral de detalle;
   - ayuda contextual minima;
-  - guia breve de trabajo release-safe;
+  - guia breve de trabajo de liberacion controlada;
   - uso efectivo de `QI` numericos dentro de `k-anonymity`;
   - tablero heredado degradado a modo secundario/experimental;
 - datasets demo precargados en el entorno global al iniciar la app:
@@ -255,7 +255,7 @@ Registrar:
 - si el boton quedo habilitado o no;
 - si el bloqueo fue claro o confuso.
 
-### Caso 5A. Tabla principal release-safe
+### Caso 5A. Tabla principal de liberacion controlada
 
 Objetivo:
 - verificar que la tabla principal sea efectivamente el mecanismo dominante de clasificacion.
@@ -401,7 +401,7 @@ Pasos:
 3. activar `k-anonymity`;
 4. ejecutar una ofuscacion;
 5. revisar:
-   - el resumen release-safe;
+   - el resumen principal de liberacion controlada;
    - el resumen de auditoria;
    - el `dput()` del `obfuscator_log` si hace falta.
 
