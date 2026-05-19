@@ -131,6 +131,11 @@ test_that("archivo_fuente con firma GCA detecta contexto de origen", {
   expect_equal(profile$source_context$source, "detected_from_file")
   expect_equal(profile$source_context$confidence, "medium")
   expect_match(profile$source_context$source_id, "^gca:unresolved:")
+  expect_match(
+    render_dataset_profile_for_ai(profile),
+    "Fuente inferida desde archivo: gca\\.",
+    ignore.case = TRUE
+  )
 })
 
 test_that("archivo_fuente con firma GCA2 detecta contexto de origen", {
@@ -156,6 +161,11 @@ test_that("archivo_fuente con firma GCA2 detecta contexto de origen", {
   expect_equal(profile$source_context$source, "detected_from_file")
   expect_equal(profile$source_context$confidence, "high")
   expect_equal(profile$source_context$source_id, "gca2:18631")
+  expect_match(
+    render_dataset_profile_for_ai(profile),
+    "Fuente inferida desde archivo: gca2\\.",
+    ignore.case = TRUE
+  )
 })
 
 test_that("archivo_fuente ambiguo o incompleto no fuerza contexto fuerte", {
@@ -959,4 +969,124 @@ test_that("modo conservador redacciona categoricas no triviales aunque no sean s
 
   expect_match(rendered, "departamento: categorica; niveles observados: 3; valores no listados por modo conservador", ignore.case = TRUE)
   expect_match(rendered, "tramo: categorica; valores observados: A, B, C", ignore.case = TRUE)
+})
+
+test_that("resumen_de devuelve texto por defecto", {
+  rendered <- resumen_de(iris)
+
+  expect_type(rendered, "character")
+  expect_length(rendered, 1)
+  expect_match(rendered, "Dataset: iris")
+  expect_match(rendered, "Dimensiones: 150 filas, 5 columnas")
+})
+
+test_that("resumen_de respeta nombre_dataset cuando se provee", {
+  rendered <- resumen_de(iris, nombre_dataset = "iris_demo")
+
+  expect_match(rendered, "Dataset: iris_demo")
+})
+
+test_that("resumen_de puede devolver la estructura cruda del perfil", {
+  resumen_estructurado <- resumen_de(iris, salida = "estructura")
+  perfil_core <- profile_dataset_for_ai(iris, dataset_name = "iris")
+
+  expect_type(resumen_estructurado, "list")
+  expect_equal(resumen_estructurado$dataset_name, perfil_core$dataset_name)
+  expect_equal(resumen_estructurado$dimensions, perfil_core$dimensions)
+  expect_equal(names(resumen_estructurado$variables), names(perfil_core$variables))
+})
+
+test_that("resumen_de traduce modo visible al renderer actual", {
+  rendered_normal <- resumen_de(iris, modo = "normal")
+  rendered_conservador <- resumen_de(
+    data.frame(
+      departamento = c("Montevideo", "Canelones", "Salto"),
+      stringsAsFactors = FALSE
+    ),
+    modo = "conservador"
+  )
+
+  expect_match(rendered_normal, "Dataset: iris")
+  expect_match(rendered_conservador, "valores no listados por modo conservador", ignore.case = TRUE)
+})
+
+test_that("resumen_de preserva forwarding de config, tipo_fuente y metadata_dir", {
+  metadata_dir <- file.path(tempdir(), "metadata_resumen_de_forwarding")
+  dir.create(metadata_dir, recursive = TRUE, showWarnings = FALSE)
+  write_test_json(
+    file.path(metadata_dir, "gca2_18631.json"),
+    list(
+      version = 1,
+      source_type = "gca2",
+      source_id = "gca2:18631",
+      display_name = "Consulta demo",
+      aliases = list("Consulta demo"),
+      related_sources = list(),
+      source_details = list(query_id = "18631"),
+      columnas = list(persona_id = list(rol = "identificatoria"))
+    )
+  )
+
+  workbook_path <- file.path(tempdir(), "consulta_18631_123456.xlsx")
+  caratula <- data.frame(
+    col1 = c(NA, "Planilla generada por GCA2", "Nombre", "Id de Consulta", "Descripcion", "Id. Ejecucion"),
+    col2 = c(NA, NA, "Consulta demo", "18631", "GCA2_18631_demo", "123456"),
+    stringsAsFactors = FALSE
+  )
+  salida <- data.frame(persona_id = c("P001", "P002"), stringsAsFactors = FALSE)
+  write_test_workbook(
+    workbook_path,
+    list("Caratula" = caratula, "salida_gca" = salida)
+  )
+
+  config <- list(columnas_texto_libre = c("observacion"))
+  df <- data.frame(
+    persona_id = c("P001", "P002"),
+    observacion = c("uno", "dos"),
+    stringsAsFactors = FALSE
+  )
+
+  resumen_estructurado <- resumen_de(
+    df,
+    nombre_dataset = "demo_resumen",
+    config = config,
+    tipo_fuente = "gca2",
+    archivo_fuente = workbook_path,
+    metadata_dir = metadata_dir,
+    salida = "estructura"
+  )
+
+  expect_equal(resumen_estructurado$dataset_name, "demo_resumen")
+  expect_equal(resumen_estructurado$source_context$type, "gca2")
+  expect_equal(resumen_estructurado$source_metadata$status, "matched")
+  expect_equal(resumen_estructurado$variables$observacion$inferred_type, "free_text")
+})
+
+test_that("resumen_de falla en espanol cuando data no es tabular", {
+  expect_error(
+    resumen_de(1:3),
+    "`data` debe ser un data\\.frame o tibble\\.",
+    fixed = FALSE
+  )
+})
+
+test_that("resumen_de falla en espanol para modo invalido", {
+  expect_error(
+    resumen_de(iris, modo = "otra_cosa"),
+    "Valores aceptados: normal, conservador",
+    fixed = TRUE
+  )
+})
+
+test_that("resumen_de falla en espanol para salida invalida", {
+  expect_error(
+    resumen_de(iris, salida = "otra_cosa"),
+    "Valores aceptados: texto, estructura",
+    fixed = TRUE
+  )
+})
+
+test_that("resumen_de debe quedar exportada en el paquete", {
+  namespace_lines <- readLines(file.path("..", "..", "NAMESPACE"), warn = FALSE)
+  expect_true(any(grepl("^export\\(resumen_de\\)$", namespace_lines)))
 })

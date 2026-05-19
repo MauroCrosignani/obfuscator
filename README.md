@@ -92,7 +92,11 @@ Rscript -e "source('R/obfuscator_core.R'); source('R/shiny_app.R'); run_obfuscat
 
 Ademas del flujo principal de la app, el repo incluye un helper para describir datasets de forma util y prudente antes de darle contexto a una IA.
 
-Funciones vigentes:
+Camino recomendado:
+
+- `resumen_de()`
+
+Capa tecnica vigente:
 
 - `profile_dataset_for_ai()`
 - `render_dataset_profile_for_ai()`
@@ -109,10 +113,11 @@ Ubicaciones:
 Uso minimo:
 
 ```r
+library(datasets)
+data(iris)
 source("R/obfuscator_core.R")
 
-profile <- profile_dataset_for_ai(iris, "iris")
-cat(render_dataset_profile_for_ai(profile))
+cat(resumen_de(iris))
 ```
 
 ## Uso rapido

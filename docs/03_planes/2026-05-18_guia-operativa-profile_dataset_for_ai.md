@@ -1,4 +1,4 @@
-# Guía operativa vigente de `profile_dataset_for_ai()`
+# Guía operativa vigente del helper de perfilado seguro para IA
 
 ## Propósito
 
@@ -15,7 +15,53 @@ Concentrar en un solo lugar la interfaz vigente del helper de perfilado seguro p
 - plan maestro de implementación ya ejecutado para este bloque:
   - [2026-05-18-resolvedor-de-fuente-y-metadata-para-perfilado-ia-implementation-plan.md](c:/Users/mcros/Documents/obfuscator/docs/03_planes/2026-05-18-resolvedor-de-fuente-y-metadata-para-perfilado-ia-implementation-plan.md)
 
-## Firma vigente
+## Camino recomendado de uso
+
+La interfaz recomendada para uso cotidiano desde RStudio ahora es:
+
+```r
+library(datasets)
+data(iris)
+source("c:/Users/mcros/Documents/obfuscator/R/obfuscator_core.R")
+
+cat(resumen_de(iris))
+```
+
+Si necesitas una salida mas prudente:
+
+```r
+cat(resumen_de(iris, modo = "conservador"))
+```
+
+Si necesitas inspeccionar el objeto estructurado:
+
+```r
+perfil <- resumen_de(iris, salida = "estructura")
+str(perfil, max.level = 1)
+```
+
+## Capas vigentes
+
+### 1. Interfaz amigable
+
+```r
+resumen_de(
+  data,
+  nombre_dataset = NULL,
+  config = NULL,
+  tipo_fuente = NULL,
+  archivo_fuente = NULL,
+  metadata_dir = NULL,
+  modo = "normal",
+  salida = "texto"
+)
+```
+
+### 2. Core tecnico
+
+`resumen_de()` se apoya sobre estas dos funciones, que siguen siendo utiles para pruebas, depuracion y uso avanzado.
+
+## Firmas vigentes del core
 
 ### 1. Perfil estructurado
 
@@ -43,6 +89,35 @@ render_dataset_profile_for_ai(
 ```
 
 ## Parámetros vigentes
+
+### `resumen_de()`
+
+#### Obligatorio
+
+- `data`
+  - debe ser `data.frame` o `tibble`.
+
+#### Opcionales
+
+- `nombre_dataset`
+  - nombre visible del dataset.
+  - si queda en `NULL`, usa el nombre del objeto cuando sea posible.
+- `config`
+  - misma configuracion declarativa en espanol que ya usa el core.
+- `tipo_fuente`
+  - pista semantica liviana sobre el origen.
+- `archivo_fuente`
+  - artefacto de origen para enriquecer contexto.
+- `metadata_dir`
+  - carpeta con fichas JSON por fuente.
+- `modo`
+  - valores vigentes:
+    - `"normal"`
+    - `"conservador"`
+- `salida`
+  - valores vigentes:
+    - `"texto"`
+    - `"estructura"`
 
 ### `profile_dataset_for_ai()`
 
@@ -156,13 +231,14 @@ Hoy el helper puede señalar, entre otras, estas situaciones:
 ### Uso simple
 
 ```r
+library(datasets)
+data(iris)
 source("c:/Users/mcros/Documents/obfuscator/R/obfuscator_core.R")
 
-profile <- profile_dataset_for_ai(iris, "iris")
-cat(render_dataset_profile_for_ai(profile))
+cat(resumen_de(iris))
 ```
 
-### Uso con configuración local
+### Uso avanzado con configuración local
 
 ```r
 source("c:/Users/mcros/Documents/obfuscator/R/obfuscator_core.R")
@@ -174,29 +250,26 @@ config_perfil_ia <- list(
   columnas_texto_libre = c("observacion")
 )
 
-profile <- profile_dataset_for_ai(
+cat(resumen_de(
   data = mi_dataset,
-  dataset_name = "mi_dataset",
+  nombre_dataset = "mi_dataset",
   config = config_perfil_ia
-)
-
-cat(render_dataset_profile_for_ai(profile, mode = "compact"))
+))
 ```
 
-### Uso con contexto de fuente
+### Uso avanzado con contexto de fuente
 
 ```r
 source("c:/Users/mcros/Documents/obfuscator/R/obfuscator_core.R")
 
-profile <- profile_dataset_for_ai(
+cat(resumen_de(
   data = mi_dataset,
-  dataset_name = "consulta_18631",
+  nombre_dataset = "consulta_18631",
   tipo_fuente = "gca2",
   archivo_fuente = "c:/ruta/consulta_18631_123456.xlsx",
-  metadata_dir = "c:/ruta/metadata_fuentes"
-)
-
-cat(render_dataset_profile_for_ai(profile, mode = "conservative"))
+  metadata_dir = "c:/ruta/metadata_fuentes",
+  modo = "conservador"
+))
 ```
 
 ## Criterio operativo recomendado
@@ -204,15 +277,17 @@ cat(render_dataset_profile_for_ai(profile, mode = "conservative"))
 Orden de adopción sugerido:
 
 1. usar el helper sin configuración;
-2. agregar `config` solo cuando haga falta corregir o enriquecer heurísticas;
-3. usar `tipo_fuente` cuando el origen sea conocido;
-4. sumar `archivo_fuente` si el artefacto de origen agrega contexto útil;
-5. usar `metadata_dir` cuando exista una biblioteca de fichas suficientemente confiable.
+2. empezar por `resumen_de()` antes de bajar al core tecnico;
+3. agregar `config` solo cuando haga falta corregir o enriquecer heurísticas;
+4. usar `tipo_fuente` cuando el origen sea conocido;
+5. sumar `archivo_fuente` si el artefacto de origen agrega contexto útil;
+6. usar `metadata_dir` cuando exista una biblioteca de fichas suficientemente confiable.
 
 ## Mantenimiento de esta guía
 
 Actualizar este documento cuando cambie cualquiera de estos puntos:
 
+- firma de `resumen_de()`;
 - firma de `profile_dataset_for_ai()`;
 - firma de `render_dataset_profile_for_ai()`;
 - claves soportadas en `config`;

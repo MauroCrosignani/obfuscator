@@ -1471,9 +1471,15 @@ render_dataset_profile_for_ai <- function(profile, mode = "compact") {
   )
 
   if (!is.null(profile$source_context$type)) {
+    source_label <- switch(
+      profile$source_context$source %||% "declared_by_user",
+      declared_by_user = "Fuente declarada por el usuario",
+      detected_from_file = "Fuente inferida desde archivo",
+      "Fuente de origen"
+    )
     lines <- c(
       lines,
-      sprintf("Fuente declarada por el usuario: %s.", profile$source_context$type)
+      sprintf("%s: %s.", source_label, profile$source_context$type)
     )
   }
 
@@ -1534,4 +1540,59 @@ render_dataset_profile_for_ai <- function(profile, mode = "compact") {
   }
 
   paste(lines, collapse = "\n")
+}
+
+resumen_de <- function(
+  data,
+  nombre_dataset = NULL,
+  config = NULL,
+  tipo_fuente = NULL,
+  archivo_fuente = NULL,
+  metadata_dir = NULL,
+  modo = "normal",
+  salida = "texto"
+) {
+  if (!is.data.frame(data)) {
+    stop("`data` debe ser un data.frame o tibble.")
+  }
+
+  modos_validos <- c("normal", "conservador")
+  if (!modo %in% modos_validos) {
+    stop(sprintf(
+      "`modo = '%s'` no es valido. Valores aceptados: %s.",
+      modo,
+      paste(modos_validos, collapse = ", ")
+    ))
+  }
+
+  salidas_validas <- c("texto", "estructura")
+  if (!salida %in% salidas_validas) {
+    stop(sprintf(
+      "`salida = '%s'` no es valida. Valores aceptados: %s.",
+      salida,
+      paste(salidas_validas, collapse = ", ")
+    ))
+  }
+
+  dataset_name <- nombre_dataset %||% deparse(substitute(data))
+  render_mode <- switch(
+    modo,
+    normal = "compact",
+    conservador = "conservative"
+  )
+
+  profile <- profile_dataset_for_ai(
+    data = data,
+    dataset_name = dataset_name,
+    config = config,
+    tipo_fuente = tipo_fuente,
+    archivo_fuente = archivo_fuente,
+    metadata_dir = metadata_dir
+  )
+
+  if (identical(salida, "estructura")) {
+    return(profile)
+  }
+
+  render_dataset_profile_for_ai(profile, mode = render_mode)
 }
