@@ -73,12 +73,17 @@ Hoy el helper ya no se limita a resumir por tipo importado. Tambien preserva mej
 
 Esto incluye:
 
+- visibilidad explicita del `tipo importado` exacto junto con la interpretacion semantica;
 - distincion entre `numerica entera` y `numerica decimal`;
 - deteccion de categorias compuestas cuando una misma celda contiene varias etiquetas separadas;
 - mejor tratamiento de `character` nominales de alta cardinalidad para no caer innecesariamente en `unknown`;
 - descripcion estructural de `list-columns` como colecciones por fila;
 - diferenciacion entre `texto libre` y `etiqueta nominal de entidad` cuando la evidencia alcanza;
 - advertencias mas precisas por familia de riesgo en vez de una sola advertencia demasiado general.
+
+Patron visible vigente del renderer:
+
+- `importada como <tipo>; interpretada como <semantica>; ...`
 
 ## Firmas vigentes del core
 
@@ -240,7 +245,7 @@ config_perfil_ia <- list(
 Hoy el helper puede señalar, entre otras, estas situaciones:
 
 - fecha o fecha-hora esperada que sigue llegando como `character`;
-- identificador esperado que sigue como `numeric` o `integer`;
+- identificador esperado que sigue como `double` o `integer`;
 - faltantes altos esperables;
 - faltantes altos inesperados;
 - columnas esperadas no resueltas por nombre exacto o normalizado.
@@ -249,18 +254,21 @@ Hoy el helper puede señalar, entre otras, estas situaciones:
 
 ### Numericas
 
+- muestran primero el tipo importado exacto, por ejemplo `integer` o `double`;
 - distinguen entre `integer` y `double`;
 - se renderizan como `numerica entera` o `numerica decimal`;
 - mantienen rango aproximado y faltantes.
 
 ### Categoricas
 
+- hacen visible si llegan como `character` o `factor`;
 - si son cortas y simples, listan valores observados;
 - si tienen alta cardinalidad, pasan a `niveles observados` y `top niveles`;
 - si contienen varias etiquetas en una misma celda, se tratan como `categorica compuesta` y evitan render engañoso por comas internas.
 
 ### Etiquetas de entidad y texto libre
 
+- siguen mostrando que vienen importadas como `character`;
 - nombres o etiquetas nominales de entidad pueden clasificarse aparte como `etiqueta nominal de entidad`;
 - el texto libre abierto sigue sin exponer ejemplos reales;
 - ambas familias dejan advertencias distintas para no exagerar ni ocultar riesgo.
@@ -268,7 +276,7 @@ Hoy el helper puede señalar, entre otras, estas situaciones:
 ### `list-columns`
 
 - ya no quedan como `unknown` por defecto;
-- se describen como `columna lista`;
+- se describen como `columna lista` manteniendo visible `importada como list`;
 - cuando la evidencia alcanza, informan tipo de elemento y cardinalidad aproximada por fila.
 
 ## Ejemplos de uso vigentes

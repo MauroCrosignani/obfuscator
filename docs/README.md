@@ -65,12 +65,22 @@ Cuando corresponda, cada documento deberia distinguir explicitamente:
   - [2026-05-18-diseno-de-resumen_de-como-interfaz-amigable-para-perfilado-ia.md](c:/Users/mcros/Documents/obfuscator/docs/02_diseno/2026-05-18-diseno-de-resumen_de-como-interfaz-amigable-para-perfilado-ia.md)
 - diseno vigente de mejoras semanticas para ese helper:
   - [2026-05-19-diseno-de-mejoras-semanticas-para-resumen_de-y-profile_dataset_for_ai.md](c:/Users/mcros/Documents/obfuscator/docs/02_diseno/2026-05-19-diseno-de-mejoras-semanticas-para-resumen_de-y-profile_dataset_for_ai.md)
+- diseno vigente para conservar en el render la estructura que hacia util a `glimpse()`:
+  - [2026-05-19-diseno-de-render-que-preserva-la-estructura-de-glimpse-para-el-helper-ia.md](c:/Users/mcros/Documents/obfuscator/docs/02_diseno/2026-05-19-diseno-de-render-que-preserva-la-estructura-de-glimpse-para-el-helper-ia.md)
 - plan vigente para implementar esa interfaz amigable:
   - [2026-05-18-resumen_de-como-interfaz-amigable-para-perfilado-ia-implementation-plan.md](c:/Users/mcros/Documents/obfuscator/docs/03_planes/2026-05-18-resumen_de-como-interfaz-amigable-para-perfilado-ia-implementation-plan.md)
 - plan vigente de mejoras semanticas para ese helper:
   - [2026-05-19-mejoras-semanticas-para-resumen_de-y-profile_dataset_for_ai-implementation-plan.md](c:/Users/mcros/Documents/obfuscator/docs/03_planes/2026-05-19-mejoras-semanticas-para-resumen_de-y-profile_dataset_for_ai-implementation-plan.md)
+- plan vigente para preservar la estructura de `glimpse()` en el render:
+  - [2026-05-19-render-que-preserva-la-estructura-de-glimpse-para-el-helper-ia-implementation-plan.md](c:/Users/mcros/Documents/obfuscator/docs/03_planes/2026-05-19-render-que-preserva-la-estructura-de-glimpse-para-el-helper-ia-implementation-plan.md)
 - cierre vigente de implementacion de esas mejoras semanticas:
   - [2026-05-19_mejoras_semanticas_para_el_helper_de_perfilado_ia.md](c:/Users/mcros/Documents/obfuscator/docs/06_desarrollo/fases/2026-05-19_mejoras_semanticas_para_el_helper_de_perfilado_ia.md)
+- analisis critico vigente del render actual del helper IA:
+  - [2026-05-19_analisis_critico_del_render_actual_del_helper_ia.md](c:/Users/mcros/Documents/obfuscator/docs/06_desarrollo/fases/2026-05-19_analisis_critico_del_render_actual_del_helper_ia.md)
+- cierre vigente de diseno y plan para preservar la estructura de `glimpse()`:
+  - [2026-05-19_diseno_y_plan_para_preservar_la_estructura_de_glimpse_en_el_helper_ia.md](c:/Users/mcros/Documents/obfuscator/docs/06_desarrollo/fases/2026-05-19_diseno_y_plan_para_preservar_la_estructura_de_glimpse_en_el_helper_ia.md)
+- cierre vigente de implementacion del render que preserva estructura de `glimpse()`:
+  - [2026-05-19_render_que_preserva_la_estructura_de_glimpse_para_el_helper_ia.md](c:/Users/mcros/Documents/obfuscator/docs/06_desarrollo/fases/2026-05-19_render_que_preserva_la_estructura_de_glimpse_para_el_helper_ia.md)
 - ajuste vigente de dependencias de tests para CI:
   - [2026-05-19_alineacion_de_dependencias_de_tests_para_ci.md](c:/Users/mcros/Documents/obfuscator/docs/06_desarrollo/fases/2026-05-19_alineacion_de_dependencias_de_tests_para_ci.md)
 - cierre vigente del bloque de resolvedor de fuente y metadata para perfilado IA:

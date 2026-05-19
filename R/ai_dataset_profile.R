@@ -7,11 +7,17 @@ ai_profile_non_missing_values <- function(x) {
 }
 
 ai_profile_imported_type <- function(x) {
-  if (inherits(x, c("POSIXct", "POSIXlt", "POSIXt"))) {
-    return("datetime")
-  }
   if (inherits(x, "Date")) {
-    return("date")
+    return(class(x)[1] %||% "Date")
+  }
+  if (inherits(x, "POSIXct")) {
+    return("POSIXct")
+  }
+  if (inherits(x, "POSIXlt")) {
+    return("POSIXlt")
+  }
+  if (inherits(x, "POSIXt")) {
+    return(class(x)[1] %||% "POSIXt")
   }
   if (is.factor(x)) {
     return("factor")
@@ -23,7 +29,7 @@ ai_profile_imported_type <- function(x) {
     return("integer")
   }
   if (is.numeric(x)) {
-    return("numeric")
+    return("double")
   }
   if (is.logical(x)) {
     return("logical")
@@ -719,7 +725,7 @@ ai_profile_build_source_alerts <- function(source_metadata, variable_profiles) {
       )
     }
 
-    if (identical(expected_role, "identificatoria") && imported_type %in% c("numeric", "integer")) {
+    if (identical(expected_role, "identificatoria") && imported_type %in% c("double", "integer", "numeric")) {
       alerts <- c(
         alerts,
         sprintf(
@@ -1548,12 +1554,15 @@ render_ai_profile_variable <- function(variable_profile, mode = "compact") {
     none = sprintf("; faltantes %.1f%%", missing_pct),
     sprintf("; faltantes %.1f%%", missing_pct)
   )
+  render_prefix <- function(semantic_label) {
+    sprintf("importada como %s; interpretada como %s", imported_type, semantic_label)
+  }
 
   if (identical(inferred_type, "identifier")) {
     return(sprintf(
-      "- %s: identificador; importado como %s; unicidad aproximada %.1f%%; patron aproximado: %s%s.",
+      "- %s: %s; unicidad aproximada %.1f%%; patron aproximado: %s%s.",
       name,
-      imported_type,
+      render_prefix("identificador"),
       summary$approximate_uniqueness %||% 0,
       summary$approximate_pattern %||% "alfanumerico estructurado",
       missing_text
@@ -1579,16 +1588,16 @@ render_ai_profile_variable <- function(variable_profile, mode = "compact") {
       return(sprintf(
         "- %s: %s; niveles observados: %s; valores no listados por modo conservador%s.",
         name,
-        categorical_label,
+        render_prefix(categorical_label),
         summary$level_count %||% length(summary$values %||% character(0)),
         missing_text
       ))
     }
     if (isTRUE(summary$values_redacted)) {
       return(sprintf(
-        "- %s: %s sensible; niveles observados: %s; valores no listados por seguridad%s.",
+        "- %s: %s; niveles observados: %s; valores no listados por seguridad%s.",
         name,
-        categorical_label,
+        render_prefix(paste(categorical_label, "sensible")),
         summary$level_count %||% 0,
         missing_text
       ))
@@ -1597,7 +1606,7 @@ render_ai_profile_variable <- function(variable_profile, mode = "compact") {
       return(sprintf(
         "- %s: %s; %s: %s%s.",
         name,
-        categorical_label,
+        render_prefix(categorical_label),
         values_label,
         paste(summary$values, collapse = ", "),
         missing_text
@@ -1606,7 +1615,7 @@ render_ai_profile_variable <- function(variable_profile, mode = "compact") {
     return(sprintf(
       "- %s: %s; niveles observados: %s; %s: %s%s.",
       name,
-      categorical_label,
+      render_prefix(categorical_label),
       summary$level_count %||% 0,
       top_label,
       paste(summary$top_levels %||% character(0), collapse = ", "),
@@ -1629,7 +1638,7 @@ render_ai_profile_variable <- function(variable_profile, mode = "compact") {
     return(sprintf(
       "- %s: %s; rango aproximado %s-%s%s%s.",
       name,
-      numeric_label,
+      render_prefix(numeric_label),
       format(summary$min, trim = TRUE, scientific = FALSE),
       format(summary$max, trim = TRUE, scientific = FALSE),
       suffix,
@@ -1649,10 +1658,9 @@ render_ai_profile_variable <- function(variable_profile, mode = "compact") {
       ""
     }
     return(sprintf(
-      "- %s: %s; importada como %s%s%s; rango aproximado %s%s.",
+      "- %s: %s%s%s; rango aproximado %s%s.",
       name,
-      if (identical(inferred_type, "date")) "fecha" else "fecha-hora",
-      imported_type,
+      render_prefix(if (identical(inferred_type, "date")) "fecha" else "fecha-hora"),
       detail,
       granularity,
       summary$range %||% "no disponible",
@@ -1662,8 +1670,9 @@ render_ai_profile_variable <- function(variable_profile, mode = "compact") {
 
   if (identical(inferred_type, "free_text")) {
     return(sprintf(
-      "- %s: texto libre; longitud tipica %s; alta variabilidad; no se incluyen ejemplos por seguridad%s.",
+      "- %s: %s; longitud tipica %s; alta variabilidad; no se incluyen ejemplos por seguridad%s.",
       name,
+      render_prefix("texto libre"),
       summary$typical_length %||% "no disponible",
       missing_text
     ))
@@ -1676,8 +1685,9 @@ render_ai_profile_variable <- function(variable_profile, mode = "compact") {
       "unicidad moderada"
     }
     return(sprintf(
-      "- %s: etiqueta nominal de entidad; %s; longitud tipica %s; no se incluyen ejemplos reales por seguridad%s.",
+      "- %s: %s; %s; longitud tipica %s; no se incluyen ejemplos reales por seguridad%s.",
       name,
+      render_prefix("etiqueta nominal de entidad"),
       uniqueness_label,
       summary$typical_length %||% "no disponible",
       missing_text
@@ -1701,15 +1711,16 @@ render_ai_profile_variable <- function(variable_profile, mode = "compact") {
       "cardinalidad variable"
     )
     return(sprintf(
-      "- %s: columna lista; contiene colecciones de %s por fila; %s%s.",
+      "- %s: %s; contiene colecciones de %s por fila; %s%s.",
       name,
+      render_prefix("columna lista"),
       element_label,
       collection_detail,
       missing_text
     ))
   }
 
-  sprintf("- %s: tipo inferido %s; importado como %s%s.", name, inferred_type, imported_type, missing_text)
+  sprintf("- %s: %s%s.", name, render_prefix(sprintf("tipo inferido %s", inferred_type)), missing_text)
 }
 
 render_dataset_profile_for_ai <- function(profile, mode = "compact") {

@@ -94,3 +94,49 @@ Se utilizo un subagente adicional para intentar una revision paralela del bloque
 - aun asi, el hallazgo del agente se reincorporo despues y fue verificado localmente antes del cierre;
 - el cierre del paso se sostuvo con verificacion local directa mas esa auditoria adicional ya contrastada contra el codigo;
 - para futuras pasadas conviene reservar capacidad de agentes antes de abrir varias ramas de revision en paralelo y contemplar tiempos de espera algo mas amplios para revisiones sustantivas.
+
+## 2026-05-19 - renderer que preserva la estructura de `glimpse()`
+
+### Contexto
+
+Se utilizo un subagente de lectura acotada para revisar el cambio planificado sobre el renderer del helper IA, mientras la implementacion principal seguia un ciclo TDD local.
+
+### Objetivo
+
+- ubicar con precision las ramas del renderer que habia que tocar;
+- anticipar casos de borde de wording y de cobertura;
+- y confirmar que el cambio podia hacerse sin reabrir la estructura interna del perfil.
+
+### Protocolo aplicado
+
+- se compartieron rutas reales del workspace principal;
+- la tarea del subagente fue solo de lectura, sin permiso de escribir;
+- el alcance se restringio a:
+  - [R/ai_dataset_profile.R](c:/Users/mcros/Documents/obfuscator/R/ai_dataset_profile.R)
+  - [test_ai_dataset_profile.R](c:/Users/mcros/Documents/obfuscator/tests/testthat/test_ai_dataset_profile.R)
+- se pidio foco en:
+  - puntos exactos del renderer a tocar;
+  - riesgos de tests por wording;
+  - y forma minima de implementacion.
+
+### Resultado observado
+
+El subagente devolvio una revision util y bien focalizada:
+
+- confirmo que el cambio debia concentrarse en `render_ai_profile_variable()`;
+- advirtio que `categorical` tenia varias subramas visibles que habia que homogeneizar;
+- y ayudo a detectar que el cambio de `numeric` a tipo exacto podia impactar alertas de metadata de origen.
+
+### Ajuste aplicado
+
+- la implementacion principal mantuvo la estructura del perfil y rehizo solo el renderer visible;
+- se actualizo tambien la deteccion de alertas para identificadores esperados cuando el tipo importado quedo como `double`;
+- y se ampliaron tests visibles para `factor`, temporales y `list-columns`.
+
+### Aprendizaje de uso
+
+Para cambios de wording con muchas ramas visibles, una revision de lectura bien acotada agrega valor rapido:
+
+- reduce riesgo de olvidar subramas del renderer;
+- ayuda a prever regresiones por contratos de texto;
+- y permite mantener la implementacion local concentrada en TDD y verificacion.

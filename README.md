@@ -124,11 +124,22 @@ cat(resumen_de(iris))
 
 Semantica vigente mas importante:
 
+- conserva en el texto visible el `tipo importado` exacto y la `interpretacion semantica` de cada variable;
 - distingue `numerica entera` de `numerica decimal`;
 - detecta `categorica compuesta` cuando una celda contiene varias etiquetas;
 - evita caer tan facil en `unknown` para columnas nominales de alta cardinalidad;
 - describe `list-columns` como colecciones por fila;
 - separa `texto libre` de `etiqueta nominal de entidad` cuando la evidencia alcanza.
+
+Patron visible actual del renderer:
+
+- `importada como <tipo>; interpretada como <semantica>; ...`
+
+Ejemplos esperables:
+
+- `height: importada como integer; interpretada como numerica entera; ...`
+- `sex: importada como character; interpretada como categorica; ...`
+- `films: importada como list; interpretada como columna lista; ...`
 
 Ejemplos listos para correr:
 

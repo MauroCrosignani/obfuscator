@@ -626,7 +626,7 @@ test_that("genera alerta cuando un identificador esperado sigue como numerico", 
 
   expect_true(any(grepl("numero_empresa", profile$source_alerts, fixed = TRUE)))
   expect_true(any(grepl("identificador", profile$source_alerts, ignore.case = TRUE)))
-  expect_true(any(grepl("numeric", profile$source_alerts, ignore.case = TRUE)))
+  expect_true(any(grepl("double|integer|numeric", profile$source_alerts, ignore.case = TRUE)))
 })
 
 test_that("registra faltantes altos pero esperables como senal informativa", {
@@ -904,7 +904,7 @@ test_that("categoricas cortas no se confunden con texto libre por muestras chica
   rendered <- render_dataset_profile_for_ai(profile)
 
   expect_equal(profile$variables$tramo$inferred_type, "categorical")
-  expect_match(rendered, "tramo: categorica", ignore.case = TRUE)
+  expect_match(rendered, "tramo: importada como character; interpretada como categorica", ignore.case = TRUE)
   expect_match(rendered, "A, B, C")
 })
 
@@ -967,8 +967,8 @@ test_that("modo conservador redacciona categoricas no triviales aunque no sean s
   profile <- profile_dataset_for_ai(df, dataset_name = "modo_conservador")
   rendered <- render_dataset_profile_for_ai(profile, mode = "conservative")
 
-  expect_match(rendered, "departamento: categorica; niveles observados: 3; valores no listados por modo conservador", ignore.case = TRUE)
-  expect_match(rendered, "tramo: categorica; valores observados: A, B, C", ignore.case = TRUE)
+  expect_match(rendered, "departamento: importada como character; interpretada como categorica; niveles observados: 3; valores no listados por modo conservador", ignore.case = TRUE)
+  expect_match(rendered, "tramo: importada como character; interpretada como categorica; valores observados: A, B, C", ignore.case = TRUE)
 })
 
 test_that("semantica_starwars preserva mejor la estructura informativa", {
@@ -1010,7 +1010,7 @@ test_that("semantica_categorias_compuestas no rompe codigos cortos con slash", {
 
   expect_equal(profile$variables$codigo$inferred_type, "categorical")
   expect_equal(profile$variables$codigo$summary$value_shape %||% NULL, "simple")
-  expect_match(rendered, "codigo: categorica; valores observados: A/1, B/2, C/3, D, E", ignore.case = TRUE)
+  expect_match(rendered, "codigo: importada como character; interpretada como categorica; valores observados: A/1, B/2, C/3, D, E", ignore.case = TRUE)
 })
 
 test_that("semantica_alta_cardinalidad_nominal evita unknown cuando la columna es nominal", {
@@ -1062,6 +1062,7 @@ test_that("semantica_list_columns describe colecciones no atomicas", {
 
   expect_equal(profile$variables$films$inferred_type, "collection")
   expect_equal(profile$variables$films$summary$element_type %||% NULL, "character")
+  expect_match(rendered, "films: importada como list; interpretada como columna lista", ignore.case = TRUE)
   expect_match(rendered, "colecciones de texto", ignore.case = TRUE)
 })
 
@@ -1076,8 +1077,8 @@ test_that("semantica_numeric_kind distingue integer de double", {
 
   expect_equal(profile$variables$altura$summary$numeric_kind %||% NULL, "integer")
   expect_equal(profile$variables$peso$summary$numeric_kind %||% NULL, "double")
-  expect_match(rendered, "altura: numerica entera", ignore.case = TRUE)
-  expect_match(rendered, "peso: numerica decimal", ignore.case = TRUE)
+  expect_match(rendered, "altura: importada como integer; interpretada como numerica entera", ignore.case = TRUE)
+  expect_match(rendered, "peso: importada como double; interpretada como numerica decimal", ignore.case = TRUE)
 })
 
 test_that("semantica_regresion_renderer_simple mantiene categoricas simples y modo conservador", {
@@ -1091,8 +1092,21 @@ test_that("semantica_regresion_renderer_simple mantiene categoricas simples y mo
   rendered_normal <- render_dataset_profile_for_ai(profile)
   rendered_conservative <- render_dataset_profile_for_ai(profile, mode = "conservative")
 
-  expect_match(rendered_normal, "tramo: categorica; valores observados: A, B, C", ignore.case = TRUE)
-  expect_match(rendered_conservative, "departamento: categorica; niveles observados: 3; valores no listados por modo conservador", ignore.case = TRUE)
+  expect_match(rendered_normal, "tramo: importada como character; interpretada como categorica; valores observados: A, B, C", ignore.case = TRUE)
+  expect_match(rendered_conservative, "departamento: importada como character; interpretada como categorica; niveles observados: 3; valores no listados por modo conservador", ignore.case = TRUE)
+})
+
+test_that("renderer visible distingue categoricas importadas como factor", {
+  df <- data.frame(
+    tramo_factor = factor(c("A", "B", "C")),
+    stringsAsFactors = FALSE
+  )
+
+  profile <- profile_dataset_for_ai(df, dataset_name = "factor_visible")
+  rendered <- render_dataset_profile_for_ai(profile)
+
+  expect_equal(profile$variables$tramo_factor$imported_type, "factor")
+  expect_match(rendered, "tramo_factor: importada como factor; interpretada como categorica", ignore.case = TRUE)
 })
 
 test_that("semantica_entity_label diferencia nombres de entidad de texto libre abierto", {
@@ -1105,7 +1119,7 @@ test_that("semantica_entity_label diferencia nombres de entidad de texto libre a
   rendered <- render_dataset_profile_for_ai(profile)
 
   expect_equal(profile$variables$nombre$inferred_type, "entity_label")
-  expect_match(rendered, "etiqueta nominal de entidad", ignore.case = TRUE)
+  expect_match(rendered, "nombre: importada como character; interpretada como etiqueta nominal de entidad", ignore.case = TRUE)
   expect_false(grepl("Luke Skywalker|Leia Organa|Han Solo", rendered))
 })
 
@@ -1118,6 +1132,28 @@ test_that("semantica_entity_label reconoce etiquetas de entidad aunque el nombre
   profile <- profile_dataset_for_ai(df, dataset_name = "entity_label_cliente")
 
   expect_equal(profile$variables$cliente$inferred_type, "entity_label")
+})
+
+test_that("renderer visible conserva tipo importado en temporales parseados y temporales en texto", {
+  df_parseado <- data.frame(
+    fecha_alta = as.Date(c("2024-01-01", "2024-01-02", "2024-01-03"))
+  )
+  df_texto <- data.frame(
+    fecha_evento = c(
+      "2024-01-01 10:00:00",
+      "2024-01-02 11:30:00",
+      "2024-01-03 12:45:00"
+    ),
+    stringsAsFactors = FALSE
+  )
+
+  profile_parseado <- profile_dataset_for_ai(df_parseado, dataset_name = "temporal_parseado")
+  profile_texto <- profile_dataset_for_ai(df_texto, dataset_name = "temporal_texto")
+  rendered_parseado <- render_dataset_profile_for_ai(profile_parseado)
+  rendered_texto <- render_dataset_profile_for_ai(profile_texto)
+
+  expect_match(rendered_parseado, "fecha_alta: importada como Date; interpretada como fecha", ignore.case = TRUE)
+  expect_match(rendered_texto, "fecha_evento: importada como character; interpretada como fecha-hora", ignore.case = TRUE)
 })
 
 test_that("semantica_warning_precision separa advertencias por familia de riesgo", {
