@@ -27,6 +27,15 @@ source("c:/Users/mcros/Documents/obfuscator/R/obfuscator_core.R")
 cat(resumen_de(iris))
 ```
 
+Tambien ya puede cargarse en modo paquete durante desarrollo:
+
+```r
+devtools::load_all(".")
+cat(resumen_de(iris))
+```
+
+En esta etapa, `source("R/obfuscator_core.R")` sigue existiendo como puente transicional. La direccion de trabajo vigente es que el helper pueda evolucionar hacia `contextoia` sin depender estructuralmente de ese bootstrap.
+
 Si necesitas una salida mas prudente:
 
 ```r

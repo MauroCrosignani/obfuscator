@@ -122,6 +122,15 @@ source("R/obfuscator_core.R")
 cat(resumen_de(iris))
 ```
 
+Uso como paquete durante desarrollo:
+
+```r
+devtools::load_all(".")
+cat(resumen_de(iris))
+```
+
+En esta etapa, `source("R/obfuscator_core.R")` sigue siendo un puente transicional compatible, pero el helper ya puede cargarse tambien via `devtools::load_all()` sin depender del directorio de trabajo para resolver archivos companeros.
+
 Semantica vigente mas importante:
 
 - conserva en el texto visible el `tipo importado` exacto y la `interpretacion semantica` de cada variable;

@@ -141,36 +141,63 @@ obfuscator_version <- function() {
   "0.3.0"
 }
 
+obfuscator_is_namespace_context <- function(target_env) {
+  is.environment(target_env) && (
+    isNamespace(target_env) ||
+      exists(".__NAMESPACE__.", envir = target_env, inherits = FALSE) ||
+      grepl("^namespace:", environmentName(target_env))
+  )
+}
+
+obfuscator_companion_loading_mode <- function(target_env = parent.frame(), source_files = NULL) {
+  if (is.null(source_files)) {
+    source_files <- vapply(
+      sys.frames(),
+      function(frame) {
+        frame$ofile %||% ""
+      },
+      character(1)
+    )
+  }
+
+  current_candidates <- source_files[grepl("obfuscator_core\\.R$", basename(source_files))]
+  current_file <- if (length(current_candidates) > 0) {
+    normalizePath(current_candidates[[length(current_candidates)]], winslash = "/", mustWork = TRUE)
+  } else {
+    NULL
+  }
+
+  if (!is.null(current_file)) {
+    return(list(mode = "source", current_file = current_file))
+  }
+
+  if (obfuscator_is_namespace_context(target_env)) {
+    return(list(mode = "namespace", current_file = NULL))
+  }
+
+  stop(
+    paste(
+      "R/obfuscator_core.R must be loaded from disk via source() or sys.source(),",
+      "or from a package namespace via devtools::load_all(),",
+      "so companion helpers can be resolved without depending on the caller's cwd."
+    )
+  )
+}
+
 load_obfuscator_companion <- function(filename, target_env = parent.frame()) {
   # This repo is currently used by sourcing files from disk:
   # - source("obfuscator.R")
   # - source("R/obfuscator_core.R")
   # - source(<absolute path>, local = <test env>)
-  # Resolve companion files relative to this script and fail fast if `ofile`
-  # is unavailable, instead of silently falling back to the caller's cwd.
-  source_files <- vapply(
-    sys.frames(),
-    function(frame) {
-      frame$ofile %||% ""
-    },
-    character(1)
-  )
-  current_candidates <- source_files[grepl("obfuscator_core\\.R$", basename(source_files))]
-  current_file <- if (length(current_candidates) > 0) {
-    normalizePath(current_candidates[[length(current_candidates)]], winslash = "/", mustWork = TRUE)
-  } else {
-    NA_character_
+  # Resolve companion files relative to this script when sourced from disk.
+  # When loaded as a package namespace, rely on R/pkgload to source the
+  # companion files directly and keep this bridge as a no-op.
+  loading_mode <- obfuscator_companion_loading_mode(target_env = target_env)
+  if (identical(loading_mode$mode, "namespace")) {
+    return(invisible(NULL))
   }
 
-  if (is.na(current_file) || !grepl("obfuscator_core\\.R$", basename(current_file))) {
-    stop(
-      paste(
-        "R/obfuscator_core.R must be loaded from disk via source() or sys.source()",
-        "so companion helpers can be resolved relative to this file."
-      )
-    )
-  }
-
+  current_file <- loading_mode$current_file
   companion_path <- file.path(dirname(current_file), filename)
   if (!file.exists(companion_path)) {
     stop(sprintf("Companion file not found next to obfuscator_core.R: %s", filename))
@@ -182,7 +209,6 @@ load_obfuscator_companion <- function(filename, target_env = parent.frame()) {
 
 load_obfuscator_companion("release_decision_helpers.R")
 load_obfuscator_companion("ai_dataset_profile.R")
-rm(load_obfuscator_companion)
 
 obfuscator_config <- function(
   col_roles = NULL,

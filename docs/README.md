@@ -103,6 +103,8 @@ Cuando corresponda, cada documento deberia distinguir explicitamente:
   - [2026-05-22_numericas_institucionales_con_evidencia_y_senales.md](c:/Users/mcros/Documents/obfuscator/docs/06_desarrollo/fases/2026-05-22_numericas_institucionales_con_evidencia_y_senales.md)
 - cierre vigente de diseno y plan de transicion hacia `contextoia`:
   - [2026-05-22_diseno_y_plan_de_transicion_hacia_contextoia.md](c:/Users/mcros/Documents/obfuscator/docs/06_desarrollo/fases/2026-05-22_diseno_y_plan_de_transicion_hacia_contextoia.md)
+- cierre vigente de implementacion de la compatibilidad transicional hacia `contextoia`:
+  - [2026-05-22_transicion_hacia_contextoia_como_paquete_independiente.md](c:/Users/mcros/Documents/obfuscator/docs/06_desarrollo/fases/2026-05-22_transicion_hacia_contextoia_como_paquete_independiente.md)
 - ajuste vigente de dependencias de tests para CI:
   - [2026-05-19_alineacion_de_dependencias_de_tests_para_ci.md](c:/Users/mcros/Documents/obfuscator/docs/06_desarrollo/fases/2026-05-19_alineacion_de_dependencias_de_tests_para_ci.md)
 - cierre vigente del bloque de resolvedor de fuente y metadata para perfilado IA:

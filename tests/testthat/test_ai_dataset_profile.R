@@ -2,6 +2,12 @@ library(testthat)
 
 source(file.path("..", "..", "R", "obfuscator_core.R"))
 
+new_fake_namespace_env <- function(name = "ObfuscatoR") {
+  env <- new.env(parent = emptyenv())
+  assign(".__NAMESPACE__.", list(spec = list(name = name)), envir = env)
+  env
+}
+
 write_test_workbook <- function(path, sheets) {
   expect_true(requireNamespace("writexl", quietly = TRUE))
   writexl::write_xlsx(sheets, path = path)
@@ -22,6 +28,31 @@ test_that("profile_dataset_for_ai devuelve estructura base", {
   expect_equal(profile$dimensions$cols, 5)
   expect_true("variables" %in% names(profile))
   expect_length(profile$variables, 5)
+})
+
+test_that("loader de companions distingue contexto de source y contexto de namespace", {
+  core_path <- normalizePath(file.path("..", "..", "R", "obfuscator_core.R"), winslash = "/", mustWork = TRUE)
+  source_mode <- obfuscator_companion_loading_mode(
+    target_env = globalenv(),
+    source_files = c(core_path)
+  )
+  namespace_mode <- obfuscator_companion_loading_mode(
+    target_env = new_fake_namespace_env()
+  )
+
+  expect_equal(source_mode$mode, "source")
+  expect_match(source_mode$current_file, "obfuscator_core\\.R$", ignore.case = TRUE)
+  expect_equal(namespace_mode$mode, "namespace")
+  expect_null(namespace_mode$current_file)
+})
+
+test_that("load_obfuscator_companion no intenta sourcear companions en contexto de namespace", {
+  expect_invisible(
+    load_obfuscator_companion(
+      "archivo_inexistente.R",
+      target_env = new_fake_namespace_env()
+    )
+  )
 })
 
 test_that("render_dataset_profile_for_ai devuelve texto compacto util", {
