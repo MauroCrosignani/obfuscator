@@ -900,15 +900,43 @@ ai_profile_looks_like_entity_label <- function(column_name, values) {
   punctuation_rate <- mean(grepl("[\\.!\\?;:]", values))
   digit_rate <- mean(grepl("\\d", values))
   title_case_rate <- mean(grepl("^[[:upper:]][[:alpha:]'`.-]*( [[:upper:]][[:alpha:]'`.-]*)*$", values))
-  explicit_name_hint <- grepl("(^|_)(name|nombre|label|etiqueta|title|titulo|cliente|persona|paciente|proveedor)($|_)", column_name, ignore.case = TRUE)
+  uppercase_label_rate <- mean(grepl("^[[:upper:]0-9'`.,()/-]+( [[:upper:]0-9'`.,()/-]+)*$", values))
+  explicit_name_hint <- grepl(
+    "(^|_)(name|nombre|label|etiqueta|title|titulo|cliente|persona|paciente|proveedor|unidad|oficina|gerencia|division|departamento|sector|area)($|_)",
+    column_name,
+    ignore.case = TRUE
+  )
 
-  unique_ratio >= 0.7 &&
-    max_length <= 40 &&
+  base_shape_match <- max_length <= 60 &&
     avg_words >= 1.5 &&
-    avg_words <= 4 &&
+    avg_words <= 6 &&
     punctuation_rate < 0.05 &&
-    digit_rate < 0.2 &&
-    (title_case_rate >= 0.6 || explicit_name_hint)
+    digit_rate < 0.2
+
+  repeated_institutional_label <- explicit_name_hint &&
+    uppercase_label_rate >= 0.6 &&
+    unique_ratio >= 0.4 &&
+    length(unique(values)) >= 3
+
+  canonical_entity_label <- unique_ratio >= 0.7 &&
+    (title_case_rate >= 0.6 || explicit_name_hint || uppercase_label_rate >= 0.6)
+
+  base_shape_match && (canonical_entity_label || repeated_institutional_label)
+}
+
+ai_profile_posix_has_substantive_time <- function(x) {
+  if (!inherits(x, c("POSIXct", "POSIXlt", "POSIXt"))) {
+    return(TRUE)
+  }
+
+  lt <- as.POSIXlt(x)
+  any((lt$hour %||% 0) != 0 | (lt$min %||% 0) != 0 | (lt$sec %||% 0) != 0, na.rm = TRUE)
+}
+
+ai_profile_quote_values <- function(values) {
+  values <- as.character(values)
+  escaped <- gsub("\"", "\\\\\"", values, fixed = TRUE)
+  sprintf("\"%s\"", escaped)
 }
 
 ai_profile_collection_element_type <- function(x) {
@@ -1051,7 +1079,7 @@ ai_profile_infer_type <- function(column_name, x, max_levels = 12) {
 
   if (inherits(x, c("POSIXct", "POSIXlt", "POSIXt"))) {
     return(list(
-      inferred_type = "datetime",
+      inferred_type = if (ai_profile_posix_has_substantive_time(x)) "datetime" else "date",
       observed_pattern = "POSIXt",
       warnings = character(0),
       confidence = "high"
@@ -1608,7 +1636,7 @@ render_ai_profile_variable <- function(variable_profile, mode = "compact") {
         name,
         render_prefix(categorical_label),
         values_label,
-        paste(summary$values, collapse = ", "),
+        paste(ai_profile_quote_values(summary$values), collapse = ", "),
         missing_text
       ))
     }
@@ -1618,7 +1646,7 @@ render_ai_profile_variable <- function(variable_profile, mode = "compact") {
       render_prefix(categorical_label),
       summary$level_count %||% 0,
       top_label,
-      paste(summary$top_levels %||% character(0), collapse = ", "),
+      paste(ai_profile_quote_values(summary$top_levels %||% character(0)), collapse = ", "),
       missing_text
     ))
   }

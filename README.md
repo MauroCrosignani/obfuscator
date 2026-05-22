@@ -125,11 +125,13 @@ cat(resumen_de(iris))
 Semantica vigente mas importante:
 
 - conserva en el texto visible el `tipo importado` exacto y la `interpretacion semantica` de cada variable;
+- entrecomilla los valores categoricos visibles para evitar ambiguedad sobre espacios o delimitacion;
 - distingue `numerica entera` de `numerica decimal`;
 - detecta `categorica compuesta` cuando una celda contiene varias etiquetas;
 - evita caer tan facil en `unknown` para columnas nominales de alta cardinalidad;
 - describe `list-columns` como colecciones por fila;
-- separa `texto libre` de `etiqueta nominal de entidad` cuando la evidencia alcanza.
+- separa mejor `texto libre` de `etiqueta nominal de entidad`, incluyendo nombres institucionales repetibles;
+- y puede interpretar como `fecha` una `POSIXct` cuya hora no aporta informacion sustantiva.
 
 Patron visible actual del renderer:
 
@@ -138,8 +140,9 @@ Patron visible actual del renderer:
 Ejemplos esperables:
 
 - `height: importada como integer; interpretada como numerica entera; ...`
-- `sex: importada como character; interpretada como categorica; ...`
+- `sex: importada como character; interpretada como categorica; valores observados: "female", "male", ...`
 - `films: importada como list; interpretada como columna lista; ...`
+- `FECHA_DESDE: importada como POSIXct; interpretada como fecha; ...`
 
 Ejemplos listos para correr:
 

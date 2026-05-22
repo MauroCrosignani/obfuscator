@@ -905,7 +905,7 @@ test_that("categoricas cortas no se confunden con texto libre por muestras chica
 
   expect_equal(profile$variables$tramo$inferred_type, "categorical")
   expect_match(rendered, "tramo: importada como character; interpretada como categorica", ignore.case = TRUE)
-  expect_match(rendered, "A, B, C")
+  expect_match(rendered, "\"A\", \"B\", \"C\"")
 })
 
 test_that("categorias sensibles no listan sus valores reales por defecto", {
@@ -968,7 +968,7 @@ test_that("modo conservador redacciona categoricas no triviales aunque no sean s
   rendered <- render_dataset_profile_for_ai(profile, mode = "conservative")
 
   expect_match(rendered, "departamento: importada como character; interpretada como categorica; niveles observados: 3; valores no listados por modo conservador", ignore.case = TRUE)
-  expect_match(rendered, "tramo: importada como character; interpretada como categorica; valores observados: A, B, C", ignore.case = TRUE)
+  expect_match(rendered, "tramo: importada como character; interpretada como categorica; valores observados: \"A\", \"B\", \"C\"", ignore.case = TRUE)
 })
 
 test_that("semantica_starwars preserva mejor la estructura informativa", {
@@ -1010,7 +1010,7 @@ test_that("semantica_categorias_compuestas no rompe codigos cortos con slash", {
 
   expect_equal(profile$variables$codigo$inferred_type, "categorical")
   expect_equal(profile$variables$codigo$summary$value_shape %||% NULL, "simple")
-  expect_match(rendered, "codigo: importada como character; interpretada como categorica; valores observados: A/1, B/2, C/3, D, E", ignore.case = TRUE)
+  expect_match(rendered, "codigo: importada como character; interpretada como categorica; valores observados: \"A/1\", \"B/2\", \"C/3\", \"D\", \"E\"", ignore.case = TRUE)
 })
 
 test_that("semantica_alta_cardinalidad_nominal evita unknown cuando la columna es nominal", {
@@ -1030,6 +1030,33 @@ test_that("semantica_alta_cardinalidad_nominal evita unknown cuando la columna e
   expect_equal(profile$variables$homeworld$summary$cardinality_class %||% NULL, "high")
   expect_match(rendered, "niveles observados", ignore.case = TRUE)
   expect_match(rendered, "top niveles", ignore.case = TRUE)
+})
+
+test_that("renderer entrecomilla valores y top niveles visibles", {
+  df_values <- data.frame(
+    canal = c("PRESENCIAL", "WEB", "PRESENCIAL"),
+    stringsAsFactors = FALSE
+  )
+  df_top <- data.frame(
+    homeworld = c(
+      "Tatooine", "Naboo", "Alderaan", "Coruscant", "Kamino",
+      "Dagobah", "Bespin", "Endor", "Hoth", "Jakku",
+      "Tatooine", "Naboo"
+    ),
+    stringsAsFactors = FALSE
+  )
+
+  rendered_values <- render_dataset_profile_for_ai(
+    profile_dataset_for_ai(df_values, dataset_name = "quoted_values")
+  )
+  rendered_top <- render_dataset_profile_for_ai(
+    profile_dataset_for_ai(df_top, dataset_name = "quoted_top")
+  )
+
+  expect_match(rendered_values, "canal: importada como character; interpretada como categorica; valores observados: \"PRESENCIAL\", \"WEB\"", ignore.case = TRUE)
+  expect_match(rendered_top, "top niveles:", ignore.case = TRUE)
+  expect_match(rendered_top, "\"Tatooine\"", ignore.case = TRUE)
+  expect_match(rendered_top, "\"Naboo\"", ignore.case = TRUE)
 })
 
 test_that("semantica_alta_cardinalidad_free_text no sobreclasifica texto observacional", {
@@ -1092,7 +1119,7 @@ test_that("semantica_regresion_renderer_simple mantiene categoricas simples y mo
   rendered_normal <- render_dataset_profile_for_ai(profile)
   rendered_conservative <- render_dataset_profile_for_ai(profile, mode = "conservative")
 
-  expect_match(rendered_normal, "tramo: importada como character; interpretada como categorica; valores observados: A, B, C", ignore.case = TRUE)
+  expect_match(rendered_normal, "tramo: importada como character; interpretada como categorica; valores observados: \"A\", \"B\", \"C\"", ignore.case = TRUE)
   expect_match(rendered_conservative, "departamento: importada como character; interpretada como categorica; niveles observados: 3; valores no listados por modo conservador", ignore.case = TRUE)
 })
 
@@ -1134,6 +1161,25 @@ test_that("semantica_entity_label reconoce etiquetas de entidad aunque el nombre
   expect_equal(profile$variables$cliente$inferred_type, "entity_label")
 })
 
+test_that("nombres institucionales repetibles no caen facilmente como texto libre", {
+  df <- data.frame(
+    NOMBRE_UNIDAD = c(
+      "GERENCIA DE CONTROL Y COBRO",
+      "GERENCIA DE CONTROL Y COBRO",
+      "OFICINA TECNICA MONTEVIDEO",
+      "OFICINA TECNICA MONTEVIDEO",
+      "DIVISION APOYO A EMPRESAS"
+    ),
+    stringsAsFactors = FALSE
+  )
+
+  profile <- profile_dataset_for_ai(df, dataset_name = "nombres_institucionales")
+  rendered <- render_dataset_profile_for_ai(profile)
+
+  expect_equal(profile$variables$NOMBRE_UNIDAD$inferred_type, "entity_label")
+  expect_match(rendered, "NOMBRE_UNIDAD: importada como character; interpretada como etiqueta nominal de entidad", ignore.case = TRUE)
+})
+
 test_that("renderer visible conserva tipo importado en temporales parseados y temporales en texto", {
   df_parseado <- data.frame(
     fecha_alta = as.Date(c("2024-01-01", "2024-01-02", "2024-01-03"))
@@ -1154,6 +1200,30 @@ test_that("renderer visible conserva tipo importado en temporales parseados y te
 
   expect_match(rendered_parseado, "fecha_alta: importada como Date; interpretada como fecha", ignore.case = TRUE)
   expect_match(rendered_texto, "fecha_evento: importada como character; interpretada como fecha-hora", ignore.case = TRUE)
+})
+
+test_that("POSIXct con hora no sustantiva se interpreta como fecha y con hora variable como fecha-hora", {
+  df_midnight <- data.frame(
+    FECHA_DESDE = as.POSIXct(
+      c("2024-01-01 00:00:00", "2024-01-02 00:00:00", "2024-01-03 00:00:00"),
+      tz = "UTC"
+    )
+  )
+  df_time <- data.frame(
+    FCH_ULT_ACT = as.POSIXct(
+      c("2024-01-01 08:15:00", "2024-01-02 09:45:00", "2024-01-03 11:30:00"),
+      tz = "UTC"
+    )
+  )
+
+  profile_midnight <- profile_dataset_for_ai(df_midnight, dataset_name = "posix_midnight")
+  profile_time <- profile_dataset_for_ai(df_time, dataset_name = "posix_time")
+  rendered_midnight <- render_dataset_profile_for_ai(profile_midnight)
+  rendered_time <- render_dataset_profile_for_ai(profile_time)
+
+  expect_equal(profile_midnight$variables$FECHA_DESDE$imported_type, "POSIXct")
+  expect_match(rendered_midnight, "FECHA_DESDE: importada como POSIXct; interpretada como fecha;", ignore.case = TRUE)
+  expect_match(rendered_time, "FCH_ULT_ACT: importada como POSIXct; interpretada como fecha-hora;", ignore.case = TRUE)
 })
 
 test_that("semantica_warning_precision separa advertencias por familia de riesgo", {

@@ -75,10 +75,12 @@ Esto incluye:
 
 - visibilidad explicita del `tipo importado` exacto junto con la interpretacion semantica;
 - distincion entre `numerica entera` y `numerica decimal`;
+- entrecomillado con comillas dobles de valores visibles en categoricas y top niveles;
 - deteccion de categorias compuestas cuando una misma celda contiene varias etiquetas separadas;
 - mejor tratamiento de `character` nominales de alta cardinalidad para no caer innecesariamente en `unknown`;
 - descripcion estructural de `list-columns` como colecciones por fila;
-- diferenciacion entre `texto libre` y `etiqueta nominal de entidad` cuando la evidencia alcanza;
+- diferenciacion entre `texto libre` y `etiqueta nominal de entidad` cuando la evidencia alcanza, incluyendo nombres institucionales repetibles;
+- reinterpretacion de `POSIXct` como `fecha` cuando la hora no aporta informacion sustantiva;
 - advertencias mas precisas por familia de riesgo en vez de una sola advertencia demasiado general.
 
 Patron visible vigente del renderer:
@@ -262,16 +264,24 @@ Hoy el helper puede señalar, entre otras, estas situaciones:
 ### Categoricas
 
 - hacen visible si llegan como `character` o `factor`;
-- si son cortas y simples, listan valores observados;
-- si tienen alta cardinalidad, pasan a `niveles observados` y `top niveles`;
+- si son cortas y simples, listan valores observados entre comillas dobles;
+- si tienen alta cardinalidad, pasan a `niveles observados` y `top niveles`, tambien entrecomillados;
 - si contienen varias etiquetas en una misma celda, se tratan como `categorica compuesta` y evitan render engañoso por comas internas.
 
 ### Etiquetas de entidad y texto libre
 
 - siguen mostrando que vienen importadas como `character`;
 - nombres o etiquetas nominales de entidad pueden clasificarse aparte como `etiqueta nominal de entidad`;
+- nombres institucionales repetibles, como unidades organizativas, pueden caer en `etiqueta nominal de entidad` aunque tengan cadenas relativamente largas;
 - el texto libre abierto sigue sin exponer ejemplos reales;
 - ambas familias dejan advertencias distintas para no exagerar ni ocultar riesgo.
+
+### Temporales
+
+- muestran el tipo importado exacto, por ejemplo `Date`, `POSIXct` o `character`;
+- distinguen entre `fecha`, `fecha-hora` y texto con patron temporal;
+- si una columna llega como `POSIXct` pero toda la componente horaria observada es `00:00:00`, se interpreta como `fecha` sin ocultar que fue importada como `POSIXct`;
+- conservan formato observado, granularidad y rango aproximado.
 
 ### `list-columns`
 
