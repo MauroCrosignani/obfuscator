@@ -224,3 +224,11 @@ Cuando se retome implementacion estructural, hacer solo la primera particion:
 - correr la suite completa.
 
 No se recomienda partir fuente, metadata, variables y render en la misma pasada.
+
+## Actualizacion posterior
+
+La primera particion se implemento en:
+
+- [2026-05-22_primera_particion_de_utilidades_del_helper_ia.md](c:/Users/mcros/Documents/obfuscator/docs/06_desarrollo/fases/2026-05-22_primera_particion_de_utilidades_del_helper_ia.md)
+
+Se creo [ai_profile_utils.R](c:/Users/mcros/Documents/obfuscator/R/ai_profile_utils.R) y se movieron alli las utilidades base del helper. La recomendacion de no partir todos los bloques en una sola pasada sigue vigente.

@@ -113,6 +113,8 @@ Cuando corresponda, cada documento deberia distinguir explicitamente:
   - [2026-05-22_decision_de_api_publica_en_espanol_para_contextoia.md](c:/Users/mcros/Documents/obfuscator/docs/06_desarrollo/fases/2026-05-22_decision_de_api_publica_en_espanol_para_contextoia.md)
 - evaluacion vigente de modularizacion interna del helper IA:
   - [2026-05-22-evaluacion-de-modularizacion-interna-del-helper-ia.md](c:/Users/mcros/Documents/obfuscator/docs/04_auditorias/2026-05-22-evaluacion-de-modularizacion-interna-del-helper-ia.md)
+- cierre vigente de primera particion de utilidades del helper IA:
+  - [2026-05-22_primera_particion_de_utilidades_del_helper_ia.md](c:/Users/mcros/Documents/obfuscator/docs/06_desarrollo/fases/2026-05-22_primera_particion_de_utilidades_del_helper_ia.md)
 - ajuste vigente de dependencias de tests para CI:
   - [2026-05-19_alineacion_de_dependencias_de_tests_para_ci.md](c:/Users/mcros/Documents/obfuscator/docs/06_desarrollo/fases/2026-05-19_alineacion_de_dependencias_de_tests_para_ci.md)
 - cierre vigente del bloque de resolvedor de fuente y metadata para perfilado IA:

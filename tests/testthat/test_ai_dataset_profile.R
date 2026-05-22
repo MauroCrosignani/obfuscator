@@ -11,6 +11,7 @@ new_fake_namespace_env <- function(name = "ObfuscatoR") {
 new_contextoia_candidate_env <- function() {
   env <- new.env(parent = baseenv())
   assign("%||%", function(x, y) if (is.null(x)) y else x, envir = env)
+  sys.source(file.path("..", "..", "R", "ai_profile_utils.R"), envir = env)
   sys.source(file.path("..", "..", "R", "ai_dataset_profile.R"), envir = env)
   env
 }
