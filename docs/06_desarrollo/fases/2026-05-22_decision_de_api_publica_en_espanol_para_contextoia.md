@@ -61,3 +61,11 @@ Si aparece una necesidad real, convendra diseñarla deliberadamente, probablemen
 ## Siguiente paso sugerido
 
 Evaluar si [ai_dataset_profile.R](c:/Users/mcros/Documents/obfuscator/R/ai_dataset_profile.R) debe modularizarse internamente antes de una extraccion real a `contextoia`.
+
+## Evaluacion posterior
+
+Esa evaluacion quedo registrada en:
+
+- [2026-05-22-evaluacion-de-modularizacion-interna-del-helper-ia.md](c:/Users/mcros/Documents/obfuscator/docs/04_auditorias/2026-05-22-evaluacion-de-modularizacion-interna-del-helper-ia.md)
+
+La conclusion fue no partir todo el archivo de inmediato. La recomendacion es una modularizacion incremental, empezando por utilidades base solo cuando se decida hacer una pasada estructural de codigo.
