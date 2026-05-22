@@ -25,6 +25,21 @@ Se fijan estas decisiones de interfaz:
 
 La interfaz visible debe mantenerse exclusivamente en espanol.
 
+## Criterio de API publica
+
+La API publica prevista para usuarios debe priorizar una sola entrada en espanol:
+
+- `resumen_de()`
+
+Las funciones tecnicas heredadas:
+
+- `profile_dataset_for_ai()`
+- `render_dataset_profile_for_ai()`
+
+siguen siendo utiles como capa interna, para pruebas y para mantener continuidad historica dentro de ObfuscatoR. Sin embargo, no deberian convertirse automaticamente en API publica del futuro paquete `contextoia`, porque sus nombres estan en ingles y contradicen la decision de interfaz localizada.
+
+Si mas adelante hace falta exponer una capa tecnica publica, deberia diseñarse con nombres en espanol o como una API avanzada deliberadamente separada de la puerta de entrada principal.
+
 ## Problema que resuelve este diseno
 
 Hoy el helper vive dentro de ObfuscatoR y eso crea una tension:
@@ -92,8 +107,8 @@ Objetivo:
 - identificar que partes pertenecen realmente al futuro `contextoia`;
 - reducir acoplamientos con Shiny, liberacion controlada y loaders heredados;
 - y dejar fronteras claras entre:
-  - API del helper;
-  - core tecnico;
+  - API publica en espanol;
+  - core tecnico interno;
   - y puente de compatibilidad dentro de ObfuscatoR.
 
 ### Etapa 3. Extraccion real

@@ -1465,3 +1465,10 @@ test_that("resumen_de debe quedar exportada en el paquete", {
   namespace_lines <- readLines(file.path("..", "..", "NAMESPACE"), warn = FALSE)
   expect_true(any(grepl("^export\\(resumen_de\\)$", namespace_lines)))
 })
+
+test_that("la API publica del helper se mantiene en espanol", {
+  namespace_lines <- readLines(file.path("..", "..", "NAMESPACE"), warn = FALSE)
+
+  expect_false(any(grepl("^export\\(profile_dataset_for_ai\\)$", namespace_lines)))
+  expect_false(any(grepl("^export\\(render_dataset_profile_for_ai\\)$", namespace_lines)))
+})

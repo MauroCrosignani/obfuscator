@@ -68,12 +68,16 @@ Este paso no completa la extraccion a `contextoia`.
 Todavia queda pendiente decidir:
 
 - si `%||%` se mantiene como utilidad comun minima o se reemplaza por una funcion propia del helper;
-- si `profile_dataset_for_ai()` y `render_dataset_profile_for_ai()` deben exportarse en ObfuscatoR antes de la extraccion;
 - si [ai_dataset_profile.R](c:/Users/mcros/Documents/obfuscator/R/ai_dataset_profile.R) debe partirse en archivos internos mas pequeños antes de crear el paquete independiente.
+
+## Decision posterior sobre API publica
+
+Despues de este paso se fijo una decision de API:
+
+- `resumen_de()` queda como unica funcion publica del helper por ahora;
+- `profile_dataset_for_ai()` y `render_dataset_profile_for_ai()` siguen como capa tecnica heredada e interna;
+- no se agregan exports nuevos en ingles, porque la interfaz futura de `contextoia` debe mantenerse en espanol.
 
 ## Siguiente paso sugerido
 
-El siguiente paso razonable es decidir la API tecnica publica:
-
-- mantener solo `resumen_de()` como funcion exportada de cara a usuarios;
-- o exportar tambien `profile_dataset_for_ai()` y `render_dataset_profile_for_ai()` para usuarios tecnicos y para facilitar la futura transicion a `contextoia`.
+El siguiente paso razonable es evaluar si [ai_dataset_profile.R](c:/Users/mcros/Documents/obfuscator/R/ai_dataset_profile.R) debe partirse en archivos internos mas pequeños antes de crear el paquete independiente.

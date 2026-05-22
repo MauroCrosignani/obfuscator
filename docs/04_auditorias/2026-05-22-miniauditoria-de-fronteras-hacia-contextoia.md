@@ -85,25 +85,25 @@ Decision sugerida:
 - documentarlo como tal;
 - y no reforzar la idea de que `obfuscator_core.R` es el dueño permanente del helper.
 
-### 4. La API futura de `contextoia` ya esta bastante clara, pero hoy no esta exportada completa
+### 4. La API publica futura de `contextoia` debe mantenerse en espanol
 
 Hecho:
 
-- La API conceptual ya definida para el futuro paquete es:
-  - `resumen_de()`
-  - `profile_dataset_for_ai()`
-  - `render_dataset_profile_for_ai()`
+- La puerta de entrada ya definida para el futuro paquete es `resumen_de()`.
+- La decision de producto es que la interfaz visible quede exclusivamente en espanol.
 - En [NAMESPACE](c:/Users/mcros/Documents/obfuscator/NAMESPACE) hoy solo esta exportado `resumen_de()` de ese frente.
+- `profile_dataset_for_ai()` y `render_dataset_profile_for_ai()` existen como capa tecnica heredada, pero sus nombres estan en ingles.
 
 Interpretacion:
 
-- Esto no rompe el uso actual.
-- Pero muestra que la superficie publica de `contextoia` aun no coincide del todo con la del repo actual.
+- Esto es coherente con el objetivo de adopcion simple y localizada.
+- Exportar automaticamente funciones tecnicas en ingles haria menos clara la frontera publica del futuro `contextoia`.
 
 Decision sugerida:
 
 - mantener `resumen_de()` como puerta principal;
-- y decidir en una etapa posterior si `profile_dataset_for_ai()` y `render_dataset_profile_for_ai()` deben exportarse tambien en ObfuscatoR o quedar solo como API del futuro paquete independiente.
+- mantener `profile_dataset_for_ai()` y `render_dataset_profile_for_ai()` como capa interna por ahora;
+- si mas adelante hace falta API tecnica publica, diseñarla con nombres en espanol o como superficie avanzada deliberada.
 
 ### 5. El archivo del helper esta bien encaminado para ser modulo extraible
 
@@ -132,7 +132,7 @@ Riesgo:
 - [ai_dataset_profile.R](c:/Users/mcros/Documents/obfuscator/R/ai_dataset_profile.R)
 - API visible ya consolidada para usuarios:
   - `resumen_de()`
-- API tecnica ya consolidada a nivel conceptual:
+- capa tecnica heredada, util para pruebas y continuidad interna:
   - `profile_dataset_for_ai()`
   - `render_dataset_profile_for_ai()`
 
@@ -182,7 +182,7 @@ rg -n "shiny|run_obfuscator_app|normalize_release_safe_column_name|release_safe_
 Resultado relevante:
 
 - `resumen_de()` si esta exportada;
-- `profile_dataset_for_ai()` y `render_dataset_profile_for_ai()` no lo estan;
+- `profile_dataset_for_ai()` y `render_dataset_profile_for_ai()` no lo estan, de forma coherente con la decision de API publica en espanol;
 - no hay referencias del helper a Shiny;
 - si hay referencias a utilidades compartidas de [obfuscator_core.R](c:/Users/mcros/Documents/obfuscator/R/obfuscator_core.R).
 
@@ -191,7 +191,7 @@ Resultado relevante:
 No permite concluir:
 
 - que `contextoia` ya este listo para separarse mañana sin mas trabajo;
-- que la API tecnica final ya este cerrada al 100%;
+- que una eventual API tecnica publica en espanol ya este diseñada;
 - ni que la modularizacion interna de [ai_dataset_profile.R](c:/Users/mcros/Documents/obfuscator/R/ai_dataset_profile.R) sea ya optima.
 
 ## Siguiente paso recomendado
@@ -199,7 +199,7 @@ No permite concluir:
 Abrir una pasada corta de desacople tecnico con este orden:
 
 1. mover o duplicar las utilidades compartidas minimas del helper fuera de la zona central de [obfuscator_core.R](c:/Users/mcros/Documents/obfuscator/R/obfuscator_core.R);
-2. decidir si la API tecnica del futuro `contextoia` exportara tambien `profile_dataset_for_ai()` y `render_dataset_profile_for_ai()`;
+2. decidir, solo si aparece una necesidad real, si hace falta una API tecnica publica adicional y con nombres en espanol;
 3. evaluar si conviene partir [ai_dataset_profile.R](c:/Users/mcros/Documents/obfuscator/R/ai_dataset_profile.R) en submodulos antes de la extraccion real.
 
 ## Actualizacion posterior

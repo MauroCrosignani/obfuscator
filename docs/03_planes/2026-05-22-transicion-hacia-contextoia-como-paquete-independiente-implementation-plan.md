@@ -43,8 +43,9 @@
 - Modify: `README.md`
 - Modify: `docs/03_planes/2026-05-18_guia-operativa-profile_dataset_for_ai.md`
 
-- [x] Documentar que funciones forman la API visible del futuro paquete:
+- [x] Documentar que funcion forma la API visible del futuro paquete:
   - `resumen_de()`
+- [x] Documentar que funciones tecnicas heredadas quedan como capa interna por ahora:
   - `profile_dataset_for_ai()`
   - `render_dataset_profile_for_ai()`
 - [x] Dejar claro que el helper no deberia depender estructuralmente del flujo Shiny.
@@ -54,7 +55,8 @@ Nota 2026-05-22:
 
 - se completo una mini auditoria de fronteras hacia `contextoia`;
 - se desacoplaron las utilidades `normalize_release_safe_column_name()` y `release_safe_text_like_column()` del helper IA;
-- queda pendiente decidir si `profile_dataset_for_ai()` y `render_dataset_profile_for_ai()` se exportaran tambien desde ObfuscatoR o solo desde el futuro paquete independiente.
+- se decidio mantener `resumen_de()` como unica API publica del helper por ahora, porque la interfaz futura de `contextoia` debe quedar en espanol;
+- `profile_dataset_for_ai()` y `render_dataset_profile_for_ai()` quedan como capa tecnica heredada, no como exports publicos nuevos.
 
 ### Task 4: Documentar el cierre del paso
 
