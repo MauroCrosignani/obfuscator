@@ -38,8 +38,28 @@ ai_profile_imported_type <- function(x) {
   class(x)[1] %||% typeof(x)
 }
 
+ai_profile_normalize_column_name <- function(column_name) {
+  normalized <- tolower(trimws(column_name %||% ""))
+  gsub("[^a-z0-9]+", "_", normalized)
+}
+
+ai_profile_text_like_column <- function(column_data) {
+  if (!(is.character(column_data) || is.factor(column_data))) {
+    return(FALSE)
+  }
+
+  values <- as.character(column_data)
+  values <- values[!is.na(values) & nzchar(trimws(values))]
+  if (length(values) == 0) {
+    return(FALSE)
+  }
+
+  unique_ratio <- length(unique(values)) / length(values)
+  mean(nchar(values), na.rm = TRUE) >= 18 || unique_ratio >= 0.8
+}
+
 ai_profile_identifier_name <- function(column_name) {
-  normalized_name <- normalize_release_safe_column_name(column_name)
+  normalized_name <- ai_profile_normalize_column_name(column_name)
   grepl(
     "(^|_)(id|rut|cedula|dni|nie|nic)(_|$)|identificador|persona_id|pers_id|expediente|matricula|contribuyente|correo|mail|email|e_mail|telefono|celular",
     normalized_name
@@ -47,7 +67,7 @@ ai_profile_identifier_name <- function(column_name) {
 }
 
 ai_profile_sensitive_name <- function(column_name) {
-  normalized_name <- normalize_release_safe_column_name(column_name)
+  normalized_name <- ai_profile_normalize_column_name(column_name)
   grepl(
     "diagnost|enfermed|patolog|beneficio|subsid|sancion|riesgo|situacion|indicador_privado|sensib|privad|ingreso",
     normalized_name
@@ -55,7 +75,7 @@ ai_profile_sensitive_name <- function(column_name) {
 }
 
 ai_profile_quasi_identifier_name <- function(column_name) {
-  normalized_name <- normalize_release_safe_column_name(column_name)
+  normalized_name <- ai_profile_normalize_column_name(column_name)
   grepl(
     "fecha|date|nacimiento|alta|periodo|mes|anio|edad|antiguedad|cantidad_hijos|tam_hogar|ingreso|salario|monto|facturacion|departamento|localidad|ocupacion|sector|tramo|educ|sexo",
     normalized_name
@@ -63,7 +83,7 @@ ai_profile_quasi_identifier_name <- function(column_name) {
 }
 
 ai_profile_expected_missingness_name <- function(column_name) {
-  normalized_name <- normalize_release_safe_column_name(column_name)
+  normalized_name <- ai_profile_normalize_column_name(column_name)
   grepl(
     "fecha_hasta|hasta$|end_date|fecha_fin|fin_vigencia|baja_fecha|cancelacion_fecha|cese_fecha|closed_at|ended_at",
     normalized_name
@@ -71,7 +91,7 @@ ai_profile_expected_missingness_name <- function(column_name) {
 }
 
 ai_profile_numeric_code_like_name <- function(column_name) {
-  normalized_name <- normalize_release_safe_column_name(column_name)
+  normalized_name <- ai_profile_normalize_column_name(column_name)
   grepl("(cod|codigo|id|identif|tipo|clase|unidad)", normalized_name)
 }
 
@@ -142,7 +162,7 @@ ai_profile_simple_hash <- function(text) {
 }
 
 ai_profile_slugify <- function(text) {
-  slug <- normalize_release_safe_column_name(text %||% "")
+  slug <- ai_profile_normalize_column_name(text %||% "")
   slug <- gsub("_+", "-", slug)
   slug <- gsub("(^-|-$)", "", slug)
   if (!nzchar(slug)) {
@@ -505,7 +525,7 @@ ai_profile_metadata_candidate_names <- function(source_context, dataset_name) {
 }
 
 ai_profile_normalize_column_name_for_matching <- function(name) {
-  normalize_release_safe_column_name(name %||% "")
+  ai_profile_normalize_column_name(name %||% "")
 }
 
 ai_profile_empty_column_resolution <- function() {
@@ -1150,7 +1170,7 @@ ai_profile_infer_type <- function(column_name, x, max_levels = 12) {
       ))
     }
 
-    if (release_safe_text_like_column(x)) {
+    if (ai_profile_text_like_column(x)) {
       return(list(
         inferred_type = "free_text",
         observed_pattern = NULL,

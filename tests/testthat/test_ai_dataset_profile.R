@@ -8,6 +8,13 @@ new_fake_namespace_env <- function(name = "ObfuscatoR") {
   env
 }
 
+new_contextoia_candidate_env <- function() {
+  env <- new.env(parent = baseenv())
+  assign("%||%", function(x, y) if (is.null(x)) y else x, envir = env)
+  sys.source(file.path("..", "..", "R", "ai_dataset_profile.R"), envir = env)
+  env
+}
+
 write_test_workbook <- function(path, sheets) {
   expect_true(requireNamespace("writexl", quietly = TRUE))
   writexl::write_xlsx(sheets, path = path)
@@ -53,6 +60,19 @@ test_that("load_obfuscator_companion no intenta sourcear companions en contexto 
       target_env = new_fake_namespace_env()
     )
   )
+})
+
+test_that("helper IA no depende de utilidades release_safe del core de ObfuscatoR", {
+  env <- new_contextoia_candidate_env()
+
+  expect_false(exists("normalize_release_safe_column_name", envir = env, inherits = TRUE))
+  expect_false(exists("release_safe_text_like_column", envir = env, inherits = TRUE))
+  expect_equal(env$ai_profile_slugify("Nombre de Unidad"), "nombre-de-unidad")
+  expect_true(env$ai_profile_text_like_column(c(
+    "Unidad organizativa con nombre largo A",
+    "Unidad organizativa con nombre largo B",
+    "Unidad organizativa con nombre largo C"
+  )))
 })
 
 test_that("render_dataset_profile_for_ai devuelve texto compacto util", {

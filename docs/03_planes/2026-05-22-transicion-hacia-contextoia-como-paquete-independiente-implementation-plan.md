@@ -43,12 +43,18 @@
 - Modify: `README.md`
 - Modify: `docs/03_planes/2026-05-18_guia-operativa-profile_dataset_for_ai.md`
 
-- [ ] Documentar que funciones forman la API visible del futuro paquete:
+- [x] Documentar que funciones forman la API visible del futuro paquete:
   - `resumen_de()`
   - `profile_dataset_for_ai()`
   - `render_dataset_profile_for_ai()`
-- [ ] Dejar claro que el helper no deberia depender estructuralmente del flujo Shiny.
-- [ ] Si aparece codigo de puente o bootstrap, identificarlo como compatibilidad transicional.
+- [x] Dejar claro que el helper no deberia depender estructuralmente del flujo Shiny.
+- [x] Si aparece codigo de puente o bootstrap, identificarlo como compatibilidad transicional.
+
+Nota 2026-05-22:
+
+- se completo una mini auditoria de fronteras hacia `contextoia`;
+- se desacoplaron las utilidades `normalize_release_safe_column_name()` y `release_safe_text_like_column()` del helper IA;
+- queda pendiente decidir si `profile_dataset_for_ai()` y `render_dataset_profile_for_ai()` se exportaran tambien desde ObfuscatoR o solo desde el futuro paquete independiente.
 
 ### Task 4: Documentar el cierre del paso
 

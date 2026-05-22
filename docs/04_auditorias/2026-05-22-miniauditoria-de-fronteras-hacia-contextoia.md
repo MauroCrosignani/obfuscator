@@ -201,3 +201,11 @@ Abrir una pasada corta de desacople tecnico con este orden:
 1. mover o duplicar las utilidades compartidas minimas del helper fuera de la zona central de [obfuscator_core.R](c:/Users/mcros/Documents/obfuscator/R/obfuscator_core.R);
 2. decidir si la API tecnica del futuro `contextoia` exportara tambien `profile_dataset_for_ai()` y `render_dataset_profile_for_ai()`;
 3. evaluar si conviene partir [ai_dataset_profile.R](c:/Users/mcros/Documents/obfuscator/R/ai_dataset_profile.R) en submodulos antes de la extraccion real.
+
+## Actualizacion posterior
+
+Se completo el primer punto de ese desacople en:
+
+- [2026-05-22_desacople_inicial_de_utilidades_del_helper_ia_hacia_contextoia.md](c:/Users/mcros/Documents/obfuscator/docs/06_desarrollo/fases/2026-05-22_desacople_inicial_de_utilidades_del_helper_ia_hacia_contextoia.md)
+
+Despues de ese ajuste, [ai_dataset_profile.R](c:/Users/mcros/Documents/obfuscator/R/ai_dataset_profile.R) ya no referencia `normalize_release_safe_column_name()` ni `release_safe_text_like_column()`.
