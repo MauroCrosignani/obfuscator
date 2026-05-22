@@ -1104,8 +1104,53 @@ test_that("semantica_numeric_kind distingue integer de double", {
 
   expect_equal(profile$variables$altura$summary$numeric_kind %||% NULL, "integer")
   expect_equal(profile$variables$peso$summary$numeric_kind %||% NULL, "double")
-  expect_match(rendered, "altura: importada como integer; interpretada como numerica entera", ignore.case = TRUE)
-  expect_match(rendered, "peso: importada como double; interpretada como numerica decimal", ignore.case = TRUE)
+  expect_match(rendered, "altura: tipo importado: integer; clasificacion programatica: numerica entera", ignore.case = TRUE)
+  expect_match(rendered, "peso: tipo importado: double; clasificacion programatica: numerica decimal", ignore.case = TRUE)
+  expect_no_match(rendered, "peso: .*evidencia observada", ignore.case = TRUE)
+})
+
+test_that("renderer numerico agrega evidencia observada para double enteriformes y valores unicos", {
+  df <- data.frame(
+    unidad_funcional = c(124, 180, 244, 124),
+    cod_tipo_variable = c(14, 14, 14, 14)
+  )
+
+  rendered <- render_dataset_profile_for_ai(
+    profile_dataset_for_ai(df, dataset_name = "numeric_evidence")
+  )
+
+  expect_match(
+    rendered,
+    "unidad_funcional: tipo importado: double; clasificacion programatica: numerica decimal; evidencia observada: solo toma valores enteros",
+    ignore.case = TRUE
+  )
+  expect_match(
+    rendered,
+    "cod_tipo_variable: tipo importado: double; clasificacion programatica: numerica decimal; evidencia observada: todos los valores observados son iguales: 14",
+    ignore.case = TRUE
+  )
+})
+
+test_that("renderer numerico agrega senal heuristica prudente de posible codigo numerico", {
+  df <- data.frame(
+    cod_tipo_variable = c(14, 14, 14, 14),
+    peso = c(70.5, 80.0, 90.2, 75.3)
+  )
+
+  rendered <- render_dataset_profile_for_ai(
+    profile_dataset_for_ai(df, dataset_name = "numeric_signal")
+  )
+
+  expect_match(
+    rendered,
+    "cod_tipo_variable: tipo importado: double; clasificacion programatica: numerica decimal; evidencia observada: todos los valores observados son iguales: 14; senal heuristica: podria funcionar como codigo numerico",
+    ignore.case = TRUE
+  )
+  expect_no_match(
+    rendered,
+    "peso: .*senal heuristica: podria funcionar como codigo numerico",
+    ignore.case = TRUE
+  )
 })
 
 test_that("semantica_regresion_renderer_simple mantiene categoricas simples y modo conservador", {

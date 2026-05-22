@@ -69,6 +69,8 @@ Cuando corresponda, cada documento deberia distinguir explicitamente:
   - [2026-05-19-diseno-de-render-que-preserva-la-estructura-de-glimpse-para-el-helper-ia.md](c:/Users/mcros/Documents/obfuscator/docs/02_diseno/2026-05-19-diseno-de-render-que-preserva-la-estructura-de-glimpse-para-el-helper-ia.md)
 - diseno vigente de ajustes semanticos basados en prueba real del helper IA:
   - [2026-05-22-diseno-de-ajustes-semanticos-basados-en-prueba-real-del-helper-ia.md](c:/Users/mcros/Documents/obfuscator/docs/02_diseno/2026-05-22-diseno-de-ajustes-semanticos-basados-en-prueba-real-del-helper-ia.md)
+- diseno vigente para numericas institucionales con evidencia y senales heuristicas:
+  - [2026-05-22-diseno-de-evidencia-y-senales-heuristicas-para-numericas-institucionales.md](c:/Users/mcros/Documents/obfuscator/docs/02_diseno/2026-05-22-diseno-de-evidencia-y-senales-heuristicas-para-numericas-institucionales.md)
 - plan vigente para implementar esa interfaz amigable:
   - [2026-05-18-resumen_de-como-interfaz-amigable-para-perfilado-ia-implementation-plan.md](c:/Users/mcros/Documents/obfuscator/docs/03_planes/2026-05-18-resumen_de-como-interfaz-amigable-para-perfilado-ia-implementation-plan.md)
 - plan vigente de mejoras semanticas para ese helper:
@@ -77,6 +79,8 @@ Cuando corresponda, cada documento deberia distinguir explicitamente:
   - [2026-05-19-render-que-preserva-la-estructura-de-glimpse-para-el-helper-ia-implementation-plan.md](c:/Users/mcros/Documents/obfuscator/docs/03_planes/2026-05-19-render-que-preserva-la-estructura-de-glimpse-para-el-helper-ia-implementation-plan.md)
 - plan vigente de ajustes semanticos basados en prueba real del helper IA:
   - [2026-05-22-ajustes-semanticos-basados-en-prueba-real-del-helper-ia-implementation-plan.md](c:/Users/mcros/Documents/obfuscator/docs/03_planes/2026-05-22-ajustes-semanticos-basados-en-prueba-real-del-helper-ia-implementation-plan.md)
+- plan vigente para numericas institucionales con evidencia y senales heuristicas:
+  - [2026-05-22-evidencia-y-senales-heuristicas-para-numericas-institucionales-implementation-plan.md](c:/Users/mcros/Documents/obfuscator/docs/03_planes/2026-05-22-evidencia-y-senales-heuristicas-para-numericas-institucionales-implementation-plan.md)
 - cierre vigente de implementacion de esas mejoras semanticas:
   - [2026-05-19_mejoras_semanticas_para_el_helper_de_perfilado_ia.md](c:/Users/mcros/Documents/obfuscator/docs/06_desarrollo/fases/2026-05-19_mejoras_semanticas_para_el_helper_de_perfilado_ia.md)
 - analisis critico vigente del render actual del helper IA:
@@ -89,6 +93,10 @@ Cuando corresponda, cada documento deberia distinguir explicitamente:
   - [2026-05-22_diseno_y_plan_de_ajustes_semanticos_basados_en_prueba_real_del_helper_ia.md](c:/Users/mcros/Documents/obfuscator/docs/06_desarrollo/fases/2026-05-22_diseno_y_plan_de_ajustes_semanticos_basados_en_prueba_real_del_helper_ia.md)
 - cierre vigente de implementacion de esos ajustes semanticos basados en prueba real:
   - [2026-05-22_ajustes_semanticos_basados_en_prueba_real_del_helper_ia.md](c:/Users/mcros/Documents/obfuscator/docs/06_desarrollo/fases/2026-05-22_ajustes_semanticos_basados_en_prueba_real_del_helper_ia.md)
+- cierre vigente de diseno y plan para numericas institucionales con evidencia y senales:
+  - [2026-05-22_diseno_y_plan_para_numericas_institucionales_con_evidencia_y_senales.md](c:/Users/mcros/Documents/obfuscator/docs/06_desarrollo/fases/2026-05-22_diseno_y_plan_para_numericas_institucionales_con_evidencia_y_senales.md)
+- cierre vigente de implementacion para numericas institucionales con evidencia y senales:
+  - [2026-05-22_numericas_institucionales_con_evidencia_y_senales.md](c:/Users/mcros/Documents/obfuscator/docs/06_desarrollo/fases/2026-05-22_numericas_institucionales_con_evidencia_y_senales.md)
 - ajuste vigente de dependencias de tests para CI:
   - [2026-05-19_alineacion_de_dependencias_de_tests_para_ci.md](c:/Users/mcros/Documents/obfuscator/docs/06_desarrollo/fases/2026-05-19_alineacion_de_dependencias_de_tests_para_ci.md)
 - cierre vigente del bloque de resolvedor de fuente y metadata para perfilado IA:

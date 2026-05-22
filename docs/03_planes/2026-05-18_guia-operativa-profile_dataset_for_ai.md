@@ -75,6 +75,7 @@ Esto incluye:
 
 - visibilidad explicita del `tipo importado` exacto junto con la interpretacion semantica;
 - distincion entre `numerica entera` y `numerica decimal`;
+- separacion explicita entre `clasificacion programatica`, `evidencia observada` y `senal heuristica` para numericas institucionales cuando la evidencia alcanza;
 - entrecomillado con comillas dobles de valores visibles en categoricas y top niveles;
 - deteccion de categorias compuestas cuando una misma celda contiene varias etiquetas separadas;
 - mejor tratamiento de `character` nominales de alta cardinalidad para no caer innecesariamente en `unknown`;
@@ -86,6 +87,7 @@ Esto incluye:
 Patron visible vigente del renderer:
 
 - `importada como <tipo>; interpretada como <semantica>; ...`
+- `tipo importado: <tipo>; clasificacion programatica: <semantica>; evidencia observada: ...; senal heuristica: ...`
 
 ## Firmas vigentes del core
 
@@ -259,6 +261,9 @@ Hoy el helper puede señalar, entre otras, estas situaciones:
 - muestran primero el tipo importado exacto, por ejemplo `integer` o `double`;
 - distinguen entre `integer` y `double`;
 - se renderizan como `numerica entera` o `numerica decimal`;
+- en este frente usan `clasificacion programatica` en vez de `interpretada como` para dejar claro que la taxonomia visible la produce el helper;
+- si la evidencia alcanza, agregan hechos observados literales, por ejemplo `solo toma valores enteros` o `todos los valores observados son iguales: 14`;
+- y pueden sumar una `senal heuristica` prudente como `podria funcionar como codigo numerico` sin reclasificar automaticamente la columna;
 - mantienen rango aproximado y faltantes.
 
 ### Categoricas

@@ -127,19 +127,22 @@ Semantica vigente mas importante:
 - conserva en el texto visible el `tipo importado` exacto y la `interpretacion semantica` de cada variable;
 - entrecomilla los valores categoricos visibles para evitar ambiguedad sobre espacios o delimitacion;
 - distingue `numerica entera` de `numerica decimal`;
+- separa `tipo importado`, `clasificacion programatica`, `evidencia observada` y `senal heuristica` en numericas institucionales cuando la evidencia alcanza;
 - detecta `categorica compuesta` cuando una celda contiene varias etiquetas;
 - evita caer tan facil en `unknown` para columnas nominales de alta cardinalidad;
 - describe `list-columns` como colecciones por fila;
 - separa mejor `texto libre` de `etiqueta nominal de entidad`, incluyendo nombres institucionales repetibles;
 - y puede interpretar como `fecha` una `POSIXct` cuya hora no aporta informacion sustantiva.
 
-Patron visible actual del renderer:
+Patrones visibles actuales del renderer:
 
 - `importada como <tipo>; interpretada como <semantica>; ...`
+- `tipo importado: <tipo>; clasificacion programatica: <semantica>; evidencia observada: ...; senal heuristica: ...`
 
 Ejemplos esperables:
 
-- `height: importada como integer; interpretada como numerica entera; ...`
+- `height: tipo importado: integer; clasificacion programatica: numerica entera; ...`
+- `COD_TIPO_VARIABLE: tipo importado: double; clasificacion programatica: numerica decimal; evidencia observada: todos los valores observados son iguales: 14; senal heuristica: podria funcionar como codigo numerico; ...`
 - `sex: importada como character; interpretada como categorica; valores observados: "female", "male", ...`
 - `films: importada como list; interpretada como columna lista; ...`
 - `FECHA_DESDE: importada como POSIXct; interpretada como fecha; ...`

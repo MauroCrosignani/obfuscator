@@ -70,6 +70,11 @@ ai_profile_expected_missingness_name <- function(column_name) {
   )
 }
 
+ai_profile_numeric_code_like_name <- function(column_name) {
+  normalized_name <- normalize_release_safe_column_name(column_name)
+  grepl("(cod|codigo|id|identif|tipo|clase|unidad)", normalized_name)
+}
+
 ai_profile_empty_config <- function() {
   list(
     faltantes_esperables = character(0),
@@ -1412,10 +1417,39 @@ ai_profile_variable_summary <- function(column_name, x, inferred_type, role_gues
 
   if (identical(inferred_type, "numeric")) {
     numeric_values <- as.numeric(values)
+    non_missing_numeric <- numeric_values[!is.na(numeric_values)]
+    unique_non_missing <- unique(non_missing_numeric)
+    all_integerish <- length(non_missing_numeric) > 0 &&
+      all(abs(non_missing_numeric - round(non_missing_numeric)) < .Machine$double.eps^0.5)
+    all_equal <- length(unique_non_missing) == 1
+    observed_evidence <- character(0)
+    heuristic_signal <- character(0)
+
+    if (all_equal) {
+      observed_evidence <- c(
+        observed_evidence,
+        sprintf(
+          "todos los valores observados son iguales: %s",
+          format(non_missing_numeric[[1]], trim = TRUE, scientific = FALSE)
+        )
+      )
+    } else if (!is.integer(x) && all_integerish) {
+      observed_evidence <- c(observed_evidence, "solo toma valores enteros")
+    }
+
+    if (
+      ai_profile_numeric_code_like_name(column_name) &&
+      (all_equal || (!is.integer(x) && all_integerish))
+    ) {
+      heuristic_signal <- c(heuristic_signal, "podria funcionar como codigo numerico")
+    }
+
     return(list(
       min = round(min(numeric_values), round_digits),
       max = round(max(numeric_values), round_digits),
-      numeric_kind = if (is.integer(x)) "integer" else "double"
+      numeric_kind = if (is.integer(x)) "integer" else "double",
+      observed_evidence = observed_evidence,
+      heuristic_signal = heuristic_signal
     ))
   }
 
@@ -1582,7 +1616,15 @@ render_ai_profile_variable <- function(variable_profile, mode = "compact") {
     none = sprintf("; faltantes %.1f%%", missing_pct),
     sprintf("; faltantes %.1f%%", missing_pct)
   )
-  render_prefix <- function(semantic_label) {
+  render_prefix <- function(semantic_label, style = "legacy") {
+    if (identical(style, "numeric_programmatic")) {
+      return(sprintf(
+        "tipo importado: %s; clasificacion programatica: %s",
+        imported_type,
+        semantic_label
+      ))
+    }
+
     sprintf("importada como %s; interpretada como %s", imported_type, semantic_label)
   }
 
@@ -1664,9 +1706,19 @@ render_ai_profile_variable <- function(variable_profile, mode = "compact") {
       "numerica"
     )
     return(sprintf(
-      "- %s: %s; rango aproximado %s-%s%s%s.",
+      "- %s: %s%s%s; rango aproximado %s-%s%s%s.",
       name,
-      render_prefix(numeric_label),
+      render_prefix(numeric_label, style = "numeric_programmatic"),
+      if (length(summary$observed_evidence %||% character(0)) > 0) {
+        sprintf("; evidencia observada: %s", paste(summary$observed_evidence, collapse = "; "))
+      } else {
+        ""
+      },
+      if (length(summary$heuristic_signal %||% character(0)) > 0) {
+        sprintf("; senal heuristica: %s", paste(summary$heuristic_signal, collapse = "; "))
+      } else {
+        ""
+      },
       format(summary$min, trim = TRUE, scientific = FALSE),
       format(summary$max, trim = TRUE, scientific = FALSE),
       suffix,
