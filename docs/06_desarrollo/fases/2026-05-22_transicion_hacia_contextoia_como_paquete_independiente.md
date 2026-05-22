@@ -79,10 +79,23 @@ Todavia quedan pendientes para una futura extraccion:
 - revisar si conviene mantener o no el bootstrap en `obfuscator_core.R`;
 - y decidir si ObfuscatoR consumira despues `contextoia` como dependencia o si ambos quedaran completamente separados.
 
+## Mini auditoria posterior
+
+Despues de resolver la compatibilidad con `devtools::load_all()`, se completo una mini auditoria estructural especifica:
+
+- [2026-05-22-miniauditoria-de-fronteras-hacia-contextoia.md](c:/Users/mcros/Documents/obfuscator/docs/04_auditorias/2026-05-22-miniauditoria-de-fronteras-hacia-contextoia.md)
+
+La conclusion de esa auditoria fue:
+
+- el helper ya esta desacoplado del flujo Shiny;
+- la futura extraccion a `contextoia` es viable sin rediseño funcional;
+- pero todavia hay tres utilidades compartidas heredadas de [obfuscator_core.R](c:/Users/mcros/Documents/obfuscator/R/obfuscator_core.R) que conviene mover o duplicar antes de extraer;
+- y la API publica futura sigue mas clara en diseño que en exports reales del namespace.
+
 ## Siguiente paso sugerido
 
-Seguir con una mini auditoria de fronteras internas:
+Abrir una pasada corta de desacople tecnico:
 
-- que funciones forman la API real del helper;
-- que partes siguen siendo solo compatibilidad;
-- y que codigo ya podria considerarse listo para una futura carpeta o paquete `contextoia`.
+- mover o duplicar las utilidades compartidas minimas del helper;
+- decidir la exposicion publica de `profile_dataset_for_ai()` y `render_dataset_profile_for_ai()`;
+- y evaluar si conviene modularizar internamente [ai_dataset_profile.R](c:/Users/mcros/Documents/obfuscator/R/ai_dataset_profile.R) antes de la extraccion real.
