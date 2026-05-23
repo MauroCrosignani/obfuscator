@@ -129,6 +129,8 @@ Cuando corresponda, cada documento deberia distinguir explicitamente:
   - [2026-05-23_quinta_particion_render_textual_del_helper_ia.md](c:/Users/mcros/Documents/obfuscator/docs/06_desarrollo/fases/2026-05-23_quinta_particion_render_textual_del_helper_ia.md)
 - cierre vigente de extraccion inicial de `contextoia` como paquete independiente:
   - [2026-05-23_extraccion_inicial_de_contextoia_como_paquete_independiente.md](c:/Users/mcros/Documents/obfuscator/docs/06_desarrollo/fases/2026-05-23_extraccion_inicial_de_contextoia_como_paquete_independiente.md)
+- cierre vigente de publicacion remota de `contextoia` y decision de puente:
+  - [2026-05-23_publicacion_remota_de_contextoia_y_decision_de_puente_transicional.md](c:/Users/mcros/Documents/obfuscator/docs/06_desarrollo/fases/2026-05-23_publicacion_remota_de_contextoia_y_decision_de_puente_transicional.md)
 - cierre post-merge vigente del PR #1 sobre helper IA y transicion hacia `contextoia`:
   - [2026-05-23_cierre_post_merge_pr1_contextoia.md](c:/Users/mcros/Documents/obfuscator/docs/06_desarrollo/fases/2026-05-23_cierre_post_merge_pr1_contextoia.md)
 - ajuste vigente de dependencias de tests para CI:
