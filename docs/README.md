@@ -125,6 +125,8 @@ Cuando corresponda, cada documento deberia distinguir explicitamente:
   - [manual_testing_plan.md](c:/Users/mcros/Documents/obfuscator/docs/03_planes/manual_testing_plan.md)
 - diseno principal:
   - [2026-05-06-liberacion-segura-a-terceros-design.md](c:/Users/mcros/Documents/obfuscator/docs/02_diseno/2026-05-06-liberacion-segura-a-terceros-design.md)
+- insumo comparativo vigente sobre ObfuscatoR frente a ARX:
+  - [ventajas_obfuscator_frente_a_arx.md](c:/Users/mcros/Documents/obfuscator/docs/05_investigacion/ventajas_obfuscator_frente_a_arx.md)
 
 ## Mantenimiento
 
