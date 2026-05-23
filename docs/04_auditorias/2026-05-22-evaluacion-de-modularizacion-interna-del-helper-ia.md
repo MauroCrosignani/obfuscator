@@ -232,3 +232,11 @@ La primera particion se implemento en:
 - [2026-05-22_primera_particion_de_utilidades_del_helper_ia.md](c:/Users/mcros/Documents/obfuscator/docs/06_desarrollo/fases/2026-05-22_primera_particion_de_utilidades_del_helper_ia.md)
 
 Se creo [ai_profile_utils.R](c:/Users/mcros/Documents/obfuscator/R/ai_profile_utils.R) y se movieron alli las utilidades base del helper. La recomendacion de no partir todos los bloques en una sola pasada sigue vigente.
+
+## Actualizacion posterior 2
+
+La segunda particion se implemento en:
+
+- [2026-05-22_segunda_particion_contexto_de_fuente_del_helper_ia.md](c:/Users/mcros/Documents/obfuscator/docs/06_desarrollo/fases/2026-05-22_segunda_particion_contexto_de_fuente_del_helper_ia.md)
+
+Se creo [ai_profile_source_context.R](c:/Users/mcros/Documents/obfuscator/R/ai_profile_source_context.R) y se movieron alli las funciones de normalizacion, deteccion y fusion de contexto de fuente. La recomendacion de modularizacion incremental sigue vigente.

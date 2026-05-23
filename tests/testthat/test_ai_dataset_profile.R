@@ -12,6 +12,7 @@ new_contextoia_candidate_env <- function() {
   env <- new.env(parent = baseenv())
   assign("%||%", function(x, y) if (is.null(x)) y else x, envir = env)
   sys.source(file.path("..", "..", "R", "ai_profile_utils.R"), envir = env)
+  sys.source(file.path("..", "..", "R", "ai_profile_source_context.R"), envir = env)
   sys.source(file.path("..", "..", "R", "ai_dataset_profile.R"), envir = env)
   env
 }
@@ -74,6 +75,7 @@ test_that("helper IA no depende de utilidades release_safe del core de Obfuscato
     "Unidad organizativa con nombre largo B",
     "Unidad organizativa con nombre largo C"
   )))
+  expect_equal(env$ai_profile_normalize_tipo_fuente("GCA2")$source_context$type, "gca2")
 })
 
 test_that("render_dataset_profile_for_ai devuelve texto compacto util", {
