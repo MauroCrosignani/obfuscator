@@ -64,7 +64,7 @@ Ademas, se hizo una pequena correccion de consistencia en alertas de origen para
 - indice documental:
   - [README.md](c:/Users/mcros/Documents/obfuscator/docs/README.md)
 - notas de uso de agentes:
-  - [AGENT_EXECUTION_NOTES.md](c:/Users/mcros/Documents/obfuscator/docs/AGENT_EXECUTION_NOTES.md)
+  - [AGENT_EXECUTION_NOTES.md](c:/Users/mcros/Documents/obfuscator/docs/06_desarrollo/metodologia-agentes/AGENT_EXECUTION_NOTES.md)
 
 ## Verificacion ejecutada
 

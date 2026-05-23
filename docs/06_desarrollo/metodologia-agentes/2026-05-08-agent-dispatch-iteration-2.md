@@ -190,11 +190,11 @@ Antes del dispatch:
 - `docs/AUDITORIA_ESTADO_ACTUAL_2026-05-06.md`
 - `docs/superpowers/specs/2026-05-06-liberacion-segura-a-terceros-design.md`
 - `docs/superpowers/plans/2026-05-06-liberacion-segura-a-terceros-implementation-plan.md`
-- `docs/AGENT_EXECUTION_NOTES.md`
+- `docs/06_desarrollo/metodologia-agentes/AGENT_EXECUTION_NOTES.md`
 
 ### 7.4 Razon para incluir notas de ejecucion
 
-En esta iteracion, `docs/AGENT_EXECUTION_NOTES.md` pasa a ser contexto normativo secundario porque ya contiene una leccion real:
+En esta iteracion, `docs/06_desarrollo/metodologia-agentes/AGENT_EXECUTION_NOTES.md` pasa a ser contexto normativo secundario porque ya contiene una leccion real:
 - el valor de sincronizar documentacion en worktrees antes del dispatch
 
 ---
@@ -327,7 +327,7 @@ Documentacion normativa disponible dentro del worktree:
 - <RUTA_WORKTREE_B>/docs/AUDITORIA_ESTADO_ACTUAL_2026-05-06.md
 - <RUTA_WORKTREE_B>/docs/superpowers/specs/2026-05-06-liberacion-segura-a-terceros-design.md
 - <RUTA_WORKTREE_B>/docs/superpowers/plans/2026-05-06-liberacion-segura-a-terceros-implementation-plan.md
-- <RUTA_WORKTREE_B>/docs/AGENT_EXECUTION_NOTES.md
+- <RUTA_WORKTREE_B>/docs/06_desarrollo/metodologia-agentes/AGENT_EXECUTION_NOTES.md
 
 Usa esas rutas reales del worktree. No asumas contexto del workspace principal ni de archivos que no existan en este worktree.
 

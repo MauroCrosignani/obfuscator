@@ -17,7 +17,7 @@ Conclusion practica:
 - plan de implementacion:
   - [2026-05-19-mejoras-semanticas-para-resumen_de-y-profile_dataset_for_ai-implementation-plan.md](c:/Users/mcros/Documents/obfuscator/docs/03_planes/2026-05-19-mejoras-semanticas-para-resumen_de-y-profile_dataset_for_ai-implementation-plan.md)
 - notas de uso de subagentes:
-  - [AGENT_EXECUTION_NOTES.md](c:/Users/mcros/Documents/obfuscator/docs/AGENT_EXECUTION_NOTES.md)
+  - [AGENT_EXECUTION_NOTES.md](c:/Users/mcros/Documents/obfuscator/docs/06_desarrollo/metodologia-agentes/AGENT_EXECUTION_NOTES.md)
 
 ## Problema tratado
 
@@ -78,7 +78,7 @@ Se uso un subagente revisor de plan en varias rondas. El resultado fue util para
 
 La trazabilidad de ese uso quedo asentada en:
 
-- [AGENT_EXECUTION_NOTES.md](c:/Users/mcros/Documents/obfuscator/docs/AGENT_EXECUTION_NOTES.md)
+- [AGENT_EXECUTION_NOTES.md](c:/Users/mcros/Documents/obfuscator/docs/06_desarrollo/metodologia-agentes/AGENT_EXECUTION_NOTES.md)
 
 ## Verificacion realizada
 

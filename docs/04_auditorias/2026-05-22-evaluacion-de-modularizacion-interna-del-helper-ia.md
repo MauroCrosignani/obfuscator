@@ -240,3 +240,11 @@ La segunda particion se implemento en:
 - [2026-05-22_segunda_particion_contexto_de_fuente_del_helper_ia.md](c:/Users/mcros/Documents/obfuscator/docs/06_desarrollo/fases/2026-05-22_segunda_particion_contexto_de_fuente_del_helper_ia.md)
 
 Se creo [ai_profile_source_context.R](c:/Users/mcros/Documents/obfuscator/R/ai_profile_source_context.R) y se movieron alli las funciones de normalizacion, deteccion y fusion de contexto de fuente. La recomendacion de modularizacion incremental sigue vigente.
+
+## Actualizacion posterior 3
+
+La tercera particion se implemento en:
+
+- [2026-05-23_tercera_particion_metadata_externa_del_helper_ia.md](c:/Users/mcros/Documents/obfuscator/docs/06_desarrollo/fases/2026-05-23_tercera_particion_metadata_externa_del_helper_ia.md)
+
+Se creo [ai_profile_metadata.R](c:/Users/mcros/Documents/obfuscator/R/ai_profile_metadata.R) y se movieron alli las funciones de carga, validacion, resolucion y alertas de metadata externa. La recomendacion de modularizacion incremental sigue vigente: no separar inferencia por variable ni render hasta que esta frontera quede verificada en suite completa y CI.
