@@ -211,6 +211,7 @@ load_obfuscator_companion("release_decision_helpers.R")
 load_obfuscator_companion("ai_profile_utils.R")
 load_obfuscator_companion("ai_profile_source_context.R")
 load_obfuscator_companion("ai_profile_metadata.R")
+load_obfuscator_companion("ai_profile_variables.R")
 load_obfuscator_companion("ai_dataset_profile.R")
 
 obfuscator_config <- function(

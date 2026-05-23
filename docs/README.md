@@ -119,6 +119,8 @@ Cuando corresponda, cada documento deberia distinguir explicitamente:
   - [2026-05-22_segunda_particion_contexto_de_fuente_del_helper_ia.md](c:/Users/mcros/Documents/obfuscator/docs/06_desarrollo/fases/2026-05-22_segunda_particion_contexto_de_fuente_del_helper_ia.md)
 - cierre vigente de tercera particion de metadata externa del helper IA:
   - [2026-05-23_tercera_particion_metadata_externa_del_helper_ia.md](c:/Users/mcros/Documents/obfuscator/docs/06_desarrollo/fases/2026-05-23_tercera_particion_metadata_externa_del_helper_ia.md)
+- cierre vigente de cuarta particion de inferencia y resumen por variable del helper IA:
+  - [2026-05-23_cuarta_particion_inferencia_y_resumen_por_variable_del_helper_ia.md](c:/Users/mcros/Documents/obfuscator/docs/06_desarrollo/fases/2026-05-23_cuarta_particion_inferencia_y_resumen_por_variable_del_helper_ia.md)
 - cierre post-merge vigente del PR #1 sobre helper IA y transicion hacia `contextoia`:
   - [2026-05-23_cierre_post_merge_pr1_contextoia.md](c:/Users/mcros/Documents/obfuscator/docs/06_desarrollo/fases/2026-05-23_cierre_post_merge_pr1_contextoia.md)
 - ajuste vigente de dependencias de tests para CI:
