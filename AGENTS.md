@@ -14,9 +14,9 @@ run_obfuscator_app()
 ```
 
 ## Estado Actual
-- **Fase**: Implementación de "Persistencia de Clasificación (Proactive Assistant)".
-- **Último hito**: k-anonymity verificado y corregido en UI/Core.
-- **Pendiente**: Sistema de guardado/carga de plantillas JSON con fuzzy matching.
+- **Fase**: Transición del helper IA hacia paquete independiente `contextoia`.
+- **Último hito**: helper IA modularizado en utilidades, fuente, metadata, variables, render y orquestación/API.
+- **Pendiente**: housekeeping operativo/documental y plan de extracción inicial de `contextoia`.
 
 ## Reglas de Oro
 1. **Auditoría Radical**: Las transformaciones deben ser obvias visualmente (ej. prefijo 999).

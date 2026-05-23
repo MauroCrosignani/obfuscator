@@ -105,8 +105,14 @@ Capa tecnica vigente:
 
 Ubicaciones:
 
-- implementacion:
+- interfaz y orquestacion:
   - [R/ai_dataset_profile.R](c:/Users/mcros/Documents/obfuscator/R/ai_dataset_profile.R)
+- modulos internos:
+  - [R/ai_profile_utils.R](c:/Users/mcros/Documents/obfuscator/R/ai_profile_utils.R)
+  - [R/ai_profile_source_context.R](c:/Users/mcros/Documents/obfuscator/R/ai_profile_source_context.R)
+  - [R/ai_profile_metadata.R](c:/Users/mcros/Documents/obfuscator/R/ai_profile_metadata.R)
+  - [R/ai_profile_variables.R](c:/Users/mcros/Documents/obfuscator/R/ai_profile_variables.R)
+  - [R/ai_profile_render.R](c:/Users/mcros/Documents/obfuscator/R/ai_profile_render.R)
 - tests:
   - [test_ai_dataset_profile.R](c:/Users/mcros/Documents/obfuscator/tests/testthat/test_ai_dataset_profile.R)
 - guia operativa:
