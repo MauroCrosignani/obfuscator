@@ -382,6 +382,74 @@ Sino combinar:
 - aliases
 - y confianza de resolucion
 
+## Acciones recomendables cuando una crisis abre una oportunidad
+
+Cada crisis de uso, prueba o implementacion deberia tratarse como una oportunidad acotada para mejorar el sistema, no como una invitacion a cambiarlo todo. La reaccion optima es capturar el aprendizaje mientras esta fresco, pero convertirlo en una mejora pequena, verificable y documentada.
+
+### 1. Separar incidente, causa y oportunidad
+
+Ante un fallo o una salida confusa, registrar tres cosas por separado:
+
+- que ocurrio;
+- que supuesto se rompio;
+- que nueva capacidad o regla conviene agregar.
+
+Esto evita confundir el sintoma inmediato con una solucion apresurada.
+
+### 2. Convertir la crisis en un caso de prueba
+
+Si el problema puede repetirse, deberia transformarse en:
+
+- un test automatico;
+- un caso manual de verificacion;
+- o un ejemplo documental minimo.
+
+La crisis solo queda realmente aprovechada cuando el mismo error no puede reaparecer silenciosamente.
+
+### 3. Documentar la decision antes de normalizarla
+
+Cuando la crisis obliga a elegir una politica nueva, la decision deberia quedar escrita con:
+
+- el problema observado;
+- la alternativa elegida;
+- las alternativas descartadas;
+- y el criterio para revisar la decision mas adelante.
+
+Esto es especialmente importante si la solucion afecta metadata, inferencia semantica o advertencias al usuario.
+
+### 4. Mantener degradacion segura como respuesta por defecto
+
+En una crisis, la tentacion natural es resolver mas agresivamente. Para este helper, la oportunidad se aprovecha mejor si la respuesta por defecto sigue siendo:
+
+- bajar confianza;
+- advertir;
+- no aplicar metadata dudosa;
+- y conservar utilidad con heuristicas.
+
+La crisis debe aumentar la precision futura, no la audacia silenciosa del sistema.
+
+### 5. Extraer una regla reusable si el patron se repite
+
+Si el mismo tipo de crisis aparece en mas de un dataset, fuente o usuario, conviene convertirlo en una regla reusable:
+
+- una nueva heuristica;
+- una alerta especifica;
+- una validacion de metadata;
+- o una recomendacion de uso en la guia operativa.
+
+Si aparece una sola vez, puede alcanzar con documentarlo como caso conocido y no sobrediseniar.
+
+### 6. Usar la crisis para mejorar comunicacion, no solo codigo
+
+Algunas crisis no revelan un bug tecnico sino una ambiguedad para el usuario o para la IA. En esos casos, la mejora optima puede ser:
+
+- cambiar una frase del resumen;
+- distinguir evidencia de supuesto;
+- explicar mejor el nivel de confianza;
+- o agregar una advertencia accionable.
+
+El aprendizaje no siempre debe terminar en mas automatizacion.
+
 ## Decision final
 
 Antes de implementar el resolvedor de fuente y metadata, se aprueba este premortem como guia de robustez.
