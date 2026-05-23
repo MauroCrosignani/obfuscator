@@ -187,7 +187,7 @@ ai_profile_detect_gca2_source_from_workbook <- function(path, sheets) {
   query_id <- ai_profile_find_label_value(char_matrix, "Id de Consulta")
   execution_id <- ai_profile_find_label_value(char_matrix, "Id. Ejecucion")
   if (is.null(execution_id)) {
-    execution_id <- ai_profile_find_label_value(char_matrix, "Id. EjecuciÃ³n")
+    execution_id <- ai_profile_find_label_value(char_matrix, "Id. Ejecución")
   }
 
   if (!(has_signature && !is.null(query_id) && grepl("^\\d+$", query_id))) {

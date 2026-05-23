@@ -215,11 +215,35 @@ test_that("archivo_fuente con firma GCA2 detecta contexto de origen", {
   expect_equal(profile$source_context$source, "detected_from_file")
   expect_equal(profile$source_context$confidence, "high")
   expect_equal(profile$source_context$source_id, "gca2:18631")
+  expect_equal(profile$source_context$details$execution_id, "123456")
   expect_match(
     render_dataset_profile_for_ai(profile),
     "Fuente inferida desde archivo: gca2\\.",
     ignore.case = TRUE
   )
+})
+
+test_that("archivo_fuente GCA2 reconoce etiqueta acentuada de ejecucion", {
+  workbook_path <- file.path(tempdir(), "consulta_18631_123456_acentuada.xlsx")
+  caratula <- data.frame(
+    col1 = c(NA, "Planilla generada por GCA2", "Nombre", "Id de Consulta", "Descripcion", "Id. Ejecución"),
+    col2 = c(NA, NA, "Consulta demo", "18631", "GCA2_18631_demo", "123456"),
+    stringsAsFactors = FALSE
+  )
+  salida <- data.frame(persona_id = c("P001", "P002"), stringsAsFactors = FALSE)
+  write_test_workbook(
+    workbook_path,
+    list("Caratula" = caratula, "salida_gca" = salida)
+  )
+
+  profile <- profile_dataset_for_ai(
+    salida,
+    dataset_name = "gca2_dataset_acento",
+    archivo_fuente = workbook_path
+  )
+
+  expect_equal(profile$source_context$type, "gca2")
+  expect_equal(profile$source_context$details$execution_id, "123456")
 })
 
 test_that("archivo_fuente ambiguo o incompleto no fuerza contexto fuerte", {
