@@ -1,39 +1,5 @@
-ai_profile_non_missing_values <- function(x) {
-  values <- x[!is.na(x)]
-  if (is.factor(values)) {
-    values <- as.character(values)
-  }
-  values
-}
-
-ai_profile_imported_type <- function(x) {
-  if (inherits(x, c("POSIXct", "POSIXlt", "POSIXt"))) {
-    return("datetime")
-  }
-  if (inherits(x, "Date")) {
-    return("date")
-  }
-  if (is.factor(x)) {
-    return("factor")
-  }
-  if (is.character(x)) {
-    return("character")
-  }
-  if (is.integer(x)) {
-    return("integer")
-  }
-  if (is.numeric(x)) {
-    return("numeric")
-  }
-  if (is.logical(x)) {
-    return("logical")
-  }
-
-  class(x)[1] %||% typeof(x)
-}
-
 ai_profile_identifier_name <- function(column_name) {
-  normalized_name <- normalize_release_safe_column_name(column_name)
+  normalized_name <- ai_profile_normalize_column_name(column_name)
   grepl(
     "(^|_)(id|rut|cedula|dni|nie|nic)(_|$)|identificador|persona_id|pers_id|expediente|matricula|contribuyente|correo|mail|email|e_mail|telefono|celular",
     normalized_name
@@ -41,7 +7,7 @@ ai_profile_identifier_name <- function(column_name) {
 }
 
 ai_profile_sensitive_name <- function(column_name) {
-  normalized_name <- normalize_release_safe_column_name(column_name)
+  normalized_name <- ai_profile_normalize_column_name(column_name)
   grepl(
     "diagnost|enfermed|patolog|beneficio|subsid|sancion|riesgo|situacion|indicador_privado|sensib|privad|ingreso",
     normalized_name
@@ -49,7 +15,7 @@ ai_profile_sensitive_name <- function(column_name) {
 }
 
 ai_profile_quasi_identifier_name <- function(column_name) {
-  normalized_name <- normalize_release_safe_column_name(column_name)
+  normalized_name <- ai_profile_normalize_column_name(column_name)
   grepl(
     "fecha|date|nacimiento|alta|periodo|mes|anio|edad|antiguedad|cantidad_hijos|tam_hogar|ingreso|salario|monto|facturacion|departamento|localidad|ocupacion|sector|tramo|educ|sexo",
     normalized_name
@@ -57,11 +23,16 @@ ai_profile_quasi_identifier_name <- function(column_name) {
 }
 
 ai_profile_expected_missingness_name <- function(column_name) {
-  normalized_name <- normalize_release_safe_column_name(column_name)
+  normalized_name <- ai_profile_normalize_column_name(column_name)
   grepl(
     "fecha_hasta|hasta$|end_date|fecha_fin|fin_vigencia|baja_fecha|cancelacion_fecha|cese_fecha|closed_at|ended_at",
     normalized_name
   )
+}
+
+ai_profile_numeric_code_like_name <- function(column_name) {
+  normalized_name <- ai_profile_normalize_column_name(column_name)
+  grepl("(cod|codigo|id|identif|tipo|clase|unidad)", normalized_name)
 }
 
 ai_profile_empty_config <- function() {
@@ -71,317 +42,6 @@ ai_profile_empty_config <- function() {
     columnas_identificatorias = character(0),
     columnas_texto_libre = character(0)
   )
-}
-
-ai_profile_normalize_tipo_fuente <- function(tipo_fuente) {
-  warnings <- character(0)
-
-  if (is.null(tipo_fuente)) {
-    return(list(tipo_fuente = NULL, source_context = list(
-      type = NULL,
-      source = "none",
-      confidence = NULL,
-      warnings = character(0)
-    ), warnings = warnings))
-  }
-
-  normalized <- tolower(trimws(as.character(tipo_fuente)[1]))
-  valid_types <- c("gca", "gca2", "oracle", "excel", "csv", "desconocida")
-
-  if (!normalized %in% valid_types) {
-    warnings <- c(
-      warnings,
-      if (identical(normalized, "odbc")) {
-        "`tipo_fuente = 'odbc'` no es un valor aprobado; usa `oracle` como categoria semantica."
-      } else {
-        sprintf(
-          "`tipo_fuente = '%s'` no es valido. Valores aceptados: %s.",
-          normalized,
-          paste(valid_types, collapse = ", ")
-        )
-      }
-    )
-
-    return(list(tipo_fuente = NULL, source_context = list(
-      type = NULL,
-      source = "none",
-      confidence = NULL,
-      warnings = warnings
-    ), warnings = warnings))
-  }
-
-  list(
-    tipo_fuente = normalized,
-    source_context = list(
-      type = normalized,
-      source = "declared_by_user",
-      confidence = "declared",
-      warnings = character(0)
-    ),
-    warnings = warnings
-  )
-}
-
-ai_profile_simple_hash <- function(text) {
-  values <- utf8ToInt(enc2utf8(text %||% ""))
-  if (length(values) == 0) {
-    return("00000000")
-  }
-  sprintf("%08x", sum(values * seq_along(values)) %% 2147483647)
-}
-
-ai_profile_slugify <- function(text) {
-  slug <- normalize_release_safe_column_name(text %||% "")
-  slug <- gsub("_+", "-", slug)
-  slug <- gsub("(^-|-$)", "", slug)
-  if (!nzchar(slug)) {
-    slug <- "fuente"
-  }
-  slug
-}
-
-ai_profile_read_sheet_matrix <- function(path, sheet) {
-  suppressWarnings(
-    readxl::read_excel(path, sheet = sheet, col_names = FALSE, .name_repair = "minimal")
-  )
-}
-
-ai_profile_sheet_char_matrix <- function(sheet_data) {
-  if (nrow(sheet_data) == 0 || ncol(sheet_data) == 0) {
-    return(matrix(character(0), nrow = 0, ncol = 0))
-  }
-  matrix(
-    trimws(replace(as.character(as.matrix(sheet_data)), is.na(as.matrix(sheet_data)), "")),
-    nrow = nrow(sheet_data),
-    ncol = ncol(sheet_data)
-  )
-}
-
-ai_profile_find_label_value <- function(char_matrix, label) {
-  if (length(char_matrix) == 0) {
-    return(NULL)
-  }
-  matches <- which(char_matrix == label, arr.ind = TRUE)
-  if (nrow(matches) == 0) {
-    return(NULL)
-  }
-  row <- matches[1, "row"]
-  col <- matches[1, "col"]
-
-  if (col < ncol(char_matrix)) {
-    right_values <- char_matrix[row, seq.int(col + 1, ncol(char_matrix))]
-    right_values <- right_values[nzchar(right_values)]
-    if (length(right_values) > 0) {
-      return(right_values[1])
-    }
-  }
-
-  if (row < nrow(char_matrix)) {
-    down_values <- char_matrix[seq.int(row + 1, nrow(char_matrix)), col]
-    down_values <- down_values[nzchar(down_values)]
-    if (length(down_values) > 0) {
-      return(down_values[1])
-    }
-  }
-
-  NULL
-}
-
-ai_profile_detect_gca_source_from_workbook <- function(path, sheets) {
-  if (!("Informacion de la consulta" %in% sheets) || !any(grepl("^Datos_Consulta", sheets))) {
-    return(NULL)
-  }
-
-  info_sheet <- ai_profile_read_sheet_matrix(path, "Informacion de la consulta")
-  char_matrix <- ai_profile_sheet_char_matrix(info_sheet)
-  if (length(char_matrix) == 0) {
-    return(NULL)
-  }
-
-  flat_values <- as.vector(char_matrix)
-  has_signature <- any(grepl("Planilla generada por el GCA", flat_values, ignore.case = TRUE))
-  has_title_label <- any(flat_values == "TituloL")
-  has_description_label <- any(grepl("^Descripcion:?$", flat_values, ignore.case = TRUE))
-  has_parameters_label <- any(grepl("^Parametros:?$", flat_values, ignore.case = TRUE))
-
-  if (!(has_signature && has_title_label && has_description_label && has_parameters_label)) {
-    return(NULL)
-  }
-
-  query_title <- ai_profile_find_label_value(char_matrix, "TituloL")
-  query_description <- ai_profile_find_label_value(char_matrix, "Descripcion:")
-  if (is.null(query_description)) {
-    query_description <- ai_profile_find_label_value(char_matrix, "Descripcion")
-  }
-  parameters_value <- ai_profile_find_label_value(char_matrix, "Parametros:")
-  if (is.null(parameters_value)) {
-    parameters_value <- ai_profile_find_label_value(char_matrix, "Parametros")
-  }
-
-  seed <- paste(query_title %||% "", query_description %||% "", collapse = "|")
-  source_id <- sprintf(
-    "gca:unresolved:%s:%s",
-    ai_profile_slugify(query_title %||% "consulta"),
-    ai_profile_simple_hash(seed)
-  )
-
-  list(
-    type = "gca",
-    source = "detected_from_file",
-    confidence = "medium",
-    source_id = source_id,
-    warnings = character(0),
-    file = list(
-      path = path,
-      status = "resolved",
-      extension = tools::file_ext(path)
-    ),
-    details = list(
-      query_title = query_title,
-      query_description = query_description,
-      parameters_present = !is.null(parameters_value) && nzchar(parameters_value)
-    )
-  )
-}
-
-ai_profile_detect_gca2_source_from_workbook <- function(path, sheets) {
-  if (!("Caratula" %in% sheets) || !("salida_gca" %in% sheets)) {
-    return(NULL)
-  }
-
-  cover_sheet <- ai_profile_read_sheet_matrix(path, "Caratula")
-  char_matrix <- ai_profile_sheet_char_matrix(cover_sheet)
-  if (length(char_matrix) == 0) {
-    return(NULL)
-  }
-
-  flat_values <- as.vector(char_matrix)
-  has_signature <- any(flat_values == "Planilla generada por GCA2")
-  query_id <- ai_profile_find_label_value(char_matrix, "Id de Consulta")
-  execution_id <- ai_profile_find_label_value(char_matrix, "Id. Ejecucion")
-  if (is.null(execution_id)) {
-    execution_id <- ai_profile_find_label_value(char_matrix, "Id. Ejecución")
-  }
-
-  if (!(has_signature && !is.null(query_id) && grepl("^\\d+$", query_id))) {
-    return(NULL)
-  }
-
-  list(
-    type = "gca2",
-    source = "detected_from_file",
-    confidence = "high",
-    source_id = sprintf("gca2:%s", query_id),
-    warnings = character(0),
-    file = list(
-      path = path,
-      status = "resolved",
-      extension = tools::file_ext(path)
-    ),
-    details = list(
-      query_id = query_id,
-      execution_id = execution_id,
-      query_name = ai_profile_find_label_value(char_matrix, "Nombre"),
-      query_description = ai_profile_find_label_value(char_matrix, "Descripcion")
-    )
-  )
-}
-
-ai_profile_detect_source_from_file <- function(archivo_fuente) {
-  if (is.null(archivo_fuente)) {
-    return(list(
-      source_context = list(
-        type = NULL,
-        source = "none",
-        confidence = NULL,
-        source_id = NULL,
-        warnings = character(0),
-        file = NULL,
-        details = NULL
-      ),
-      warnings = character(0)
-    ))
-  }
-
-  path <- normalizePath(archivo_fuente, winslash = "/", mustWork = FALSE)
-  if (!file.exists(path)) {
-    warning_text <- sprintf("El archivo_fuente '%s' no existe o no esta accesible.", archivo_fuente)
-    return(list(
-      source_context = list(
-        type = NULL,
-        source = "none",
-        confidence = NULL,
-        source_id = NULL,
-        warnings = warning_text,
-        file = list(path = path, status = "missing", extension = tools::file_ext(path)),
-        details = NULL
-      ),
-      warnings = warning_text
-    ))
-  }
-
-  extension <- tolower(tools::file_ext(path))
-  detected <- NULL
-
-  if (extension %in% c("xls", "xlsx")) {
-    sheets <- tryCatch(readxl::excel_sheets(path), error = function(e) NULL)
-    if (!is.null(sheets)) {
-      detected <- ai_profile_detect_gca2_source_from_workbook(path, sheets)
-      if (is.null(detected)) {
-        detected <- ai_profile_detect_gca_source_from_workbook(path, sheets)
-      }
-    }
-  }
-
-  if (is.null(detected)) {
-    warning_text <- sprintf(
-      "No se pudo resolver el contexto de origen desde archivo_fuente '%s'.",
-      basename(path)
-    )
-    return(list(
-      source_context = list(
-        type = NULL,
-        source = "none",
-        confidence = NULL,
-        source_id = NULL,
-        warnings = warning_text,
-        file = list(path = path, status = "unresolved", extension = extension),
-        details = NULL
-      ),
-      warnings = warning_text
-    ))
-  }
-
-  list(source_context = detected, warnings = detected$warnings %||% character(0))
-}
-
-ai_profile_merge_source_context <- function(tipo_fuente_context, file_context) {
-  declared_type <- tipo_fuente_context$source_context$type
-  file_type <- file_context$source_context$type
-  warnings <- unique(c(tipo_fuente_context$warnings, file_context$warnings))
-
-  if (!is.null(declared_type)) {
-    source_context <- tipo_fuente_context$source_context
-    source_context$file <- file_context$source_context$file
-    source_context$details <- file_context$source_context$details
-    source_context$source_id <- file_context$source_context$source_id
-    if (!is.null(file_type) && !identical(declared_type, file_type)) {
-      warnings <- c(
-        warnings,
-        sprintf(
-          "El tipo_fuente declarado ('%s') no coincide con la evidencia detectada en archivo_fuente ('%s').",
-          declared_type,
-          file_type
-        )
-      )
-    }
-    source_context$warnings <- unique(c(source_context$warnings, warnings))
-    return(list(source_context = source_context, warnings = unique(warnings)))
-  }
-
-  source_context <- file_context$source_context
-  source_context$warnings <- unique(c(source_context$warnings, warnings))
-  list(source_context = source_context, warnings = unique(warnings))
 }
 
 ai_profile_empty_source_metadata <- function() {
@@ -494,7 +154,7 @@ ai_profile_metadata_candidate_names <- function(source_context, dataset_name) {
 }
 
 ai_profile_normalize_column_name_for_matching <- function(name) {
-  normalize_release_safe_column_name(name %||% "")
+  ai_profile_normalize_column_name(name %||% "")
 }
 
 ai_profile_empty_column_resolution <- function() {
@@ -719,7 +379,7 @@ ai_profile_build_source_alerts <- function(source_metadata, variable_profiles) {
       )
     }
 
-    if (identical(expected_role, "identificatoria") && imported_type %in% c("numeric", "integer")) {
+    if (identical(expected_role, "identificatoria") && imported_type %in% c("double", "integer", "numeric")) {
       alerts <- c(
         alerts,
         sprintf(
@@ -894,15 +554,37 @@ ai_profile_looks_like_entity_label <- function(column_name, values) {
   punctuation_rate <- mean(grepl("[\\.!\\?;:]", values))
   digit_rate <- mean(grepl("\\d", values))
   title_case_rate <- mean(grepl("^[[:upper:]][[:alpha:]'`.-]*( [[:upper:]][[:alpha:]'`.-]*)*$", values))
-  explicit_name_hint <- grepl("(^|_)(name|nombre|label|etiqueta|title|titulo|cliente|persona|paciente|proveedor)($|_)", column_name, ignore.case = TRUE)
+  uppercase_label_rate <- mean(grepl("^[[:upper:]0-9'`.,()/-]+( [[:upper:]0-9'`.,()/-]+)*$", values))
+  explicit_name_hint <- grepl(
+    "(^|_)(name|nombre|label|etiqueta|title|titulo|cliente|persona|paciente|proveedor|unidad|oficina|gerencia|division|departamento|sector|area)($|_)",
+    column_name,
+    ignore.case = TRUE
+  )
 
-  unique_ratio >= 0.7 &&
-    max_length <= 40 &&
+  base_shape_match <- max_length <= 60 &&
     avg_words >= 1.5 &&
-    avg_words <= 4 &&
+    avg_words <= 6 &&
     punctuation_rate < 0.05 &&
-    digit_rate < 0.2 &&
-    (title_case_rate >= 0.6 || explicit_name_hint)
+    digit_rate < 0.2
+
+  repeated_institutional_label <- explicit_name_hint &&
+    uppercase_label_rate >= 0.6 &&
+    unique_ratio >= 0.4 &&
+    length(unique(values)) >= 3
+
+  canonical_entity_label <- unique_ratio >= 0.7 &&
+    (title_case_rate >= 0.6 || explicit_name_hint || uppercase_label_rate >= 0.6)
+
+  base_shape_match && (canonical_entity_label || repeated_institutional_label)
+}
+
+ai_profile_posix_has_substantive_time <- function(x) {
+  if (!inherits(x, c("POSIXct", "POSIXlt", "POSIXt"))) {
+    return(TRUE)
+  }
+
+  lt <- as.POSIXlt(x)
+  any((lt$hour %||% 0) != 0 | (lt$min %||% 0) != 0 | (lt$sec %||% 0) != 0, na.rm = TRUE)
 }
 
 ai_profile_collection_element_type <- function(x) {
@@ -1045,7 +727,7 @@ ai_profile_infer_type <- function(column_name, x, max_levels = 12) {
 
   if (inherits(x, c("POSIXct", "POSIXlt", "POSIXt"))) {
     return(list(
-      inferred_type = "datetime",
+      inferred_type = if (ai_profile_posix_has_substantive_time(x)) "datetime" else "date",
       observed_pattern = "POSIXt",
       warnings = character(0),
       confidence = "high"
@@ -1111,7 +793,7 @@ ai_profile_infer_type <- function(column_name, x, max_levels = 12) {
       ))
     }
 
-    if (release_safe_text_like_column(x)) {
+    if (ai_profile_text_like_column(x)) {
       return(list(
         inferred_type = "free_text",
         observed_pattern = NULL,
@@ -1378,10 +1060,39 @@ ai_profile_variable_summary <- function(column_name, x, inferred_type, role_gues
 
   if (identical(inferred_type, "numeric")) {
     numeric_values <- as.numeric(values)
+    non_missing_numeric <- numeric_values[!is.na(numeric_values)]
+    unique_non_missing <- unique(non_missing_numeric)
+    all_integerish <- length(non_missing_numeric) > 0 &&
+      all(abs(non_missing_numeric - round(non_missing_numeric)) < .Machine$double.eps^0.5)
+    all_equal <- length(unique_non_missing) == 1
+    observed_evidence <- character(0)
+    heuristic_signal <- character(0)
+
+    if (all_equal) {
+      observed_evidence <- c(
+        observed_evidence,
+        sprintf(
+          "todos los valores observados son iguales: %s",
+          format(non_missing_numeric[[1]], trim = TRUE, scientific = FALSE)
+        )
+      )
+    } else if (!is.integer(x) && all_integerish) {
+      observed_evidence <- c(observed_evidence, "solo toma valores enteros")
+    }
+
+    if (
+      ai_profile_numeric_code_like_name(column_name) &&
+      (all_equal || (!is.integer(x) && all_integerish))
+    ) {
+      heuristic_signal <- c(heuristic_signal, "podria funcionar como codigo numerico")
+    }
+
     return(list(
       min = round(min(numeric_values), round_digits),
       max = round(max(numeric_values), round_digits),
-      numeric_kind = if (is.integer(x)) "integer" else "double"
+      numeric_kind = if (is.integer(x)) "integer" else "double",
+      observed_evidence = observed_evidence,
+      heuristic_signal = heuristic_signal
     ))
   }
 
@@ -1548,12 +1259,23 @@ render_ai_profile_variable <- function(variable_profile, mode = "compact") {
     none = sprintf("; faltantes %.1f%%", missing_pct),
     sprintf("; faltantes %.1f%%", missing_pct)
   )
+  render_prefix <- function(semantic_label, style = "legacy") {
+    if (identical(style, "numeric_programmatic")) {
+      return(sprintf(
+        "tipo importado: %s; clasificacion programatica: %s",
+        imported_type,
+        semantic_label
+      ))
+    }
+
+    sprintf("importada como %s; interpretada como %s", imported_type, semantic_label)
+  }
 
   if (identical(inferred_type, "identifier")) {
     return(sprintf(
-      "- %s: identificador; importado como %s; unicidad aproximada %.1f%%; patron aproximado: %s%s.",
+      "- %s: %s; unicidad aproximada %.1f%%; patron aproximado: %s%s.",
       name,
-      imported_type,
+      render_prefix("identificador"),
       summary$approximate_uniqueness %||% 0,
       summary$approximate_pattern %||% "alfanumerico estructurado",
       missing_text
@@ -1579,16 +1301,16 @@ render_ai_profile_variable <- function(variable_profile, mode = "compact") {
       return(sprintf(
         "- %s: %s; niveles observados: %s; valores no listados por modo conservador%s.",
         name,
-        categorical_label,
+        render_prefix(categorical_label),
         summary$level_count %||% length(summary$values %||% character(0)),
         missing_text
       ))
     }
     if (isTRUE(summary$values_redacted)) {
       return(sprintf(
-        "- %s: %s sensible; niveles observados: %s; valores no listados por seguridad%s.",
+        "- %s: %s; niveles observados: %s; valores no listados por seguridad%s.",
         name,
-        categorical_label,
+        render_prefix(paste(categorical_label, "sensible")),
         summary$level_count %||% 0,
         missing_text
       ))
@@ -1597,19 +1319,19 @@ render_ai_profile_variable <- function(variable_profile, mode = "compact") {
       return(sprintf(
         "- %s: %s; %s: %s%s.",
         name,
-        categorical_label,
+        render_prefix(categorical_label),
         values_label,
-        paste(summary$values, collapse = ", "),
+        paste(ai_profile_quote_values(summary$values), collapse = ", "),
         missing_text
       ))
     }
     return(sprintf(
       "- %s: %s; niveles observados: %s; %s: %s%s.",
       name,
-      categorical_label,
+      render_prefix(categorical_label),
       summary$level_count %||% 0,
       top_label,
-      paste(summary$top_levels %||% character(0), collapse = ", "),
+      paste(ai_profile_quote_values(summary$top_levels %||% character(0)), collapse = ", "),
       missing_text
     ))
   }
@@ -1627,9 +1349,19 @@ render_ai_profile_variable <- function(variable_profile, mode = "compact") {
       "numerica"
     )
     return(sprintf(
-      "- %s: %s; rango aproximado %s-%s%s%s.",
+      "- %s: %s%s%s; rango aproximado %s-%s%s%s.",
       name,
-      numeric_label,
+      render_prefix(numeric_label, style = "numeric_programmatic"),
+      if (length(summary$observed_evidence %||% character(0)) > 0) {
+        sprintf("; evidencia observada: %s", paste(summary$observed_evidence, collapse = "; "))
+      } else {
+        ""
+      },
+      if (length(summary$heuristic_signal %||% character(0)) > 0) {
+        sprintf("; senal heuristica: %s", paste(summary$heuristic_signal, collapse = "; "))
+      } else {
+        ""
+      },
       format(summary$min, trim = TRUE, scientific = FALSE),
       format(summary$max, trim = TRUE, scientific = FALSE),
       suffix,
@@ -1649,10 +1381,9 @@ render_ai_profile_variable <- function(variable_profile, mode = "compact") {
       ""
     }
     return(sprintf(
-      "- %s: %s; importada como %s%s%s; rango aproximado %s%s.",
+      "- %s: %s%s%s; rango aproximado %s%s.",
       name,
-      if (identical(inferred_type, "date")) "fecha" else "fecha-hora",
-      imported_type,
+      render_prefix(if (identical(inferred_type, "date")) "fecha" else "fecha-hora"),
       detail,
       granularity,
       summary$range %||% "no disponible",
@@ -1662,8 +1393,9 @@ render_ai_profile_variable <- function(variable_profile, mode = "compact") {
 
   if (identical(inferred_type, "free_text")) {
     return(sprintf(
-      "- %s: texto libre; longitud tipica %s; alta variabilidad; no se incluyen ejemplos por seguridad%s.",
+      "- %s: %s; longitud tipica %s; alta variabilidad; no se incluyen ejemplos por seguridad%s.",
       name,
+      render_prefix("texto libre"),
       summary$typical_length %||% "no disponible",
       missing_text
     ))
@@ -1676,8 +1408,9 @@ render_ai_profile_variable <- function(variable_profile, mode = "compact") {
       "unicidad moderada"
     }
     return(sprintf(
-      "- %s: etiqueta nominal de entidad; %s; longitud tipica %s; no se incluyen ejemplos reales por seguridad%s.",
+      "- %s: %s; %s; longitud tipica %s; no se incluyen ejemplos reales por seguridad%s.",
       name,
+      render_prefix("etiqueta nominal de entidad"),
       uniqueness_label,
       summary$typical_length %||% "no disponible",
       missing_text
@@ -1701,15 +1434,16 @@ render_ai_profile_variable <- function(variable_profile, mode = "compact") {
       "cardinalidad variable"
     )
     return(sprintf(
-      "- %s: columna lista; contiene colecciones de %s por fila; %s%s.",
+      "- %s: %s; contiene colecciones de %s por fila; %s%s.",
       name,
+      render_prefix("columna lista"),
       element_label,
       collection_detail,
       missing_text
     ))
   }
 
-  sprintf("- %s: tipo inferido %s; importado como %s%s.", name, inferred_type, imported_type, missing_text)
+  sprintf("- %s: %s%s.", name, render_prefix(sprintf("tipo inferido %s", inferred_type)), missing_text)
 }
 
 render_dataset_profile_for_ai <- function(profile, mode = "compact") {

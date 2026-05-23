@@ -44,6 +44,7 @@ Pendientes recomendados:
 
 - boton para volver a las sugerencias automaticas de la app;
 - posibilidad de nombrar plantillas con un nombre amigable;
+- protocolo de nombres transparente para plantillas generadas, evitando depender solo de hashes opacos como nombre de archivo;
 - selector visible de plantillas compatibles, en lugar de depender solo del hash de esquema;
 - advertencia clara cuando se cargue automaticamente una plantilla previa;
 - posibilidad de distinguir entre plantillas personales de prueba y plantillas estables de trabajo.
@@ -54,6 +55,7 @@ Valor adicional explorado:
 - historial minimo de la plantilla activa: nombre visible, origen y momento de carga;
 - opcion para desactivar la carga automatica durante pruebas exploratorias;
 - criterio para agrupar plantillas por una raiz comun de nombre cuando varias estructuras pertenecen a la misma familia de datasets.
+- mantener el hash de esquema como identificador tecnico interno, pero mostrar y persistir tambien un alias humano, fuente o nombre de dataset cuando este disponible.
 - antes de implementar el primer paquete funcional, realizar un analisis UX/UI especifico del modulo de plantillas para validar:
   - visibilidad de plantilla activa;
   - friccion adecuada de `Volver a sugerencias automáticas`;

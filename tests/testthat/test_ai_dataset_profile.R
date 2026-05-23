@@ -2,6 +2,21 @@ library(testthat)
 
 source(file.path("..", "..", "R", "obfuscator_core.R"))
 
+new_fake_namespace_env <- function(name = "ObfuscatoR") {
+  env <- new.env(parent = emptyenv())
+  assign(".__NAMESPACE__.", list(spec = list(name = name)), envir = env)
+  env
+}
+
+new_contextoia_candidate_env <- function() {
+  env <- new.env(parent = baseenv())
+  assign("%||%", function(x, y) if (is.null(x)) y else x, envir = env)
+  sys.source(file.path("..", "..", "R", "ai_profile_utils.R"), envir = env)
+  sys.source(file.path("..", "..", "R", "ai_profile_source_context.R"), envir = env)
+  sys.source(file.path("..", "..", "R", "ai_dataset_profile.R"), envir = env)
+  env
+}
+
 write_test_workbook <- function(path, sheets) {
   expect_true(requireNamespace("writexl", quietly = TRUE))
   writexl::write_xlsx(sheets, path = path)
@@ -22,6 +37,45 @@ test_that("profile_dataset_for_ai devuelve estructura base", {
   expect_equal(profile$dimensions$cols, 5)
   expect_true("variables" %in% names(profile))
   expect_length(profile$variables, 5)
+})
+
+test_that("loader de companions distingue contexto de source y contexto de namespace", {
+  core_path <- normalizePath(file.path("..", "..", "R", "obfuscator_core.R"), winslash = "/", mustWork = TRUE)
+  source_mode <- obfuscator_companion_loading_mode(
+    target_env = globalenv(),
+    source_files = c(core_path)
+  )
+  namespace_mode <- obfuscator_companion_loading_mode(
+    target_env = new_fake_namespace_env()
+  )
+
+  expect_equal(source_mode$mode, "source")
+  expect_match(source_mode$current_file, "obfuscator_core\\.R$", ignore.case = TRUE)
+  expect_equal(namespace_mode$mode, "namespace")
+  expect_null(namespace_mode$current_file)
+})
+
+test_that("load_obfuscator_companion no intenta sourcear companions en contexto de namespace", {
+  expect_invisible(
+    load_obfuscator_companion(
+      "archivo_inexistente.R",
+      target_env = new_fake_namespace_env()
+    )
+  )
+})
+
+test_that("helper IA no depende de utilidades release_safe del core de ObfuscatoR", {
+  env <- new_contextoia_candidate_env()
+
+  expect_false(exists("normalize_release_safe_column_name", envir = env, inherits = TRUE))
+  expect_false(exists("release_safe_text_like_column", envir = env, inherits = TRUE))
+  expect_equal(env$ai_profile_slugify("Nombre de Unidad"), "nombre-de-unidad")
+  expect_true(env$ai_profile_text_like_column(c(
+    "Unidad organizativa con nombre largo A",
+    "Unidad organizativa con nombre largo B",
+    "Unidad organizativa con nombre largo C"
+  )))
+  expect_equal(env$ai_profile_normalize_tipo_fuente("GCA2")$source_context$type, "gca2")
 })
 
 test_that("render_dataset_profile_for_ai devuelve texto compacto util", {
@@ -161,11 +215,35 @@ test_that("archivo_fuente con firma GCA2 detecta contexto de origen", {
   expect_equal(profile$source_context$source, "detected_from_file")
   expect_equal(profile$source_context$confidence, "high")
   expect_equal(profile$source_context$source_id, "gca2:18631")
+  expect_equal(profile$source_context$details$execution_id, "123456")
   expect_match(
     render_dataset_profile_for_ai(profile),
     "Fuente inferida desde archivo: gca2\\.",
     ignore.case = TRUE
   )
+})
+
+test_that("archivo_fuente GCA2 reconoce etiqueta acentuada de ejecucion", {
+  workbook_path <- file.path(tempdir(), "consulta_18631_123456_acentuada.xlsx")
+  caratula <- data.frame(
+    col1 = c(NA, "Planilla generada por GCA2", "Nombre", "Id de Consulta", "Descripcion", "Id. Ejecución"),
+    col2 = c(NA, NA, "Consulta demo", "18631", "GCA2_18631_demo", "123456"),
+    stringsAsFactors = FALSE
+  )
+  salida <- data.frame(persona_id = c("P001", "P002"), stringsAsFactors = FALSE)
+  write_test_workbook(
+    workbook_path,
+    list("Caratula" = caratula, "salida_gca" = salida)
+  )
+
+  profile <- profile_dataset_for_ai(
+    salida,
+    dataset_name = "gca2_dataset_acento",
+    archivo_fuente = workbook_path
+  )
+
+  expect_equal(profile$source_context$type, "gca2")
+  expect_equal(profile$source_context$details$execution_id, "123456")
 })
 
 test_that("archivo_fuente ambiguo o incompleto no fuerza contexto fuerte", {
@@ -626,7 +704,7 @@ test_that("genera alerta cuando un identificador esperado sigue como numerico", 
 
   expect_true(any(grepl("numero_empresa", profile$source_alerts, fixed = TRUE)))
   expect_true(any(grepl("identificador", profile$source_alerts, ignore.case = TRUE)))
-  expect_true(any(grepl("numeric", profile$source_alerts, ignore.case = TRUE)))
+  expect_true(any(grepl("double|integer|numeric", profile$source_alerts, ignore.case = TRUE)))
 })
 
 test_that("registra faltantes altos pero esperables como senal informativa", {
@@ -904,8 +982,8 @@ test_that("categoricas cortas no se confunden con texto libre por muestras chica
   rendered <- render_dataset_profile_for_ai(profile)
 
   expect_equal(profile$variables$tramo$inferred_type, "categorical")
-  expect_match(rendered, "tramo: categorica", ignore.case = TRUE)
-  expect_match(rendered, "A, B, C")
+  expect_match(rendered, "tramo: importada como character; interpretada como categorica", ignore.case = TRUE)
+  expect_match(rendered, "\"A\", \"B\", \"C\"")
 })
 
 test_that("categorias sensibles no listan sus valores reales por defecto", {
@@ -967,8 +1045,8 @@ test_that("modo conservador redacciona categoricas no triviales aunque no sean s
   profile <- profile_dataset_for_ai(df, dataset_name = "modo_conservador")
   rendered <- render_dataset_profile_for_ai(profile, mode = "conservative")
 
-  expect_match(rendered, "departamento: categorica; niveles observados: 3; valores no listados por modo conservador", ignore.case = TRUE)
-  expect_match(rendered, "tramo: categorica; valores observados: A, B, C", ignore.case = TRUE)
+  expect_match(rendered, "departamento: importada como character; interpretada como categorica; niveles observados: 3; valores no listados por modo conservador", ignore.case = TRUE)
+  expect_match(rendered, "tramo: importada como character; interpretada como categorica; valores observados: \"A\", \"B\", \"C\"", ignore.case = TRUE)
 })
 
 test_that("semantica_starwars preserva mejor la estructura informativa", {
@@ -1010,7 +1088,7 @@ test_that("semantica_categorias_compuestas no rompe codigos cortos con slash", {
 
   expect_equal(profile$variables$codigo$inferred_type, "categorical")
   expect_equal(profile$variables$codigo$summary$value_shape %||% NULL, "simple")
-  expect_match(rendered, "codigo: categorica; valores observados: A/1, B/2, C/3, D, E", ignore.case = TRUE)
+  expect_match(rendered, "codigo: importada como character; interpretada como categorica; valores observados: \"A/1\", \"B/2\", \"C/3\", \"D\", \"E\"", ignore.case = TRUE)
 })
 
 test_that("semantica_alta_cardinalidad_nominal evita unknown cuando la columna es nominal", {
@@ -1030,6 +1108,33 @@ test_that("semantica_alta_cardinalidad_nominal evita unknown cuando la columna e
   expect_equal(profile$variables$homeworld$summary$cardinality_class %||% NULL, "high")
   expect_match(rendered, "niveles observados", ignore.case = TRUE)
   expect_match(rendered, "top niveles", ignore.case = TRUE)
+})
+
+test_that("renderer entrecomilla valores y top niveles visibles", {
+  df_values <- data.frame(
+    canal = c("PRESENCIAL", "WEB", "PRESENCIAL"),
+    stringsAsFactors = FALSE
+  )
+  df_top <- data.frame(
+    homeworld = c(
+      "Tatooine", "Naboo", "Alderaan", "Coruscant", "Kamino",
+      "Dagobah", "Bespin", "Endor", "Hoth", "Jakku",
+      "Tatooine", "Naboo"
+    ),
+    stringsAsFactors = FALSE
+  )
+
+  rendered_values <- render_dataset_profile_for_ai(
+    profile_dataset_for_ai(df_values, dataset_name = "quoted_values")
+  )
+  rendered_top <- render_dataset_profile_for_ai(
+    profile_dataset_for_ai(df_top, dataset_name = "quoted_top")
+  )
+
+  expect_match(rendered_values, "canal: importada como character; interpretada como categorica; valores observados: \"PRESENCIAL\", \"WEB\"", ignore.case = TRUE)
+  expect_match(rendered_top, "top niveles:", ignore.case = TRUE)
+  expect_match(rendered_top, "\"Tatooine\"", ignore.case = TRUE)
+  expect_match(rendered_top, "\"Naboo\"", ignore.case = TRUE)
 })
 
 test_that("semantica_alta_cardinalidad_free_text no sobreclasifica texto observacional", {
@@ -1062,6 +1167,7 @@ test_that("semantica_list_columns describe colecciones no atomicas", {
 
   expect_equal(profile$variables$films$inferred_type, "collection")
   expect_equal(profile$variables$films$summary$element_type %||% NULL, "character")
+  expect_match(rendered, "films: importada como list; interpretada como columna lista", ignore.case = TRUE)
   expect_match(rendered, "colecciones de texto", ignore.case = TRUE)
 })
 
@@ -1076,8 +1182,53 @@ test_that("semantica_numeric_kind distingue integer de double", {
 
   expect_equal(profile$variables$altura$summary$numeric_kind %||% NULL, "integer")
   expect_equal(profile$variables$peso$summary$numeric_kind %||% NULL, "double")
-  expect_match(rendered, "altura: numerica entera", ignore.case = TRUE)
-  expect_match(rendered, "peso: numerica decimal", ignore.case = TRUE)
+  expect_match(rendered, "altura: tipo importado: integer; clasificacion programatica: numerica entera", ignore.case = TRUE)
+  expect_match(rendered, "peso: tipo importado: double; clasificacion programatica: numerica decimal", ignore.case = TRUE)
+  expect_no_match(rendered, "peso: .*evidencia observada", ignore.case = TRUE)
+})
+
+test_that("renderer numerico agrega evidencia observada para double enteriformes y valores unicos", {
+  df <- data.frame(
+    unidad_funcional = c(124, 180, 244, 124),
+    cod_tipo_variable = c(14, 14, 14, 14)
+  )
+
+  rendered <- render_dataset_profile_for_ai(
+    profile_dataset_for_ai(df, dataset_name = "numeric_evidence")
+  )
+
+  expect_match(
+    rendered,
+    "unidad_funcional: tipo importado: double; clasificacion programatica: numerica decimal; evidencia observada: solo toma valores enteros",
+    ignore.case = TRUE
+  )
+  expect_match(
+    rendered,
+    "cod_tipo_variable: tipo importado: double; clasificacion programatica: numerica decimal; evidencia observada: todos los valores observados son iguales: 14",
+    ignore.case = TRUE
+  )
+})
+
+test_that("renderer numerico agrega senal heuristica prudente de posible codigo numerico", {
+  df <- data.frame(
+    cod_tipo_variable = c(14, 14, 14, 14),
+    peso = c(70.5, 80.0, 90.2, 75.3)
+  )
+
+  rendered <- render_dataset_profile_for_ai(
+    profile_dataset_for_ai(df, dataset_name = "numeric_signal")
+  )
+
+  expect_match(
+    rendered,
+    "cod_tipo_variable: tipo importado: double; clasificacion programatica: numerica decimal; evidencia observada: todos los valores observados son iguales: 14; senal heuristica: podria funcionar como codigo numerico",
+    ignore.case = TRUE
+  )
+  expect_no_match(
+    rendered,
+    "peso: .*senal heuristica: podria funcionar como codigo numerico",
+    ignore.case = TRUE
+  )
 })
 
 test_that("semantica_regresion_renderer_simple mantiene categoricas simples y modo conservador", {
@@ -1091,8 +1242,21 @@ test_that("semantica_regresion_renderer_simple mantiene categoricas simples y mo
   rendered_normal <- render_dataset_profile_for_ai(profile)
   rendered_conservative <- render_dataset_profile_for_ai(profile, mode = "conservative")
 
-  expect_match(rendered_normal, "tramo: categorica; valores observados: A, B, C", ignore.case = TRUE)
-  expect_match(rendered_conservative, "departamento: categorica; niveles observados: 3; valores no listados por modo conservador", ignore.case = TRUE)
+  expect_match(rendered_normal, "tramo: importada como character; interpretada como categorica; valores observados: \"A\", \"B\", \"C\"", ignore.case = TRUE)
+  expect_match(rendered_conservative, "departamento: importada como character; interpretada como categorica; niveles observados: 3; valores no listados por modo conservador", ignore.case = TRUE)
+})
+
+test_that("renderer visible distingue categoricas importadas como factor", {
+  df <- data.frame(
+    tramo_factor = factor(c("A", "B", "C")),
+    stringsAsFactors = FALSE
+  )
+
+  profile <- profile_dataset_for_ai(df, dataset_name = "factor_visible")
+  rendered <- render_dataset_profile_for_ai(profile)
+
+  expect_equal(profile$variables$tramo_factor$imported_type, "factor")
+  expect_match(rendered, "tramo_factor: importada como factor; interpretada como categorica", ignore.case = TRUE)
 })
 
 test_that("semantica_entity_label diferencia nombres de entidad de texto libre abierto", {
@@ -1105,7 +1269,7 @@ test_that("semantica_entity_label diferencia nombres de entidad de texto libre a
   rendered <- render_dataset_profile_for_ai(profile)
 
   expect_equal(profile$variables$nombre$inferred_type, "entity_label")
-  expect_match(rendered, "etiqueta nominal de entidad", ignore.case = TRUE)
+  expect_match(rendered, "nombre: importada como character; interpretada como etiqueta nominal de entidad", ignore.case = TRUE)
   expect_false(grepl("Luke Skywalker|Leia Organa|Han Solo", rendered))
 })
 
@@ -1118,6 +1282,71 @@ test_that("semantica_entity_label reconoce etiquetas de entidad aunque el nombre
   profile <- profile_dataset_for_ai(df, dataset_name = "entity_label_cliente")
 
   expect_equal(profile$variables$cliente$inferred_type, "entity_label")
+})
+
+test_that("nombres institucionales repetibles no caen facilmente como texto libre", {
+  df <- data.frame(
+    NOMBRE_UNIDAD = c(
+      "GERENCIA DE CONTROL Y COBRO",
+      "GERENCIA DE CONTROL Y COBRO",
+      "OFICINA TECNICA MONTEVIDEO",
+      "OFICINA TECNICA MONTEVIDEO",
+      "DIVISION APOYO A EMPRESAS"
+    ),
+    stringsAsFactors = FALSE
+  )
+
+  profile <- profile_dataset_for_ai(df, dataset_name = "nombres_institucionales")
+  rendered <- render_dataset_profile_for_ai(profile)
+
+  expect_equal(profile$variables$NOMBRE_UNIDAD$inferred_type, "entity_label")
+  expect_match(rendered, "NOMBRE_UNIDAD: importada como character; interpretada como etiqueta nominal de entidad", ignore.case = TRUE)
+})
+
+test_that("renderer visible conserva tipo importado en temporales parseados y temporales en texto", {
+  df_parseado <- data.frame(
+    fecha_alta = as.Date(c("2024-01-01", "2024-01-02", "2024-01-03"))
+  )
+  df_texto <- data.frame(
+    fecha_evento = c(
+      "2024-01-01 10:00:00",
+      "2024-01-02 11:30:00",
+      "2024-01-03 12:45:00"
+    ),
+    stringsAsFactors = FALSE
+  )
+
+  profile_parseado <- profile_dataset_for_ai(df_parseado, dataset_name = "temporal_parseado")
+  profile_texto <- profile_dataset_for_ai(df_texto, dataset_name = "temporal_texto")
+  rendered_parseado <- render_dataset_profile_for_ai(profile_parseado)
+  rendered_texto <- render_dataset_profile_for_ai(profile_texto)
+
+  expect_match(rendered_parseado, "fecha_alta: importada como Date; interpretada como fecha", ignore.case = TRUE)
+  expect_match(rendered_texto, "fecha_evento: importada como character; interpretada como fecha-hora", ignore.case = TRUE)
+})
+
+test_that("POSIXct con hora no sustantiva se interpreta como fecha y con hora variable como fecha-hora", {
+  df_midnight <- data.frame(
+    FECHA_DESDE = as.POSIXct(
+      c("2024-01-01 00:00:00", "2024-01-02 00:00:00", "2024-01-03 00:00:00"),
+      tz = "UTC"
+    )
+  )
+  df_time <- data.frame(
+    FCH_ULT_ACT = as.POSIXct(
+      c("2024-01-01 08:15:00", "2024-01-02 09:45:00", "2024-01-03 11:30:00"),
+      tz = "UTC"
+    )
+  )
+
+  profile_midnight <- profile_dataset_for_ai(df_midnight, dataset_name = "posix_midnight")
+  profile_time <- profile_dataset_for_ai(df_time, dataset_name = "posix_time")
+  rendered_midnight <- render_dataset_profile_for_ai(profile_midnight)
+  rendered_time <- render_dataset_profile_for_ai(profile_time)
+
+  expect_equal(profile_midnight$variables$FECHA_DESDE$imported_type, "POSIXct")
+  expect_match(rendered_midnight, "FECHA_DESDE: importada como POSIXct; interpretada como fecha;", ignore.case = TRUE)
+  expect_match(rendered_time, "FCH_ULT_ACT: importada como POSIXct; interpretada como fecha-hora;", ignore.case = TRUE)
 })
 
 test_that("semantica_warning_precision separa advertencias por familia de riesgo", {
@@ -1262,4 +1491,11 @@ test_that("resumen_de falla en espanol para salida invalida", {
 test_that("resumen_de debe quedar exportada en el paquete", {
   namespace_lines <- readLines(file.path("..", "..", "NAMESPACE"), warn = FALSE)
   expect_true(any(grepl("^export\\(resumen_de\\)$", namespace_lines)))
+})
+
+test_that("la API publica del helper se mantiene en espanol", {
+  namespace_lines <- readLines(file.path("..", "..", "NAMESPACE"), warn = FALSE)
+
+  expect_false(any(grepl("^export\\(profile_dataset_for_ai\\)$", namespace_lines)))
+  expect_false(any(grepl("^export\\(render_dataset_profile_for_ai\\)$", namespace_lines)))
 })

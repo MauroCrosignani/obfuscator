@@ -27,6 +27,15 @@ source("c:/Users/mcros/Documents/obfuscator/R/obfuscator_core.R")
 cat(resumen_de(iris))
 ```
 
+Tambien ya puede cargarse en modo paquete durante desarrollo:
+
+```r
+devtools::load_all(".")
+cat(resumen_de(iris))
+```
+
+En esta etapa, `source("R/obfuscator_core.R")` sigue existiendo como puente transicional. La direccion de trabajo vigente es que el helper pueda evolucionar hacia `contextoia` sin depender estructuralmente de ese bootstrap.
+
 Si necesitas una salida mas prudente:
 
 ```r
@@ -73,12 +82,21 @@ Hoy el helper ya no se limita a resumir por tipo importado. Tambien preserva mej
 
 Esto incluye:
 
+- visibilidad explicita del `tipo importado` exacto junto con la interpretacion semantica;
 - distincion entre `numerica entera` y `numerica decimal`;
+- separacion explicita entre `clasificacion programatica`, `evidencia observada` y `senal heuristica` para numericas institucionales cuando la evidencia alcanza;
+- entrecomillado con comillas dobles de valores visibles en categoricas y top niveles;
 - deteccion de categorias compuestas cuando una misma celda contiene varias etiquetas separadas;
 - mejor tratamiento de `character` nominales de alta cardinalidad para no caer innecesariamente en `unknown`;
 - descripcion estructural de `list-columns` como colecciones por fila;
-- diferenciacion entre `texto libre` y `etiqueta nominal de entidad` cuando la evidencia alcanza;
+- diferenciacion entre `texto libre` y `etiqueta nominal de entidad` cuando la evidencia alcanza, incluyendo nombres institucionales repetibles;
+- reinterpretacion de `POSIXct` como `fecha` cuando la hora no aporta informacion sustantiva;
 - advertencias mas precisas por familia de riesgo en vez de una sola advertencia demasiado general.
+
+Patron visible vigente del renderer:
+
+- `importada como <tipo>; interpretada como <semantica>; ...`
+- `tipo importado: <tipo>; clasificacion programatica: <semantica>; evidencia observada: ...; senal heuristica: ...`
 
 ## Firmas vigentes del core
 
@@ -240,7 +258,7 @@ config_perfil_ia <- list(
 Hoy el helper puede señalar, entre otras, estas situaciones:
 
 - fecha o fecha-hora esperada que sigue llegando como `character`;
-- identificador esperado que sigue como `numeric` o `integer`;
+- identificador esperado que sigue como `double` o `integer`;
 - faltantes altos esperables;
 - faltantes altos inesperados;
 - columnas esperadas no resueltas por nombre exacto o normalizado.
@@ -249,26 +267,40 @@ Hoy el helper puede señalar, entre otras, estas situaciones:
 
 ### Numericas
 
+- muestran primero el tipo importado exacto, por ejemplo `integer` o `double`;
 - distinguen entre `integer` y `double`;
 - se renderizan como `numerica entera` o `numerica decimal`;
+- en este frente usan `clasificacion programatica` en vez de `interpretada como` para dejar claro que la taxonomia visible la produce el helper;
+- si la evidencia alcanza, agregan hechos observados literales, por ejemplo `solo toma valores enteros` o `todos los valores observados son iguales: 14`;
+- y pueden sumar una `senal heuristica` prudente como `podria funcionar como codigo numerico` sin reclasificar automaticamente la columna;
 - mantienen rango aproximado y faltantes.
 
 ### Categoricas
 
-- si son cortas y simples, listan valores observados;
-- si tienen alta cardinalidad, pasan a `niveles observados` y `top niveles`;
+- hacen visible si llegan como `character` o `factor`;
+- si son cortas y simples, listan valores observados entre comillas dobles;
+- si tienen alta cardinalidad, pasan a `niveles observados` y `top niveles`, tambien entrecomillados;
 - si contienen varias etiquetas en una misma celda, se tratan como `categorica compuesta` y evitan render engañoso por comas internas.
 
 ### Etiquetas de entidad y texto libre
 
+- siguen mostrando que vienen importadas como `character`;
 - nombres o etiquetas nominales de entidad pueden clasificarse aparte como `etiqueta nominal de entidad`;
+- nombres institucionales repetibles, como unidades organizativas, pueden caer en `etiqueta nominal de entidad` aunque tengan cadenas relativamente largas;
 - el texto libre abierto sigue sin exponer ejemplos reales;
 - ambas familias dejan advertencias distintas para no exagerar ni ocultar riesgo.
+
+### Temporales
+
+- muestran el tipo importado exacto, por ejemplo `Date`, `POSIXct` o `character`;
+- distinguen entre `fecha`, `fecha-hora` y texto con patron temporal;
+- si una columna llega como `POSIXct` pero toda la componente horaria observada es `00:00:00`, se interpreta como `fecha` sin ocultar que fue importada como `POSIXct`;
+- conservan formato observado, granularidad y rango aproximado.
 
 ### `list-columns`
 
 - ya no quedan como `unknown` por defecto;
-- se describen como `columna lista`;
+- se describen como `columna lista` manteniendo visible `importada como list`;
 - cuando la evidencia alcanza, informan tipo de elemento y cardinalidad aproximada por fila.
 
 ## Ejemplos de uso vigentes

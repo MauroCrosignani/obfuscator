@@ -297,14 +297,12 @@ Es un MVP construido en mi tiempo libre y en mi computadora, pensado para elevar
           display:block!important;
       }</style></aside>
 </section>
-<section id="estado-actual-del-mvp" class="slide level2">
+<section id="estado-actual-del-mvp" class="slide level2 focus-slide">
 <h2>Estado actual del MVP</h2>
 
-<img data-src="capturas/05a-personas-estado-mvp-recorte.png" style="width:92.0%" alt="Vista principal del MVP con obfuscator_demo_personas cargado, medidor, resumen de clasificación y roles visibles" class="r-stretch"><ul>
-<li>Carga de dataset y lectura del esquema.</li>
-<li>Medidor preliminar y clasificación inicial visible.</li>
-<li>Flujo de liberación controlada desde la pantalla principal.</li>
-</ul>
+<img data-src="capturas/05a-personas-estado-mvp-recorte.png" style="width:100.0%" alt="Vista principal del MVP con obfuscator_demo_personas cargado, medidor, resumen de clasificación y roles visibles" class="r-stretch"><div class="focus-caption">
+<p>Dataset cargado, lectura inicial del esquema y criterios de liberación visibles desde el primer paso.</p>
+</div>
 <aside class="notes">
 <p>Esta es la pantalla principal actual del MVP.</p>
 <p>Lo importante no es memorizar cada control, sino ver la lógica: se carga un dataset, el sistema propone una lectura inicial del riesgo, organiza la clasificación por variable y hace visible desde temprano que estamos en un flujo de liberación controlada, no simplemente de transformación cosmética.</p>
@@ -322,14 +320,12 @@ Es un MVP construido en mi tiempo libre y en mi computadora, pensado para elevar
           display:block!important;
       }</style></aside>
 </section>
-<section id="cómo-se-clasifica-el-riesgo" class="slide level2">
+<section id="cómo-se-clasifica-el-riesgo" class="slide level2 focus-slide">
 <h2>Cómo se clasifica el riesgo</h2>
 
-<img data-src="capturas/06a-personas-clasificacion-riesgo-recorte.png" style="width:86.0%" alt="Tabla principal por variable y ficha de detalle mostrando persona_id como identificador directo" class="r-stretch"><ul>
-<li>Cada variable tiene un rol principal visible.</li>
-<li>La tabla permite revisar rápido.</li>
-<li>La ficha explica motivo, tratamiento e impacto.</li>
-</ul>
+<img data-src="capturas/06a-personas-clasificacion-riesgo-recorte.png" style="width:100.0%" alt="Tabla principal por variable y ficha de detalle mostrando persona_id como identificador directo" class="r-stretch"><div class="focus-caption">
+<p>La tabla muestra el rol de cada variable y la ficha explica por qué el sistema la interpreta así.</p>
+</div>
 <aside class="notes">
 <p>Acá muestro una decisión de UX/UI que fue importante.</p>
 <p>Al principio la herramienta tenía una lógica más basada en listas y arrastre. Con las pruebas apareció que eso era difícil de usar y difícil de defender ante usuarios comunes. Entonces el rediseño llevó a una tabla principal por variable, con una ficha de detalle que explica el rol y el impacto.</p>
@@ -371,10 +367,14 @@ Es un MVP construido en mi tiempo libre y en mi computadora, pensado para elevar
           display:block!important;
       }</style></aside>
 </section>
-<section id="qué-devuelve-hoy-el-sistema-1" class="slide level2">
+<section id="qué-devuelve-hoy-el-sistema-1" class="slide level2 focus-slide">
 <h2>Qué devuelve hoy el sistema</h2>
 
-<img data-src="capturas/07b-personas-resultado-vista-previa.png" style="width:94.0%" alt="Recorte ampliado de la vista previa del resultado ofuscado para obfuscator_demo_personas" class="r-stretch"><p><strong>1. Un resultado transformado que ya puede mirarse como artefacto de salida.</strong></p>
+<img data-src="capturas/07b-personas-resultado-vista-previa.png" style="width:100.0%" alt="Recorte ampliado de la vista previa del resultado ofuscado para obfuscator_demo_personas" class="r-stretch"><div class="focus-caption">
+<ol type="1">
+<li>Un resultado transformado que ya puede mirarse como artefacto de salida.</li>
+</ol>
+</div>
 <aside class="notes">
 <p>Primero muestro el artefacto resultante.</p>
 <p>Quiero que se vea que el sistema no se queda en configuración abstracta: produce un resultado concreto, visible, revisable. Eso es importante para una herramienta pensada para uso real.</p>
@@ -390,10 +390,14 @@ Es un MVP construido en mi tiempo libre y en mi computadora, pensado para elevar
           display:block!important;
       }</style></aside>
 </section>
-<section id="qué-devuelve-hoy-el-sistema-2" class="slide level2">
+<section id="qué-devuelve-hoy-el-sistema-2" class="slide level2 focus-slide">
 <h2>Qué devuelve hoy el sistema</h2>
 
-<img data-src="capturas/07c-personas-resumen-auditoria-detalle.png" style="width:94.0%" alt="Recorte ampliado del resumen de auditoría para obfuscator_demo_personas" class="r-stretch"><p><strong>2. Un resumen de auditoría que traduce decisiones técnicas a una lectura operativa.</strong></p>
+<img data-src="capturas/07c-personas-resumen-auditoria-detalle.png" style="width:100.0%" alt="Recorte ampliado del resumen de auditoría para obfuscator_demo_personas" class="r-stretch"><div class="focus-caption">
+<ol start="2" type="1">
+<li>Un resumen de auditoría que traduce decisiones técnicas a una lectura operativa.</li>
+</ol>
+</div>
 <aside class="notes">
 <p>Segundo, enfoco el resumen de auditoría.</p>
 <p>Esto me interesa mucho porque ordena la conversación: no obliga a leer un log crudo, sino que intenta decir qué controles se aplicaron y cómo interpretar el resultado.</p>
@@ -409,10 +413,14 @@ Es un MVP construido en mi tiempo libre y en mi computadora, pensado para elevar
           display:block!important;
       }</style></aside>
 </section>
-<section id="qué-devuelve-hoy-el-sistema-3" class="slide level2">
+<section id="qué-devuelve-hoy-el-sistema-3" class="slide level2 focus-slide">
 <h2>Qué devuelve hoy el sistema</h2>
 
-<img data-src="capturas/07d-personas-estado-liberacion-detalle.png" style="width:78.0%" alt="Recorte ampliado del estado final de liberación para obfuscator_demo_personas" class="r-stretch"><p><strong>3. Un estado final de liberación: habilita, advierte, exige revisión o bloquea.</strong></p>
+<img data-src="capturas/07d-personas-estado-liberacion-detalle.png" style="width:100.0%" alt="Recorte ampliado del estado final de liberación para obfuscator_demo_personas" class="r-stretch"><div class="focus-caption">
+<ol start="3" type="1">
+<li>Un estado final de liberación: habilita, advierte, exige revisión o bloquea.</li>
+</ol>
+</div>
 <aside class="notes">
 <p>Y tercero, cierro en la conclusión operativa.</p>
 <p>Ese estado final es importante porque convierte una transformación técnica en una decisión más defendible. Esa es, para mí, la diferencia entre una app que ofusca y una app que gobierna liberación controlada.</p>
@@ -529,13 +537,13 @@ Es un MVP construido en mi tiempo libre y en mi computadora, pensado para elevar
 Empieza por una ingeniería de requerimientos capaz de traducir riesgos reales en decisiones de producto útiles.</p>
 </blockquote>
 <ul>
-<li>Si la institución quiere usar mejor la IA, necesita algo más que entusiasmo.</li>
-<li>Necesita método, criterios y herramientas que conviertan ese método en práctica.</li>
+<li>La misma metodología que permite una ingeniería de requerimientos permite usar mejor la IA.</li>
+<li>Necesitamos método, criterios y herramientas que conviertan ese método en práctica.</li>
 </ul>
 <aside class="notes">
 <p>Si quiero que recuerden una sola idea, es esta.</p>
 <p>El proceso de ingeniería de requerimientos es el primer paso en dirección a una buena solución. En este caso, permitió traducir un problema institucional bastante difuso en un MVP usable, criticable, mejorable y potencialmente útil.</p>
-<p>No es una solución final, pero sí una demostración de que un enfoque metodológico serio puede producir herramientas que no se quedan en el papel.</p>
+<p>No es una solución final, pero sí una demostración de que un enfoque metodológico probado puede producir herramientas que no se quedan en el papel.</p>
 <style type="text/css">
         span.MJX_Assistive_MathML {
           position:absolute!important;
