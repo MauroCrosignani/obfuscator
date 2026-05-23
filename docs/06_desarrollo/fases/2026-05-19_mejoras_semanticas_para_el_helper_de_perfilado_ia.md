@@ -32,7 +32,7 @@ Tambien se corrigieron dos riesgos detectados durante la revision:
 - [docs/03_planes/2026-05-18_guia-operativa-profile_dataset_for_ai.md](c:/Users/mcros/Documents/obfuscator/docs/03_planes/2026-05-18_guia-operativa-profile_dataset_for_ai.md)
 - [README.md](c:/Users/mcros/Documents/obfuscator/README.md)
 - [docs/README.md](c:/Users/mcros/Documents/obfuscator/docs/README.md)
-- [docs/AGENT_EXECUTION_NOTES.md](c:/Users/mcros/Documents/obfuscator/docs/AGENT_EXECUTION_NOTES.md)
+- [docs/06_desarrollo/metodologia-agentes/AGENT_EXECUTION_NOTES.md](c:/Users/mcros/Documents/obfuscator/docs/06_desarrollo/metodologia-agentes/AGENT_EXECUTION_NOTES.md)
 
 ## Decision implementada
 

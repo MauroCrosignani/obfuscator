@@ -321,7 +321,7 @@ Por lo tanto, ObfuscatoR es un buen primer campo para ejecutar las tres iteracio
 
 ## 12. Relacion con `AGENT_EXECUTION_NOTES.md`
 
-`docs/AGENT_EXECUTION_NOTES.md` debe registrar:
+`docs/06_desarrollo/metodologia-agentes/AGENT_EXECUTION_NOTES.md` debe registrar:
 - decisiones operativas locales;
 - problemas encontrados;
 - y observaciones de campo.

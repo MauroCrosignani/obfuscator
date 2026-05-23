@@ -485,7 +485,7 @@ Antes de retomarla:
 6. correr variante B;
 7. auditar variante B;
 8. completar la comparacion final;
-9. registrar resultados en `docs/AGENT_EXECUTION_NOTES.md`.
+9. registrar resultados en `docs/06_desarrollo/metodologia-agentes/AGENT_EXECUTION_NOTES.md`.
 
 ---
 

@@ -13,6 +13,7 @@ new_contextoia_candidate_env <- function() {
   assign("%||%", function(x, y) if (is.null(x)) y else x, envir = env)
   sys.source(file.path("..", "..", "R", "ai_profile_utils.R"), envir = env)
   sys.source(file.path("..", "..", "R", "ai_profile_source_context.R"), envir = env)
+  sys.source(file.path("..", "..", "R", "ai_profile_metadata.R"), envir = env)
   sys.source(file.path("..", "..", "R", "ai_dataset_profile.R"), envir = env)
   env
 }
