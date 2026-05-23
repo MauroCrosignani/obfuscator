@@ -256,3 +256,11 @@ La cuarta particion se implemento en:
 - [2026-05-23_cuarta_particion_inferencia_y_resumen_por_variable_del_helper_ia.md](c:/Users/mcros/Documents/obfuscator/docs/06_desarrollo/fases/2026-05-23_cuarta_particion_inferencia_y_resumen_por_variable_del_helper_ia.md)
 
 Se creo [ai_profile_variables.R](c:/Users/mcros/Documents/obfuscator/R/ai_profile_variables.R) y se movieron alli las funciones de inferencia semantica, resumen por variable y construccion de perfiles individuales. La recomendacion de modularizacion incremental sigue vigente: el siguiente bloque natural es render, pero no conviene mezclarlo en esta misma pasada.
+
+## Actualizacion posterior 5
+
+La quinta particion se implemento en:
+
+- [2026-05-23_quinta_particion_render_textual_del_helper_ia.md](c:/Users/mcros/Documents/obfuscator/docs/06_desarrollo/fases/2026-05-23_quinta_particion_render_textual_del_helper_ia.md)
+
+Se creo [ai_profile_render.R](c:/Users/mcros/Documents/obfuscator/R/ai_profile_render.R) y se movieron alli las funciones de render textual del perfil de variables y del dataset. Con esto, [ai_dataset_profile.R](c:/Users/mcros/Documents/obfuscator/R/ai_dataset_profile.R) queda enfocado en configuracion, orquestacion y API publica.

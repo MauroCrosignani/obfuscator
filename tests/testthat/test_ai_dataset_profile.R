@@ -15,6 +15,7 @@ new_contextoia_candidate_env <- function() {
   sys.source(file.path("..", "..", "R", "ai_profile_source_context.R"), envir = env)
   sys.source(file.path("..", "..", "R", "ai_profile_metadata.R"), envir = env)
   sys.source(file.path("..", "..", "R", "ai_profile_variables.R"), envir = env)
+  sys.source(file.path("..", "..", "R", "ai_profile_render.R"), envir = env)
   sys.source(file.path("..", "..", "R", "ai_dataset_profile.R"), envir = env)
   env
 }

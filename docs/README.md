@@ -113,6 +113,8 @@ Cuando corresponda, cada documento deberia distinguir explicitamente:
   - [2026-05-22_decision_de_api_publica_en_espanol_para_contextoia.md](c:/Users/mcros/Documents/obfuscator/docs/06_desarrollo/fases/2026-05-22_decision_de_api_publica_en_espanol_para_contextoia.md)
 - evaluacion vigente de modularizacion interna del helper IA:
   - [2026-05-22-evaluacion-de-modularizacion-interna-del-helper-ia.md](c:/Users/mcros/Documents/obfuscator/docs/04_auditorias/2026-05-22-evaluacion-de-modularizacion-interna-del-helper-ia.md)
+- relevamiento vigente de limpiezas post modularizacion del helper IA:
+  - [2026-05-23-relevamiento-de-limpiezas-post-modularizacion-helper-ia.md](c:/Users/mcros/Documents/obfuscator/docs/04_auditorias/2026-05-23-relevamiento-de-limpiezas-post-modularizacion-helper-ia.md)
 - cierre vigente de primera particion de utilidades del helper IA:
   - [2026-05-22_primera_particion_de_utilidades_del_helper_ia.md](c:/Users/mcros/Documents/obfuscator/docs/06_desarrollo/fases/2026-05-22_primera_particion_de_utilidades_del_helper_ia.md)
 - cierre vigente de segunda particion de contexto de fuente del helper IA:
@@ -121,6 +123,8 @@ Cuando corresponda, cada documento deberia distinguir explicitamente:
   - [2026-05-23_tercera_particion_metadata_externa_del_helper_ia.md](c:/Users/mcros/Documents/obfuscator/docs/06_desarrollo/fases/2026-05-23_tercera_particion_metadata_externa_del_helper_ia.md)
 - cierre vigente de cuarta particion de inferencia y resumen por variable del helper IA:
   - [2026-05-23_cuarta_particion_inferencia_y_resumen_por_variable_del_helper_ia.md](c:/Users/mcros/Documents/obfuscator/docs/06_desarrollo/fases/2026-05-23_cuarta_particion_inferencia_y_resumen_por_variable_del_helper_ia.md)
+- cierre vigente de quinta particion de render textual del helper IA:
+  - [2026-05-23_quinta_particion_render_textual_del_helper_ia.md](c:/Users/mcros/Documents/obfuscator/docs/06_desarrollo/fases/2026-05-23_quinta_particion_render_textual_del_helper_ia.md)
 - cierre post-merge vigente del PR #1 sobre helper IA y transicion hacia `contextoia`:
   - [2026-05-23_cierre_post_merge_pr1_contextoia.md](c:/Users/mcros/Documents/obfuscator/docs/06_desarrollo/fases/2026-05-23_cierre_post_merge_pr1_contextoia.md)
 - ajuste vigente de dependencias de tests para CI:
