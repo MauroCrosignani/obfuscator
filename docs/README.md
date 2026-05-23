@@ -85,6 +85,8 @@ Cuando corresponda, cada documento deberia distinguir explicitamente:
   - [2026-05-22-evidencia-y-senales-heuristicas-para-numericas-institucionales-implementation-plan.md](c:/Users/mcros/Documents/obfuscator/docs/03_planes/2026-05-22-evidencia-y-senales-heuristicas-para-numericas-institucionales-implementation-plan.md)
 - plan vigente de transicion hacia `contextoia` como paquete independiente:
   - [2026-05-22-transicion-hacia-contextoia-como-paquete-independiente-implementation-plan.md](c:/Users/mcros/Documents/obfuscator/docs/03_planes/2026-05-22-transicion-hacia-contextoia-como-paquete-independiente-implementation-plan.md)
+- plan vigente de extraccion inicial de `contextoia` como paquete independiente:
+  - [2026-05-23-extraccion-inicial-contextoia-implementation-plan.md](c:/Users/mcros/Documents/obfuscator/docs/03_planes/2026-05-23-extraccion-inicial-contextoia-implementation-plan.md)
 - cierre vigente de implementacion de esas mejoras semanticas:
   - [2026-05-19_mejoras_semanticas_para_el_helper_de_perfilado_ia.md](c:/Users/mcros/Documents/obfuscator/docs/06_desarrollo/fases/2026-05-19_mejoras_semanticas_para_el_helper_de_perfilado_ia.md)
 - analisis critico vigente del render actual del helper IA:

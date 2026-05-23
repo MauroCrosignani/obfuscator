@@ -32,14 +32,14 @@ Despues de la quinta particion, [ai_dataset_profile.R](c:/Users/mcros/Documents/
 
 Se detectaron worktrees locales bajo `.worktrees/`:
 
-- `dispatch-iter1-a-task2`
-- `dispatch-iter1-b-task2`
-- `dispatch-iter2-a-task10`
-- `dispatch-iter2-b-task10`
-- `dispatch-iter3-a-task4`
-- `dispatch-iter3-b-task4`
-- `release-contract-task0`
-- `task7-release-safe-alignment`
+- `dispatch-iter1-a-task2`: cambios locales no committeados en `R/shiny_app.R`; no borrar automaticamente.
+- `dispatch-iter1-b-task2`: cambios locales y documentos no trackeados; no borrar automaticamente.
+- `dispatch-iter2-a-task10`: cambios locales y test no trackeado; no borrar automaticamente.
+- `dispatch-iter2-b-task10`: cambios locales y documentos/tests no trackeados; no borrar automaticamente.
+- `dispatch-iter3-a-task4`: cambios locales y test no trackeado; no borrar automaticamente.
+- `dispatch-iter3-b-task4`: cambios locales y documentos/tests no trackeados; no borrar automaticamente.
+- `release-contract-task0`: varios commits unicos frente a `main` y documentos no trackeados; no borrar automaticamente.
+- `task7-release-safe-alignment`: cambios locales no committeados; no borrar automaticamente.
 
 Recomendacion:
 
@@ -53,11 +53,11 @@ No se eliminaron automaticamente para evitar perder evidencia de experimentos o 
 
 Se observaron archivos versionados en la raiz que conviene clasificar antes de la extraccion a `contextoia`:
 
-- [README_gitlab.md](c:/Users/mcros/Documents/obfuscator/README_gitlab.md)
-- [pruebas_migracion_gitlab.R](c:/Users/mcros/Documents/obfuscator/pruebas_migracion_gitlab.R)
-- [verify_consistency.R](c:/Users/mcros/Documents/obfuscator/verify_consistency.R)
-- [lanzar_obfuscator.bat](c:/Users/mcros/Documents/obfuscator/lanzar_obfuscator.bat)
-- [CLAUDE.md](c:/Users/mcros/Documents/obfuscator/CLAUDE.md)
+- [README_gitlab.md](c:/Users/mcros/Documents/obfuscator/README_gitlab.md): README alternativo para clonacion o uso en GitLab corporativo; conservar por ahora o mover a documentacion de distribucion corporativa.
+- [pruebas_migracion_gitlab.R](c:/Users/mcros/Documents/obfuscator/pruebas_migracion_gitlab.R): runner manual de pruebas de migracion a GitLab; candidato a `scripts/` o `docs/99_archivo/` segun vigencia.
+- [verify_consistency.R](c:/Users/mcros/Documents/obfuscator/verify_consistency.R): smoke test manual de consistencia/reversion; candidato a `scripts/` si sigue vigente.
+- [lanzar_obfuscator.bat](c:/Users/mcros/Documents/obfuscator/lanzar_obfuscator.bat): launcher local de desarrollo en laptop; conservar en raiz mientras siga siendo util.
+- [CLAUDE.md](c:/Users/mcros/Documents/obfuscator/CLAUDE.md): guia para agentes Claude; se sincronizo con [AGENTS.md](c:/Users/mcros/Documents/obfuscator/AGENTS.md) en estado/protocolo vigente.
 
 Recomendacion:
 
@@ -109,7 +109,6 @@ Recomendacion:
 
 Hacer un bloque separado de housekeeping documental/operativo para:
 
-1. revisar worktrees y ramas locales cerradas;
-2. clasificar archivos raiz historicos;
-3. actualizar la documentacion vigente que deba apuntar a los modulos actuales;
-4. redactar el plan de extraccion inicial de `contextoia`.
+1. decidir explicitamente que worktrees se conservan por evidencia y cuales se archivan;
+2. mover, si corresponde, scripts historicos de migracion a `scripts/` o `docs/99_archivo/`;
+3. ejecutar el plan de extraccion inicial de `contextoia`.
