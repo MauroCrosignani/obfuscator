@@ -1609,6 +1609,25 @@ test_that("descripciones emparejadas con codigos vecinos se informan como descri
   expect_match(rendered, "DESC_TIPO_VARIABLE: importada como character; interpretada como descripcion de codigo; columna asociada: COD_TIPO_VARIABLE", ignore.case = TRUE)
 })
 
+test_that("descripciones de codigo pueden emparejar con una columna cercana no adyacente", {
+  df <- data.frame(
+    ETAPA_GVA = c(100, 202, 503, 202),
+    FECHA_INICIO_ETAPA_G = as.POSIXct(
+      c("2024-01-01 10:00:00", "2024-01-02 11:00:00", "2024-01-03 12:00:00", "2024-01-02 11:00:00"),
+      tz = "UTC"
+    ),
+    DESCRIPCION_ETAPA_GVA = c("Inicio", "Revision", "Cierre", "Revision"),
+    stringsAsFactors = FALSE
+  )
+
+  profile <- profile_dataset_for_ai(df, dataset_name = "descripcion_codigo_cercana")
+  rendered <- render_dataset_profile_for_ai(profile)
+
+  expect_equal(profile$variables$DESCRIPCION_ETAPA_GVA$inferred_type, "code_description")
+  expect_equal(profile$variables$DESCRIPCION_ETAPA_GVA$summary$associated_column, "ETAPA_GVA")
+  expect_match(rendered, "DESCRIPCION_ETAPA_GVA: importada como character; interpretada como descripcion de codigo; columna asociada: ETAPA_GVA", ignore.case = TRUE)
+})
+
 test_that("descripcion sin emparejamiento claro se mantiene como texto libre prudente", {
   df <- data.frame(
     OBSERVACION = c("Texto abierto con detalle operativo 1", "Texto abierto con detalle operativo 2"),
