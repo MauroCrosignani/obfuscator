@@ -1,3 +1,10 @@
+# ObfuscatoR 0.4.3
+
+Version de ajuste para descripciones de codigo en bloques con columnas intermedias.
+
+- Permite emparejar `DESC_*` o `DESCRIPCION_*` con columnas de codigo cercanas aunque no sean estrictamente adyacentes.
+- Mantiene una ventana corta y coincidencia por nucleo de nombre para evitar emparejamientos especulativos.
+
 # ObfuscatoR 0.4.2
 
 Version de precision semantica para codigos normativos y descripciones de codigos.

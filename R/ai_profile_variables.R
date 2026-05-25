@@ -153,11 +153,15 @@ ai_profile_find_associated_code_column <- function(column_name, data_names) {
   }
 
   column_index <- match(column_name, data_names)
-  neighbor_indexes <- c(column_index - 1L, column_index + 1L)
-  neighbor_indexes <- neighbor_indexes[neighbor_indexes >= 1L & neighbor_indexes <= length(data_names)]
-  neighbors <- data_names[neighbor_indexes]
+  candidate_indexes <- seq.int(
+    max(1L, column_index - 3L),
+    min(length(data_names), column_index + 3L)
+  )
+  candidate_indexes <- candidate_indexes[candidate_indexes != column_index]
+  candidate_indexes <- candidate_indexes[order(abs(candidate_indexes - column_index))]
+  candidates <- data_names[candidate_indexes]
 
-  for (candidate in neighbors) {
+  for (candidate in candidates) {
     candidate_core <- ai_profile_code_name_core(candidate)
     if (
       identical(candidate_core, core) ||
