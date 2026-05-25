@@ -38,6 +38,7 @@ test_that("profile_dataset_for_ai devuelve estructura base", {
   expect_equal(profile$dataset_name, "iris")
   expect_equal(profile$dimensions$rows, 150)
   expect_equal(profile$dimensions$cols, 5)
+  expect_true("granularity" %in% names(profile))
   expect_true("variables" %in% names(profile))
   expect_length(profile$variables, 5)
 })
@@ -1626,6 +1627,39 @@ test_that("descripciones de codigo pueden emparejar con una columna cercana no a
   expect_equal(profile$variables$DESCRIPCION_ETAPA_GVA$inferred_type, "code_description")
   expect_equal(profile$variables$DESCRIPCION_ETAPA_GVA$summary$associated_column, "ETAPA_GVA")
   expect_match(rendered, "DESCRIPCION_ETAPA_GVA: importada como character; interpretada como descripcion de codigo; columna asociada: ETAPA_GVA", ignore.case = TRUE)
+})
+
+test_that("granularidad detecta multiples filas por identificador y candidatos de refinamiento", {
+  df <- data.frame(
+    NRO_EMPRESA = c("E1", "E1", "E2", "E2", "E2", "E3"),
+    TIPO_TITULO = c("DNP", "FP", "DNP", "DNP", "FP", "DNP"),
+    PERIODO_DESDE = c("202401", "202401", "202401", "202402", "202402", "202401"),
+    MONTO = c(10, 20, 30, 40, 50, 60),
+    stringsAsFactors = FALSE
+  )
+
+  profile <- profile_dataset_for_ai(df, dataset_name = "granularidad")
+  rendered <- render_dataset_profile_for_ai(profile)
+  identifier_summary <- profile$granularity$identifier_summaries[[1]]
+
+  expect_true(profile$granularity$available)
+  expect_equal(identifier_summary$identifier_column, "NRO_EMPRESA")
+  expect_equal(identifier_summary$distinct_identifiers, 3)
+  expect_equal(identifier_summary$max_rows_per_identifier, 3)
+  expect_true(identifier_summary$multirow_identifier_pct > 0)
+  expect_true(any(vapply(
+    identifier_summary$candidate_columns,
+    function(candidate) identical(candidate$column, "TIPO_TITULO"),
+    logical(1)
+  )))
+  expect_false(any(vapply(
+    identifier_summary$candidate_columns,
+    function(candidate) identical(candidate$column, "MONTO"),
+    logical(1)
+  )))
+  expect_match(rendered, "Granularidad observada:", fixed = TRUE)
+  expect_match(rendered, "NRO_EMPRESA: 3 identificadores distintos en 6 filas", fixed = TRUE)
+  expect_match(rendered, "Variables candidatas para refinar granularidad: TIPO_TITULO", fixed = TRUE)
 })
 
 test_that("descripcion sin emparejamiento claro se mantiene como texto libre prudente", {

@@ -134,6 +134,125 @@ ai_profile_validate_config <- function(config, data_names) {
   warnings
 }
 
+ai_profile_is_granularity_candidate <- function(variable_profile) {
+  inferred_type <- variable_profile$inferred_type %||% NULL
+  role_guess <- variable_profile$role_guess %||% NULL
+
+  if (identical(inferred_type, "identifier") || identical(role_guess, "identifier")) {
+    return(FALSE)
+  }
+
+  if (inferred_type %in% c("categorical", "period")) {
+    return(TRUE)
+  }
+
+  if (identical(role_guess, "normative_code")) {
+    return(TRUE)
+  }
+
+  FALSE
+}
+
+ai_profile_candidate_uniqueness <- function(identifier_values, candidate_values) {
+  usable <- !is.na(identifier_values) & !is.na(candidate_values)
+  if (!any(usable)) {
+    return(NULL)
+  }
+
+  keys <- paste(
+    as.character(identifier_values[usable]),
+    as.character(candidate_values[usable]),
+    sep = "\r"
+  )
+  combination_counts <- table(keys)
+  row_counts <- unname(combination_counts[keys])
+
+  list(
+    rows_considered = length(keys),
+    distinct_combinations = length(combination_counts),
+    unique_row_pct = round(mean(row_counts == 1) * 100, 1),
+    duplicate_rows_remaining = sum(row_counts > 1)
+  )
+}
+
+ai_profile_build_granularity_analysis <- function(data, variable_profiles, max_candidates = 5) {
+  identifier_columns <- names(variable_profiles)[vapply(
+    variable_profiles,
+    function(variable_profile) {
+      identical(variable_profile$inferred_type, "identifier") ||
+        identical(variable_profile$role_guess, "identifier")
+    },
+    logical(1)
+  )]
+
+  if (length(identifier_columns) == 0) {
+    return(list(
+      available = FALSE,
+      identifier_summaries = list()
+    ))
+  }
+
+  candidate_columns <- names(variable_profiles)[vapply(
+    variable_profiles,
+    ai_profile_is_granularity_candidate,
+    logical(1)
+  )]
+
+  identifier_summaries <- lapply(identifier_columns, function(identifier_column) {
+    identifier_values <- data[[identifier_column]]
+    usable_identifier <- !is.na(identifier_values)
+    identifier_counts <- table(as.character(identifier_values[usable_identifier]))
+    rows_considered <- sum(identifier_counts)
+
+    candidate_summaries <- lapply(setdiff(candidate_columns, identifier_column), function(candidate_column) {
+      uniqueness <- ai_profile_candidate_uniqueness(
+        identifier_values = identifier_values,
+        candidate_values = data[[candidate_column]]
+      )
+      if (is.null(uniqueness)) {
+        return(NULL)
+      }
+
+      c(
+        list(
+          column = candidate_column,
+          inferred_type = variable_profiles[[candidate_column]]$inferred_type,
+          role_guess = variable_profiles[[candidate_column]]$role_guess
+        ),
+        uniqueness
+      )
+    })
+    candidate_summaries <- Filter(Negate(is.null), candidate_summaries)
+
+    if (length(candidate_summaries) > 0) {
+      candidate_order <- order(
+        -vapply(candidate_summaries, `[[`, numeric(1), "unique_row_pct"),
+        vapply(candidate_summaries, `[[`, numeric(1), "duplicate_rows_remaining"),
+        vapply(candidate_summaries, `[[`, character(1), "column")
+      )
+      candidate_summaries <- candidate_summaries[candidate_order]
+      candidate_summaries <- utils::head(candidate_summaries, max_candidates)
+    }
+
+    list(
+      identifier_column = identifier_column,
+      rows_considered = rows_considered,
+      distinct_identifiers = length(identifier_counts),
+      mean_rows_per_identifier = if (length(identifier_counts) > 0) round(mean(identifier_counts), 1) else NA_real_,
+      median_rows_per_identifier = if (length(identifier_counts) > 0) stats::median(identifier_counts) else NA_real_,
+      max_rows_per_identifier = if (length(identifier_counts) > 0) max(identifier_counts) else NA_integer_,
+      single_row_identifier_pct = if (length(identifier_counts) > 0) round(mean(identifier_counts == 1) * 100, 1) else NA_real_,
+      multirow_identifier_pct = if (length(identifier_counts) > 0) round(mean(identifier_counts > 1) * 100, 1) else NA_real_,
+      candidate_columns = candidate_summaries
+    )
+  })
+
+  list(
+    available = TRUE,
+    identifier_summaries = identifier_summaries
+  )
+}
+
 profile_dataset_for_ai <- function(data, dataset_name = NULL, config = NULL, tipo_fuente = NULL, archivo_fuente = NULL, metadata_dir = NULL, max_levels = 12, top_n = 10, round_digits = 2) {
   if (!is.data.frame(data)) {
     stop("`data` debe ser un data.frame o tibble.")
@@ -186,6 +305,10 @@ profile_dataset_for_ai <- function(data, dataset_name = NULL, config = NULL, tip
     source_metadata = source_metadata,
     variable_profiles = variable_profiles
   )
+  granularity <- ai_profile_build_granularity_analysis(
+    data = data,
+    variable_profiles = variable_profiles
+  )
 
   list(
     dataset_name = dataset_name,
@@ -194,6 +317,7 @@ profile_dataset_for_ai <- function(data, dataset_name = NULL, config = NULL, tip
     source_context = merged_source_context_result$source_context,
     source_metadata = source_metadata,
     source_alerts = source_alerts,
+    granularity = granularity,
     variables = variable_profiles,
     config_applied = config_applied,
     warnings = global_warnings
