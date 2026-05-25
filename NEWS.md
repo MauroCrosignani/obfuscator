@@ -1,3 +1,12 @@
+# ObfuscatoR 0.4.2
+
+Version de precision semantica para codigos normativos y descripciones de codigos.
+
+- Evita clasificar `TIPO_TITULO` como identificador cuando funciona como variable categorica.
+- Trata `NRO_ART` y nombres equivalentes de articulo/ley/norma como referencias normativas, no como identificadores.
+- Detecta descripciones de codigo cuando `DESC_*` o `DESCRIPCION_*` esta emparejada con una columna vecina compatible.
+- Mantiene como texto libre prudente las columnas de descripcion sin emparejamiento claro.
+
 # ObfuscatoR 0.4.1
 
 Version de seguridad semantica para el helper `resumen_de()`.

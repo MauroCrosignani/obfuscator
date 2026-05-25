@@ -103,7 +103,7 @@ render_ai_profile_variable <- function(variable_profile, mode = "compact") {
   }
 
   if (identical(inferred_type, "numeric")) {
-    suffix <- if (!identical(role_guess, "analytic")) {
+    suffix <- if (!identical(role_guess, "analytic") && !identical(role_guess, "normative_code")) {
       sprintf("; posible %s", gsub("_", " ", role_guess))
     } else {
       ""
@@ -178,6 +178,18 @@ render_ai_profile_variable <- function(variable_profile, mode = "compact") {
       "- %s: %s; longitud tipica %s; alta variabilidad; no se incluyen ejemplos por seguridad%s.",
       name,
       render_prefix("texto libre"),
+      summary$typical_length %||% "no disponible",
+      missing_text
+    ))
+  }
+
+  if (identical(inferred_type, "code_description")) {
+    associated_column <- summary$associated_column %||% "no identificada"
+    return(sprintf(
+      "- %s: %s; columna asociada: %s; longitud tipica %s; no se incluyen ejemplos por seguridad%s.",
+      name,
+      render_prefix("descripcion de codigo"),
+      associated_column,
       summary$typical_length %||% "no disponible",
       missing_text
     ))

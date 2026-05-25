@@ -13,7 +13,7 @@ ai_profile_identifier_name <- function(column_name) {
 ai_profile_identifier_negative_name <- function(column_name) {
   normalized_name <- ai_profile_normalize_column_name(column_name)
   grepl(
-    "deuda|monto|saldo|importe|valor|cantidad|cant|porcentaje|tasa|juicio|estado|marca|descripcion|desc|tipo_estado|etapa",
+    "deuda|monto|saldo|importe|valor|cantidad|cant|porcentaje|tasa|juicio|estado|marca|descripcion|desc|tipo_estado|etapa|^tipo_titulo$|^nro_art$|articulo|ley|norma",
     normalized_name
   )
 }
@@ -55,6 +55,11 @@ ai_profile_expected_missingness_name <- function(column_name) {
 ai_profile_numeric_code_like_name <- function(column_name) {
   normalized_name <- ai_profile_normalize_column_name(column_name)
   grepl("(cod|codigo|id|identif|tipo|clase|unidad)", normalized_name)
+}
+
+ai_profile_normative_code_name <- function(column_name) {
+  normalized_name <- ai_profile_normalize_column_name(column_name)
+  grepl("(^|_)nro_art($|_)|(^|_)articulo($|_)|(^|_)ley($|_)|norma|normativa", normalized_name)
 }
 
 ai_profile_empty_config <- function() {
@@ -163,7 +168,8 @@ profile_dataset_for_ai <- function(data, dataset_name = NULL, config = NULL, tip
         config = normalized_config,
         round_digits = round_digits,
         max_levels = max_levels,
-        top_n = top_n
+        top_n = top_n,
+        data_names = names(data)
       )
     }),
     names(data)
