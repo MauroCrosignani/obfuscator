@@ -240,6 +240,53 @@ render_ai_profile_variable <- function(variable_profile, mode = "compact") {
   sprintf("- %s: %s%s.", name, render_prefix(sprintf("tipo inferido %s", inferred_type)), missing_text)
 }
 
+render_ai_profile_granularity <- function(granularity) {
+  if (!isTRUE(granularity$available) || length(granularity$identifier_summaries %||% list()) == 0) {
+    return(character(0))
+  }
+
+  lines <- "Granularidad observada:"
+  for (identifier_summary in granularity$identifier_summaries) {
+    lines <- c(
+      lines,
+      sprintf(
+        "- %s: %s identificadores distintos en %s filas; filas por identificador: promedio %s, mediana %s, maximo %s; %.1f%% de identificadores tienen multiples filas.",
+        identifier_summary$identifier_column,
+        identifier_summary$distinct_identifiers,
+        identifier_summary$rows_considered,
+        format(identifier_summary$mean_rows_per_identifier, trim = TRUE, scientific = FALSE),
+        format(identifier_summary$median_rows_per_identifier, trim = TRUE, scientific = FALSE),
+        format(identifier_summary$max_rows_per_identifier, trim = TRUE, scientific = FALSE),
+        identifier_summary$multirow_identifier_pct
+      )
+    )
+
+    candidates <- identifier_summary$candidate_columns %||% list()
+    if (length(candidates) > 0) {
+      candidate_details <- vapply(
+        candidates,
+        function(candidate) {
+          sprintf(
+            "%s (%.1f%% de filas quedan unicas al combinarla con el identificador)",
+            candidate$column,
+            candidate$unique_row_pct
+          )
+        },
+        character(1)
+      )
+      lines <- c(
+        lines,
+        sprintf(
+          "- Variables candidatas para refinar granularidad: %s.",
+          paste(candidate_details, collapse = ", ")
+        )
+      )
+    }
+  }
+
+  lines
+}
+
 render_dataset_profile_for_ai <- function(profile, mode = "compact") {
   stopifnot(is.list(profile), !is.null(profile$variables))
   if (!mode %in% c("compact", "conservative")) {
@@ -290,6 +337,11 @@ render_dataset_profile_for_ai <- function(profile, mode = "compact") {
         )
       )
     }
+  }
+
+  granularity_lines <- render_ai_profile_granularity(profile$granularity %||% list())
+  if (length(granularity_lines) > 0) {
+    lines <- c(lines, "", granularity_lines)
   }
 
   lines <- c(lines, "", "Resumen por variable:")
