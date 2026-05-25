@@ -1563,6 +1563,64 @@ test_that("columnas completamente faltantes se describen sin inferencia espuria"
   expect_match(rendered, "FECHA_HASTA: tipo importado: logical; sin valores observados", ignore.case = TRUE)
 })
 
+test_that("tipo_titulo se trata como categorica y no como identificador", {
+  df <- data.frame(
+    TIPO_TITULO = c("DNP", "DT", "FP", "DT"),
+    stringsAsFactors = FALSE
+  )
+
+  profile <- profile_dataset_for_ai(df, dataset_name = "tipo_titulo")
+  rendered <- render_dataset_profile_for_ai(profile)
+
+  expect_equal(profile$variables$TIPO_TITULO$inferred_type, "categorical")
+  expect_match(rendered, "TIPO_TITULO: importada como character; interpretada como categorica", ignore.case = TRUE)
+  expect_false(grepl("TIPO_TITULO: .*identificador", rendered, ignore.case = TRUE))
+})
+
+test_that("nro_art se informa como codigo normativo y no como identificador", {
+  df <- data.frame(NRO_ART = c(1, 32, 1, NA, 300))
+
+  profile <- profile_dataset_for_ai(df, dataset_name = "articulos")
+  rendered <- render_dataset_profile_for_ai(profile)
+
+  expect_equal(profile$variables$NRO_ART$inferred_type, "numeric")
+  expect_equal(profile$variables$NRO_ART$role_guess, "normative_code")
+  expect_match(rendered, "senal heuristica: podria funcionar como numero de articulo normativo", ignore.case = TRUE)
+  expect_false(grepl("NRO_ART: .*identificador", rendered, ignore.case = TRUE))
+})
+
+test_that("descripciones emparejadas con codigos vecinos se informan como descripcion de codigo", {
+  df <- data.frame(
+    ETAPA_GVA = c(100, 202, 503, 202),
+    DESCRIPCION_ETAPA_GVA = c("Inicio", "Revision", "Cierre", "Revision"),
+    COD_TIPO_VARIABLE = c(14, 14, 15, 15),
+    DESC_TIPO_VARIABLE = c("Rentabilidad", "Rentabilidad", "Aporte", "Aporte"),
+    stringsAsFactors = FALSE
+  )
+
+  profile <- profile_dataset_for_ai(df, dataset_name = "descripciones_codigo")
+  rendered <- render_dataset_profile_for_ai(profile)
+
+  expect_equal(profile$variables$DESCRIPCION_ETAPA_GVA$inferred_type, "code_description")
+  expect_equal(profile$variables$DESCRIPCION_ETAPA_GVA$summary$associated_column, "ETAPA_GVA")
+  expect_equal(profile$variables$DESC_TIPO_VARIABLE$inferred_type, "code_description")
+  expect_equal(profile$variables$DESC_TIPO_VARIABLE$summary$associated_column, "COD_TIPO_VARIABLE")
+  expect_match(rendered, "DESCRIPCION_ETAPA_GVA: importada como character; interpretada como descripcion de codigo; columna asociada: ETAPA_GVA", ignore.case = TRUE)
+  expect_match(rendered, "DESC_TIPO_VARIABLE: importada como character; interpretada como descripcion de codigo; columna asociada: COD_TIPO_VARIABLE", ignore.case = TRUE)
+})
+
+test_that("descripcion sin emparejamiento claro se mantiene como texto libre prudente", {
+  df <- data.frame(
+    OBSERVACION = c("Texto abierto con detalle operativo 1", "Texto abierto con detalle operativo 2"),
+    DESCRIPCION = c("Descripcion general de caso uno", "Descripcion general de caso dos"),
+    stringsAsFactors = FALSE
+  )
+
+  profile <- profile_dataset_for_ai(df, dataset_name = "descripcion_suelta")
+
+  expect_equal(profile$variables$DESCRIPCION$inferred_type, "free_text")
+})
+
 test_that("resumen_de debe quedar exportada en el paquete", {
   namespace_lines <- readLines(file.path("..", "..", "NAMESPACE"), warn = FALSE)
   expect_true(any(grepl("^export\\(resumen_de\\)$", namespace_lines)))

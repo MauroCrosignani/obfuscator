@@ -117,6 +117,60 @@ ai_profile_looks_like_entity_label <- function(column_name, values) {
   base_shape_match && (canonical_entity_label || repeated_institutional_label)
 }
 
+ai_profile_description_core <- function(column_name) {
+  normalized_name <- ai_profile_normalize_column_name(column_name)
+  parts <- strsplit(normalized_name, "_+", perl = TRUE)[[1]]
+  parts <- parts[nzchar(parts)]
+
+  desc_tokens <- c("desc", "descripcion", "descrip", "description")
+  if (!any(parts %in% desc_tokens)) {
+    return(NULL)
+  }
+
+  core <- parts[!parts %in% desc_tokens]
+  if (length(core) == 0) {
+    return(NULL)
+  }
+
+  paste(core, collapse = "_")
+}
+
+ai_profile_code_name_core <- function(column_name) {
+  normalized_name <- ai_profile_normalize_column_name(column_name)
+  parts <- strsplit(normalized_name, "_+", perl = TRUE)[[1]]
+  parts <- parts[nzchar(parts)]
+  removable_prefixes <- c("cod", "codigo", "nro", "numero")
+  while (length(parts) > 1 && parts[[1]] %in% removable_prefixes) {
+    parts <- parts[-1]
+  }
+  paste(parts, collapse = "_")
+}
+
+ai_profile_find_associated_code_column <- function(column_name, data_names) {
+  core <- ai_profile_description_core(column_name)
+  if (is.null(core) || length(data_names) == 0 || !column_name %in% data_names) {
+    return(NULL)
+  }
+
+  column_index <- match(column_name, data_names)
+  neighbor_indexes <- c(column_index - 1L, column_index + 1L)
+  neighbor_indexes <- neighbor_indexes[neighbor_indexes >= 1L & neighbor_indexes <= length(data_names)]
+  neighbors <- data_names[neighbor_indexes]
+
+  for (candidate in neighbors) {
+    candidate_core <- ai_profile_code_name_core(candidate)
+    if (
+      identical(candidate_core, core) ||
+      startsWith(candidate_core, paste0(core, "_")) ||
+      startsWith(core, paste0(candidate_core, "_"))
+    ) {
+      return(candidate)
+    }
+  }
+
+  NULL
+}
+
 ai_profile_posix_has_substantive_time <- function(x) {
   if (!inherits(x, c("POSIXct", "POSIXlt", "POSIXt"))) {
     return(TRUE)
@@ -253,7 +307,7 @@ ai_profile_temporal_granularity <- function(observed_pattern, inferred_type) {
   "ambigua"
 }
 
-ai_profile_infer_type <- function(column_name, x, max_levels = 12) {
+ai_profile_infer_type <- function(column_name, x, max_levels = 12, data_names = character(0)) {
   imported_type <- ai_profile_imported_type(x)
   values <- ai_profile_non_missing_values(x)
   n_values <- length(values)
@@ -307,6 +361,16 @@ ai_profile_infer_type <- function(column_name, x, max_levels = 12) {
   }
 
   if (is.character(x) || is.factor(x)) {
+    associated_code_column <- ai_profile_find_associated_code_column(column_name, data_names)
+    if (!is.null(associated_code_column)) {
+      return(list(
+        inferred_type = "code_description",
+        observed_pattern = NULL,
+        warnings = character(0),
+        confidence = "high"
+      ))
+    }
+
     identifier_by_content <- ai_profile_identifier_content(values, column_name = column_name)
     if (!is.null(identifier_by_content)) {
       return(identifier_by_content)
@@ -480,6 +544,12 @@ ai_profile_role_guess <- function(column_name, inferred_type, x) {
   }
   if (identical(inferred_type, "period")) {
     return("quasi_identifier")
+  }
+  if (identical(inferred_type, "code_description")) {
+    return("code_description")
+  }
+  if (identical(inferred_type, "numeric") && ai_profile_normative_code_name(column_name)) {
+    return("normative_code")
   }
   if (identical(inferred_type, "numeric") && ai_profile_quasi_identifier_name(column_name)) {
     return("quasi_identifier")
@@ -661,6 +731,13 @@ ai_profile_variable_summary <- function(column_name, x, inferred_type, role_gues
       heuristic_signal <- c(heuristic_signal, "podria funcionar como codigo numerico")
     }
 
+    if (
+      ai_profile_normative_code_name(column_name) &&
+      (all_equal || (!is.integer(x) && all_integerish))
+    ) {
+      heuristic_signal <- c(heuristic_signal, "podria funcionar como numero de articulo normativo")
+    }
+
     return(list(
       min = round(min(numeric_values), round_digits),
       max = round(max(numeric_values), round_digits),
@@ -698,6 +775,15 @@ ai_profile_variable_summary <- function(column_name, x, inferred_type, role_gues
     ))
   }
 
+  if (identical(inferred_type, "code_description")) {
+    text_values <- as.character(values)
+    lengths <- nchar(text_values)
+    return(list(
+      associated_column = ai_profile_find_associated_code_column(column_name, names(x) %||% character(0)),
+      typical_length = if (length(lengths) == 0) "no disponible" else sprintf("%s-%s caracteres", min(lengths), max(lengths))
+    ))
+  }
+
   if (identical(inferred_type, "entity_label")) {
     text_values <- as.character(values)
     lengths <- nchar(text_values)
@@ -718,8 +804,8 @@ ai_profile_variable_summary <- function(column_name, x, inferred_type, role_gues
   list()
 }
 
-build_variable_profile_for_ai <- function(column_name, x, config = NULL, round_digits = 2, max_levels = 12, top_n = 10) {
-  inference <- ai_profile_infer_type(column_name, x, max_levels = max_levels)
+build_variable_profile_for_ai <- function(column_name, x, config = NULL, round_digits = 2, max_levels = 12, top_n = 10, data_names = character(0)) {
+  inference <- ai_profile_infer_type(column_name, x, max_levels = max_levels, data_names = data_names)
   imported_type <- ai_profile_imported_type(x)
   role_guess <- ai_profile_role_guess(column_name, inference$inferred_type, x)
   missing_pct <- round(mean(is.na(x)) * 100, 2)
@@ -740,6 +826,10 @@ build_variable_profile_for_ai <- function(column_name, x, config = NULL, round_d
     max_levels = max_levels,
     top_n = top_n
   )
+
+  if (identical(override$inferred_type, "code_description")) {
+    summary$associated_column <- ai_profile_find_associated_code_column(column_name, data_names)
+  }
 
   list(
     name = column_name,
