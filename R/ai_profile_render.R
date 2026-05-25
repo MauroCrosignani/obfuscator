@@ -39,6 +39,15 @@ render_ai_profile_variable <- function(variable_profile, mode = "compact") {
     ))
   }
 
+  if (identical(inferred_type, "empty")) {
+    return(sprintf(
+      "- %s: tipo importado: %s; sin valores observados; no se infiere contenido%s.",
+      name,
+      imported_type,
+      missing_text
+    ))
+  }
+
   if (identical(inferred_type, "categorical")) {
     visible_values <- summary$values %||% character(0)
     max_value_length <- if (length(visible_values) == 0) 0 else max(nchar(visible_values), na.rm = TRUE)
@@ -122,6 +131,22 @@ render_ai_profile_variable <- function(variable_profile, mode = "compact") {
       format(summary$min, trim = TRUE, scientific = FALSE),
       format(summary$max, trim = TRUE, scientific = FALSE),
       suffix,
+      missing_text
+    ))
+  }
+
+  if (identical(inferred_type, "period")) {
+    detail <- if (!is.null(variable_profile$observed_pattern)) {
+      sprintf("; formato observado %s", variable_profile$observed_pattern)
+    } else {
+      ""
+    }
+    return(sprintf(
+      "- %s: %s%s; rango aproximado %s%s.",
+      name,
+      render_prefix("periodo"),
+      detail,
+      summary$range %||% "no disponible",
       missing_text
     ))
   }

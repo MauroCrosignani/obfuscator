@@ -1491,6 +1491,78 @@ test_that("resumen_de falla en espanol para salida invalida", {
   )
 })
 
+test_that("identificadores institucionales character no exponen niveles frecuentes", {
+  df <- data.frame(
+    NRO_EMPRESA = sprintf("%013d", seq_len(30)),
+    stringsAsFactors = FALSE
+  )
+
+  profile <- profile_dataset_for_ai(df, dataset_name = "ids_institucionales")
+  rendered <- render_dataset_profile_for_ai(profile)
+
+  expect_equal(profile$variables$NRO_EMPRESA$inferred_type, "identifier")
+  expect_match(rendered, "NRO_EMPRESA: importada como character; interpretada como identificador", ignore.case = TRUE)
+  expect_false(grepl("\"0000000000001\"", rendered, fixed = TRUE))
+  expect_false(grepl("top niveles", rendered, ignore.case = TRUE))
+  expect_false(grepl("valores observados", rendered, ignore.case = TRUE))
+})
+
+test_that("identificadores numericos institucionales no se describen como telefonos", {
+  df <- data.frame(
+    NRO_CONTRIBUYENTE_TITULO = sprintf("%013d", c(1001, 1002, 1001, 1003)),
+    stringsAsFactors = FALSE
+  )
+
+  profile <- profile_dataset_for_ai(df, dataset_name = "nro_contribuyente")
+  rendered <- render_dataset_profile_for_ai(profile)
+
+  expect_equal(profile$variables$NRO_CONTRIBUYENTE_TITULO$inferred_type, "identifier")
+  expect_false(grepl("telefono", rendered, ignore.case = TRUE))
+  expect_match(rendered, "patron aproximado: solo digitos", ignore.case = TRUE)
+})
+
+test_that("menciones de contribuyente no convierten medidas o estados en identificadores", {
+  df <- data.frame(
+    DEUDA_CONTRIBUYENTE = c(0, 1000, 2500, 1000),
+    JUICIO_CONTRIBUYENTE = c("S", "N", "N", "S"),
+    stringsAsFactors = FALSE
+  )
+
+  profile <- profile_dataset_for_ai(df, dataset_name = "contribuyente_no_id")
+  rendered <- render_dataset_profile_for_ai(profile)
+
+  expect_equal(profile$variables$DEUDA_CONTRIBUYENTE$inferred_type, "numeric")
+  expect_equal(profile$variables$JUICIO_CONTRIBUYENTE$inferred_type, "categorical")
+  expect_false(grepl("DEUDA_CONTRIBUYENTE: .*identificador", rendered, ignore.case = TRUE))
+  expect_false(grepl("JUICIO_CONTRIBUYENTE: .*identificador", rendered, ignore.case = TRUE))
+})
+
+test_that("periodos YYYYMM se informan como periodos y no como categorias", {
+  df <- data.frame(
+    PERIODO_DESDE = c("202401", "202402", "202412", "202401"),
+    stringsAsFactors = FALSE
+  )
+
+  profile <- profile_dataset_for_ai(df, dataset_name = "periodos")
+  rendered <- render_dataset_profile_for_ai(profile)
+
+  expect_equal(profile$variables$PERIODO_DESDE$inferred_type, "period")
+  expect_match(rendered, "PERIODO_DESDE: importada como character; interpretada como periodo", ignore.case = TRUE)
+  expect_match(rendered, "formato observado YYYYMM", ignore.case = TRUE)
+  expect_false(grepl("valores observados", rendered, ignore.case = TRUE))
+})
+
+test_that("columnas completamente faltantes se describen sin inferencia espuria", {
+  df <- data.frame(FECHA_HASTA = rep(NA, 4))
+
+  profile <- profile_dataset_for_ai(df, dataset_name = "faltantes")
+  rendered <- render_dataset_profile_for_ai(profile)
+
+  expect_equal(profile$variables$FECHA_HASTA$imported_type, "logical")
+  expect_equal(profile$variables$FECHA_HASTA$inferred_type, "empty")
+  expect_match(rendered, "FECHA_HASTA: tipo importado: logical; sin valores observados", ignore.case = TRUE)
+})
+
 test_that("resumen_de debe quedar exportada en el paquete", {
   namespace_lines <- readLines(file.path("..", "..", "NAMESPACE"), warn = FALSE)
   expect_true(any(grepl("^export\\(resumen_de\\)$", namespace_lines)))

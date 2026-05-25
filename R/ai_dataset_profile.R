@@ -1,9 +1,31 @@
 ai_profile_identifier_name <- function(column_name) {
   normalized_name <- ai_profile_normalize_column_name(column_name)
+  if (ai_profile_identifier_negative_name(column_name)) {
+    return(FALSE)
+  }
+
   grepl(
-    "(^|_)(id|rut|cedula|dni|nie|nic)(_|$)|identificador|persona_id|pers_id|expediente|matricula|contribuyente|correo|mail|email|e_mail|telefono|celular",
+    "(^|_)(id|rut|cedula|dni|nie|nic|nro|numero)(_|$)|identificador|persona_id|pers_id|expediente|matricula|correo|mail|email|e_mail|telefono|celular|nro_empresa|nro_int_emp|nro_int_contr|nro_contribuyente|(^|_)titulo($|_)",
     normalized_name
   )
+}
+
+ai_profile_identifier_negative_name <- function(column_name) {
+  normalized_name <- ai_profile_normalize_column_name(column_name)
+  grepl(
+    "deuda|monto|saldo|importe|valor|cantidad|cant|porcentaje|tasa|juicio|estado|marca|descripcion|desc|tipo_estado|etapa",
+    normalized_name
+  )
+}
+
+ai_profile_phone_like_name <- function(column_name) {
+  normalized_name <- ai_profile_normalize_column_name(column_name)
+  grepl("telefono|celular|phone|movil|tel_contacto", normalized_name)
+}
+
+ai_profile_period_name <- function(column_name) {
+  normalized_name <- ai_profile_normalize_column_name(column_name)
+  grepl("periodo|period|mes_anio|anio_mes|yyyymm", normalized_name)
 }
 
 ai_profile_sensitive_name <- function(column_name) {

@@ -20,6 +20,25 @@ ai_profile_observed_temporal_pattern <- function(values) {
   NULL
 }
 
+ai_profile_observed_period_pattern <- function(values) {
+  values <- as.character(values)
+  values <- trimws(values[nzchar(trimws(values))])
+  if (length(values) == 0) {
+    return(NULL)
+  }
+
+  if (!all(grepl("^\\d{6}$", values))) {
+    return(NULL)
+  }
+
+  months <- as.integer(substr(values, 5, 6))
+  if (all(!is.na(months) & months >= 1 & months <= 12)) {
+    return("YYYYMM")
+  }
+
+  NULL
+}
+
 ai_profile_detect_compound_delimiter <- function(values) {
   values <- as.character(values)
   values <- trimws(values)
@@ -158,7 +177,7 @@ ai_profile_collection_cardinality <- function(x) {
   "variable"
 }
 
-ai_profile_identifier_content <- function(values) {
+ai_profile_identifier_content <- function(values, column_name = NULL) {
   values <- as.character(values)
   values <- values[nzchar(trimws(values))]
   if (length(values) == 0) {
@@ -174,7 +193,10 @@ ai_profile_identifier_content <- function(values) {
     ))
   }
 
-  if (all(grepl("^\\+?[0-9][0-9\\-\\s]{7,}$", values))) {
+  if (
+    ai_profile_phone_like_name(column_name) &&
+    all(grepl("^\\+?[0-9][0-9\\-\\s]{7,}$", values))
+  ) {
     return(list(
       inferred_type = "identifier",
       observed_pattern = "phone",
@@ -188,6 +210,18 @@ ai_profile_identifier_content <- function(values) {
       inferred_type = "identifier",
       observed_pattern = "uuid",
       warnings = "No se incluiran ejemplos literales de identificadores unicos.",
+      confidence = "high"
+    ))
+  }
+
+  if (
+    ai_profile_identifier_name(column_name) &&
+    all(grepl("^[[:alnum:]][[:alnum:] ._/-]{5,}$", values))
+  ) {
+    return(list(
+      inferred_type = "identifier",
+      observed_pattern = "structured_identifier",
+      warnings = "No se incluiran ejemplos literales de identificadores.",
       confidence = "high"
     ))
   }
@@ -229,7 +263,7 @@ ai_profile_infer_type <- function(column_name, x, max_levels = 12) {
 
   if (n_values == 0) {
     return(list(
-      inferred_type = "unknown",
+      inferred_type = "empty",
       observed_pattern = NULL,
       warnings = "La columna no tiene valores no faltantes para inferencia.",
       confidence = "low"
@@ -273,9 +307,19 @@ ai_profile_infer_type <- function(column_name, x, max_levels = 12) {
   }
 
   if (is.character(x) || is.factor(x)) {
-    identifier_by_content <- ai_profile_identifier_content(values)
+    identifier_by_content <- ai_profile_identifier_content(values, column_name = column_name)
     if (!is.null(identifier_by_content)) {
       return(identifier_by_content)
+    }
+
+    observed_pattern <- ai_profile_observed_period_pattern(values)
+    if (ai_profile_period_name(column_name) && !is.null(observed_pattern)) {
+      return(list(
+        inferred_type = "period",
+        observed_pattern = observed_pattern,
+        warnings = "La columna parece representar periodos, pero llego como texto y puede requerir normalizacion.",
+        confidence = "high"
+      ))
     }
 
     observed_pattern <- ai_profile_observed_temporal_pattern(values)
@@ -358,7 +402,7 @@ ai_profile_infer_type <- function(column_name, x, max_levels = 12) {
   )
 }
 
-ai_profile_identifier_pattern <- function(values) {
+ai_profile_identifier_pattern <- function(values, column_name = NULL) {
   values <- as.character(values)
   values <- values[nzchar(trimws(values))]
   if (length(values) == 0) {
@@ -369,7 +413,10 @@ ai_profile_identifier_pattern <- function(values) {
     return("correo electronico")
   }
 
-  if (all(grepl("^\\+?[0-9][0-9\\-\\s]{7,}$", values))) {
+  if (
+    ai_profile_phone_like_name(column_name) &&
+    all(grepl("^\\+?[0-9][0-9\\-\\s]{7,}$", values))
+  ) {
     return("telefono")
   }
 
@@ -429,6 +476,9 @@ ai_profile_role_guess <- function(column_name, inferred_type, x) {
     return("sensitive")
   }
   if (identical(inferred_type, "date") || identical(inferred_type, "datetime")) {
+    return("quasi_identifier")
+  }
+  if (identical(inferred_type, "period")) {
     return("quasi_identifier")
   }
   if (identical(inferred_type, "numeric") && ai_profile_quasi_identifier_name(column_name)) {
@@ -523,8 +573,12 @@ ai_profile_variable_summary <- function(column_name, x, inferred_type, role_gues
     unique_ratio <- if (length(values) == 0) 0 else length(unique(values)) / length(values)
     return(list(
       approximate_uniqueness = round(unique_ratio * 100, 1),
-      approximate_pattern = ai_profile_identifier_pattern(values)
+      approximate_pattern = ai_profile_identifier_pattern(values, column_name = column_name)
     ))
+  }
+
+  if (identical(inferred_type, "empty")) {
+    return(list())
   }
 
   if (identical(inferred_type, "categorical")) {
@@ -613,6 +667,15 @@ ai_profile_variable_summary <- function(column_name, x, inferred_type, role_gues
       numeric_kind = if (is.integer(x)) "integer" else "double",
       observed_evidence = observed_evidence,
       heuristic_signal = heuristic_signal
+    ))
+  }
+
+  if (identical(inferred_type, "period")) {
+    period_values <- as.character(values)
+    period_values <- period_values[nzchar(trimws(period_values))]
+    return(list(
+      range = sprintf("%s a %s", min(period_values), max(period_values)),
+      period_pattern = ai_profile_observed_period_pattern(period_values)
     ))
   }
 
