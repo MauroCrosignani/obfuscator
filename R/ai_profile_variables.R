@@ -540,6 +540,9 @@ ai_profile_role_guess <- function(column_name, inferred_type, x) {
   if (identical(inferred_type, "identifier")) {
     return("identifier")
   }
+  if (identical(inferred_type, "free_text") && ai_profile_quasi_identifier_name(column_name)) {
+    return("quasi_identifier")
+  }
   if (identical(inferred_type, "free_text")) {
     return("free_text")
   }
