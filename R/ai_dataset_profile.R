@@ -5,7 +5,7 @@ ai_profile_identifier_name <- function(column_name) {
   }
 
   grepl(
-    "(^|_)(id|rut|cedula|dni|nie|nic|nro|numero)(_|$)|identificador|persona_id|pers_id|expediente|matricula|correo|mail|email|e_mail|telefono|celular|nro_empresa|nro_int_emp|nro_int_contr|nro_contribuyente|(^|_)titulo($|_)",
+    "(^|_)(id|rut|cedula|dni|nie|nic|nro|numero)(_|$)|identificador|documento|solicitud|persona_id|pers_id|pers_identificador|expediente|matricula|correo|mail|email|e_mail|telefono|celular|nro_empresa|nro_int_emp|nro_int_contr|nro_contribuyente|nro_solicitud|id_solicitud|(^|_)titulo($|_)",
     normalized_name
   )
 }
@@ -13,7 +13,7 @@ ai_profile_identifier_name <- function(column_name) {
 ai_profile_identifier_negative_name <- function(column_name) {
   normalized_name <- ai_profile_normalize_column_name(column_name)
   grepl(
-    "deuda|monto|saldo|importe|valor|cantidad|cant|porcentaje|tasa|juicio|estado|marca|descripcion|desc|tipo_estado|etapa|^tipo_titulo$|^nro_art$|articulo|ley|norma",
+    "fecha|date|deuda|monto|saldo|importe|valor|cantidad|cant|porcentaje|tasa|juicio|estado|marca|descripcion|desc|tipo_estado|^tipo_documento$|etapa|^tipo_titulo$|^nro_art$|articulo|ley|norma",
     normalized_name
   )
 }
@@ -184,11 +184,25 @@ ai_profile_identifier_entity <- function(column_name) {
   if (grepl("contrib|(^|_)contr($|_)|(^|_)cont($|_)|(^|_)rut($|_)|(^|_)ruc($|_)", normalized_name)) {
     return("contribuyente")
   }
+  if (grepl("(^|_)pers($|_)|(^|_)pers_id($|_)|pers_identificador|persona", normalized_name)) {
+    return("persona")
+  }
+  if (grepl("documento|cedula|dni|nie", normalized_name)) {
+    return("documento_persona")
+  }
+  if (grepl("solicitud", normalized_name)) {
+    return("solicitud")
+  }
   if (grepl("(^|_)titulo($|_)", normalized_name)) {
     return("titulo")
   }
 
   column_name
+}
+
+ai_profile_columns_matching_normalized <- function(data_names, normalized_targets) {
+  normalized_names <- vapply(data_names, ai_profile_normalize_column_name, character(1))
+  unname(data_names[match(normalized_targets, normalized_names, nomatch = 0L)])
 }
 
 ai_profile_build_identifier_groups <- function(data, identifier_columns) {
@@ -197,7 +211,7 @@ ai_profile_build_identifier_groups <- function(data, identifier_columns) {
   }
 
   grouped_columns <- split(identifier_columns, vapply(identifier_columns, ai_profile_identifier_entity, character(1)))
-  group_names <- intersect(c("empresa", "contribuyente"), names(grouped_columns))
+  group_names <- intersect(c("empresa", "contribuyente", "persona", "solicitud"), names(grouped_columns))
 
   groups <- lapply(group_names, function(entity) {
     columns <- grouped_columns[[entity]]
@@ -218,7 +232,29 @@ ai_profile_build_identifier_groups <- function(data, identifier_columns) {
     )
   })
 
-  groups[vapply(groups, function(group) length(group$columns) > 1, logical(1))]
+  document_columns <- ai_profile_columns_matching_normalized(names(data), c("td", "pais", "documento"))
+  if (length(document_columns) == 3) {
+    document_parts <- lapply(document_columns, function(column_name) data[[column_name]])
+    usable_document <- Reduce(`&`, lapply(document_parts, function(values) !is.na(values)))
+    document_values <- do.call(
+      paste,
+      c(lapply(document_parts, function(values) as.character(values[usable_document])), sep = "\r")
+    )
+    groups <- c(
+      groups,
+      list(list(
+        entity = "documento_persona",
+        columns = document_columns,
+        representative_column = document_columns[[3]],
+        distinct_identifiers = length(unique(document_values))
+      ))
+    )
+  }
+
+  groups[vapply(groups, function(group) {
+    group$entity %in% c("empresa", "contribuyente", "persona", "documento_persona", "solicitud") &&
+      length(group$columns) > 0
+  }, logical(1))]
 }
 
 ai_profile_granularity_key_summary <- function(data, columns, label, role) {
@@ -276,23 +312,28 @@ ai_profile_build_composite_summaries <- function(data, identifier_groups, variab
     vapply(identifier_groups, `[[`, character(1), "representative_column"),
     vapply(identifier_groups, `[[`, character(1), "entity")
   )
-  if (!all(c("empresa", "contribuyente") %in% names(entity_columns))) {
-    return(list())
-  }
 
   aportacion_columns <- ai_profile_aportacion_columns(names(data))
   period_columns <- ai_profile_period_columns(variable_profiles)
-
-  summaries <- list(
-    ai_profile_granularity_key_summary(
-      data = data,
-      columns = unname(entity_columns[c("empresa", "contribuyente")]),
-      label = "empresa + contribuyente",
-      role = "entidad"
-    )
+  summaries <- list()
+  group_columns_by_entity <- stats::setNames(
+    lapply(identifier_groups, `[[`, "columns"),
+    vapply(identifier_groups, `[[`, character(1), "entity")
   )
 
-  if (length(aportacion_columns) > 0) {
+  if (all(c("empresa", "contribuyente") %in% names(entity_columns))) {
+    summaries <- c(
+      summaries,
+      list(ai_profile_granularity_key_summary(
+        data = data,
+        columns = unname(entity_columns[c("empresa", "contribuyente")]),
+        label = "empresa + contribuyente",
+        role = "entidad"
+      ))
+    )
+  }
+
+  if (all(c("empresa", "contribuyente") %in% names(entity_columns)) && length(aportacion_columns) > 0) {
     aportacion_column <- aportacion_columns[[1]]
     entity_aportacion_columns <- c(unname(entity_columns[c("empresa", "contribuyente")]), aportacion_column)
     summaries <- c(
@@ -318,6 +359,51 @@ ai_profile_build_composite_summaries <- function(data, identifier_groups, variab
         })
       )
     }
+  }
+
+  persona_columns <- if ("persona" %in% names(group_columns_by_entity)) {
+    group_columns_by_entity[["persona"]][[1]]
+  } else if ("documento_persona" %in% names(entity_columns)) {
+    group_columns_by_entity[["documento_persona"]]
+  } else {
+    NULL
+  }
+  persona_label <- if ("persona" %in% names(entity_columns)) "persona" else "documento_persona"
+  if (!is.null(persona_columns) && "empresa" %in% names(entity_columns)) {
+    if (length(aportacion_columns) > 0) {
+      aportacion_column <- aportacion_columns[[1]]
+      summaries <- c(
+        summaries,
+        list(ai_profile_granularity_key_summary(
+          data = data,
+          columns = c(unname(entity_columns[["empresa"]]), aportacion_column, unname(persona_columns)),
+          label = paste("empresa", aportacion_column, persona_label, sep = " + "),
+          role = "empresa_aportacion_persona"
+        ))
+      )
+    } else {
+      summaries <- c(
+        summaries,
+        list(ai_profile_granularity_key_summary(
+          data = data,
+          columns = c(unname(entity_columns[["empresa"]]), unname(persona_columns)),
+          label = paste("empresa", persona_label, sep = " + "),
+          role = "empresa_persona"
+        ))
+      )
+    }
+  }
+
+  if (!is.null(persona_columns) && "solicitud" %in% names(entity_columns)) {
+    summaries <- c(
+      summaries,
+      list(ai_profile_granularity_key_summary(
+        data = data,
+        columns = c(unname(entity_columns[["solicitud"]]), unname(persona_columns)),
+        label = paste("solicitud", persona_label, sep = " + "),
+        role = "solicitud_persona"
+      ))
+    )
   }
 
   Filter(Negate(is.null), summaries)

@@ -249,16 +249,23 @@ render_ai_profile_granularity <- function(granularity) {
   identifier_groups <- granularity$identifier_groups %||% list()
   composite_summaries <- granularity$composite_summaries %||% list()
   temporal_signals <- granularity$temporal_signals %||% list()
+  visible_identifier_groups <- Filter(
+    function(group) {
+      group$entity %in% c("persona", "documento_persona", "solicitud") ||
+        length(group$columns %||% character(0)) > 1
+    },
+    identifier_groups
+  )
 
   grouped_identifier_columns <- unique(unlist(
     lapply(identifier_groups, `[[`, "columns"),
     use.names = FALSE
   ))
 
-  if (length(identifier_groups) > 0) {
+  if (length(visible_identifier_groups) > 0) {
     lines <- c(lines, "- Identificadores equivalentes detectados:")
     group_lines <- vapply(
-      identifier_groups,
+      visible_identifier_groups,
       function(group) {
         sprintf("  %s: %s.", group$entity, paste(group$columns, collapse = ", "))
       },
@@ -323,7 +330,7 @@ render_ai_profile_granularity <- function(granularity) {
     )
   }
 
-  if (length(identifier_groups) > 0 || length(composite_summaries) > 0 || length(temporal_signals) > 0) {
+  if (length(visible_identifier_groups) > 0 || length(composite_summaries) > 0 || length(temporal_signals) > 0) {
     return(lines)
   }
 

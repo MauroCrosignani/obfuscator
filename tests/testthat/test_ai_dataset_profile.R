@@ -1713,6 +1713,108 @@ test_that("granularidad institucional agrupa identificadores equivalentes y dete
   expect_match(rendered, "Otros identificadores casi unicos: TITULO", fixed = TRUE)
 })
 
+test_that("granularidad reconoce persona, documento compuesto y solicitud", {
+  df <- data.frame(
+    NRO_EMPRESA = c("E1", "E1", "E1", "E2", "E2", "E2"),
+    TIPO_APORTACION = c(1, 1, 4, 1, 1, 4),
+    PERS_ID = c(101, 101, 101, 202, 202, 202),
+    TD = c("CI", "CI", "CI", "PAS", "PAS", "PAS"),
+    PAIS = c("UY", "UY", "UY", "AR", "AR", "AR"),
+    DOCUMENTO = c("11111111", "11111111", "11111111", "AA123", "AA123", "AA123"),
+    NRO_SOLICITUD = c("S1", "S2", "S3", "S4", "S5", "S6"),
+    DENOMINACION = c("Empresa Uno", "Empresa Uno", "Empresa Uno", "Persona Dos", "Persona Dos", "Persona Dos"),
+    RAZON_SOCIAL = c("Empresa Uno SA", "Empresa Uno SA", "Empresa Uno SA", "Persona Dos", "Persona Dos", "Persona Dos"),
+    stringsAsFactors = FALSE
+  )
+
+  profile <- profile_dataset_for_ai(df, dataset_name = "persona_solicitud")
+  rendered <- render_dataset_profile_for_ai(profile)
+
+  expect_equal(profile$variables$PERS_ID$inferred_type, "identifier")
+  expect_equal(profile$variables$DOCUMENTO$inferred_type, "identifier")
+  expect_equal(profile$variables$NRO_SOLICITUD$inferred_type, "identifier")
+  expect_true(any(vapply(
+    profile$granularity$identifier_groups,
+    function(group) identical(group$entity, "persona") &&
+      "PERS_ID" %in% group$columns,
+    logical(1)
+  )))
+  expect_true(any(vapply(
+    profile$granularity$identifier_groups,
+    function(group) identical(group$entity, "documento_persona") &&
+      identical(group$columns, c("TD", "PAIS", "DOCUMENTO")),
+    logical(1)
+  )))
+  expect_true(any(vapply(
+    profile$granularity$identifier_groups,
+    function(group) identical(group$entity, "solicitud") &&
+      "NRO_SOLICITUD" %in% group$columns,
+    logical(1)
+  )))
+  expect_true(any(vapply(
+    profile$granularity$composite_summaries,
+    function(summary) identical(summary$role, "empresa_aportacion_persona") &&
+      summary$unique_row_pct < 100,
+    logical(1)
+  )))
+  expect_true(any(vapply(
+    profile$granularity$composite_summaries,
+    function(summary) identical(summary$role, "solicitud_persona") &&
+      summary$unique_row_pct == 100,
+    logical(1)
+  )))
+  expect_match(rendered, "persona: PERS_ID", fixed = TRUE)
+  expect_match(rendered, "documento_persona: TD, PAIS, DOCUMENTO", fixed = TRUE)
+  expect_match(rendered, "solicitud: NRO_SOLICITUD", fixed = TRUE)
+  expect_match(rendered, "solicitud + persona", fixed = TRUE)
+  expect_false(grepl("Empresa Uno", rendered, fixed = TRUE))
+  expect_false(grepl("Persona Dos", rendered, fixed = TRUE))
+})
+
+test_that("granularidad evita falsos positivos de documento y solicitud", {
+  df <- data.frame(
+    FECHA_SOLICITUD = as.Date(c("2024-01-01", "2024-01-02")),
+    TIPO_DOCUMENTO = c("CI", "PAS"),
+    NRO_SOLICITUD = c("S1", "S2"),
+    stringsAsFactors = FALSE
+  )
+
+  profile <- profile_dataset_for_ai(df, dataset_name = "falsos_positivos")
+
+  expect_equal(profile$variables$FECHA_SOLICITUD$inferred_type, "date")
+  expect_equal(profile$variables$TIPO_DOCUMENTO$inferred_type, "categorical")
+  expect_equal(profile$variables$NRO_SOLICITUD$inferred_type, "identifier")
+})
+
+test_that("granularidad usa documento compuesto cuando no hay PERS_ID", {
+  df <- data.frame(
+    NRO_EMPRESA = c("E1", "E1", "E1", "E1"),
+    TIPO_APORTACION = c(1, 1, 1, 1),
+    TD = c("CI", "PAS", "CI", "PAS"),
+    PAIS = c("UY", "AR", "UY", "AR"),
+    DOCUMENTO = c("123", "123", "123", "123"),
+    NRO_SOLICITUD = c("S1", "S2", "S3", "S4"),
+    stringsAsFactors = FALSE
+  )
+
+  profile <- profile_dataset_for_ai(df, dataset_name = "documento_compuesto")
+
+  expect_true(any(vapply(
+    profile$granularity$composite_summaries,
+    function(summary) identical(summary$role, "empresa_aportacion_persona") &&
+      identical(summary$columns, c("NRO_EMPRESA", "TIPO_APORTACION", "TD", "PAIS", "DOCUMENTO")) &&
+      identical(summary$distinct_keys, 2L),
+    logical(1)
+  )))
+  expect_true(any(vapply(
+    profile$granularity$composite_summaries,
+    function(summary) identical(summary$role, "solicitud_persona") &&
+      identical(summary$columns, c("NRO_SOLICITUD", "TD", "PAIS", "DOCUMENTO")) &&
+      identical(summary$unique_row_pct, 100),
+    logical(1)
+  )))
+})
+
 test_that("descripcion sin emparejamiento claro se mantiene como texto libre prudente", {
   df <- data.frame(
     OBSERVACION = c("Texto abierto con detalle operativo 1", "Texto abierto con detalle operativo 2"),
