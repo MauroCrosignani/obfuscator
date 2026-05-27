@@ -537,6 +537,9 @@ ai_profile_temporal_range <- function(values, inferred_type) {
 }
 
 ai_profile_role_guess <- function(column_name, inferred_type, x) {
+  if (ai_profile_sensitive_name(column_name)) {
+    return("sensitive")
+  }
   if (identical(inferred_type, "identifier")) {
     return("identifier")
   }
@@ -548,9 +551,6 @@ ai_profile_role_guess <- function(column_name, inferred_type, x) {
   }
   if (identical(inferred_type, "entity_label")) {
     return("entity_label")
-  }
-  if (ai_profile_sensitive_name(column_name)) {
-    return("sensitive")
   }
   if (identical(inferred_type, "date") || identical(inferred_type, "datetime")) {
     return("quasi_identifier")

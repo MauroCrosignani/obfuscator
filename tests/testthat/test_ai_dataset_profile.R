@@ -1751,6 +1751,26 @@ test_that("domicilio se reconoce como cuasi-identificador sin exponer valores", 
   expect_false(grepl("CALLE FICTICIA", rendered, fixed = TRUE))
 })
 
+test_that("contactos y correos se tratan como sensibles con nombres normalizados", {
+  df <- data.frame(
+    check.names = FALSE,
+    "Correo Electrónico Fiscal" = c("ana@example.org", "bruno@example.org"),
+    "E-mail_Constituído" = c("fiscal@example.org", "operativo@example.org"),
+    "CONTACTO_OPERATIVO" = c("Persona Referente Uno", "Persona Referente Dos")
+  )
+
+  profile <- profile_dataset_for_ai(df, dataset_name = "contactos")
+  rendered <- render_dataset_profile_for_ai(profile)
+
+  expect_equal(profile$variables[["Correo Electrónico Fiscal"]]$inferred_type, "identifier")
+  expect_equal(profile$variables[["Correo Electrónico Fiscal"]]$role_guess, "sensitive")
+  expect_equal(profile$variables[["E-mail_Constituído"]]$inferred_type, "identifier")
+  expect_equal(profile$variables[["E-mail_Constituído"]]$role_guess, "sensitive")
+  expect_equal(profile$variables[["CONTACTO_OPERATIVO"]]$role_guess, "sensitive")
+  expect_false(grepl("ana@example.org", rendered, fixed = TRUE))
+  expect_false(grepl("Persona Referente", rendered, fixed = TRUE))
+})
+
 test_that("granularidad reconoce persona, documento compuesto y solicitud", {
   df <- data.frame(
     NRO_EMPRESA = c("E1", "E1", "E1", "E2", "E2", "E2"),

@@ -42,6 +42,7 @@ ai_profile_imported_type <- function(x) {
 
 ai_profile_normalize_column_name <- function(column_name) {
   normalized <- tolower(trimws(column_name %||% ""))
+  normalized <- iconv(normalized, from = "", to = "ASCII//TRANSLIT", sub = "")
   gsub("[^a-z0-9]+", "_", normalized)
 }
 
