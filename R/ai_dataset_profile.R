@@ -175,6 +175,197 @@ ai_profile_candidate_uniqueness <- function(identifier_values, candidate_values)
   )
 }
 
+ai_profile_identifier_entity <- function(column_name) {
+  normalized_name <- ai_profile_normalize_column_name(column_name)
+
+  if (grepl("empresa|(^|_)emp($|_)", normalized_name)) {
+    return("empresa")
+  }
+  if (grepl("contrib|(^|_)contr($|_)|(^|_)cont($|_)|(^|_)rut($|_)|(^|_)ruc($|_)", normalized_name)) {
+    return("contribuyente")
+  }
+  if (grepl("(^|_)titulo($|_)", normalized_name)) {
+    return("titulo")
+  }
+
+  column_name
+}
+
+ai_profile_build_identifier_groups <- function(data, identifier_columns) {
+  if (length(identifier_columns) == 0) {
+    return(list())
+  }
+
+  grouped_columns <- split(identifier_columns, vapply(identifier_columns, ai_profile_identifier_entity, character(1)))
+  group_names <- intersect(c("empresa", "contribuyente"), names(grouped_columns))
+
+  groups <- lapply(group_names, function(entity) {
+    columns <- grouped_columns[[entity]]
+    distinct_counts <- vapply(
+      columns,
+      function(column_name) {
+        values <- data[[column_name]]
+        length(unique(as.character(values[!is.na(values)])))
+      },
+      integer(1)
+    )
+
+    list(
+      entity = entity,
+      columns = columns,
+      representative_column = columns[[1]],
+      distinct_identifiers = max(distinct_counts, na.rm = TRUE)
+    )
+  })
+
+  groups[vapply(groups, function(group) length(group$columns) > 1, logical(1))]
+}
+
+ai_profile_granularity_key_summary <- function(data, columns, label, role) {
+  if (length(columns) == 0 || !all(columns %in% names(data))) {
+    return(NULL)
+  }
+
+  key_parts <- lapply(columns, function(column_name) data[[column_name]])
+  usable <- Reduce(`&`, lapply(key_parts, function(values) !is.na(values)))
+  if (!any(usable)) {
+    return(NULL)
+  }
+
+  keys <- do.call(
+    paste,
+    c(lapply(key_parts, function(values) as.character(values[usable])), sep = "\r")
+  )
+  counts <- table(keys)
+  row_counts <- unname(counts[keys])
+
+  list(
+    role = role,
+    label = label,
+    columns = columns,
+    rows_considered = length(keys),
+    distinct_keys = length(counts),
+    unique_row_pct = round(mean(row_counts == 1) * 100, 1),
+    duplicate_rows_remaining = sum(row_counts > 1),
+    max_rows_per_key = max(counts)
+  )
+}
+
+ai_profile_aportacion_columns <- function(data_names) {
+  normalized <- vapply(data_names, ai_profile_normalize_column_name, character(1))
+  data_names[grepl("^tipo_aportacion$|^ta$|aportacion", normalized)]
+}
+
+ai_profile_period_columns <- function(variable_profiles) {
+  names(variable_profiles)[vapply(
+    variable_profiles,
+    function(variable_profile) {
+      identical(variable_profile$inferred_type, "period") ||
+        grepl("mes_cargo|anio_mes|ano_mes", ai_profile_normalize_column_name(variable_profile$name))
+    },
+    logical(1)
+  )]
+}
+
+ai_profile_build_composite_summaries <- function(data, identifier_groups, variable_profiles) {
+  if (length(identifier_groups) == 0) {
+    return(list())
+  }
+
+  entity_columns <- stats::setNames(
+    vapply(identifier_groups, `[[`, character(1), "representative_column"),
+    vapply(identifier_groups, `[[`, character(1), "entity")
+  )
+  if (!all(c("empresa", "contribuyente") %in% names(entity_columns))) {
+    return(list())
+  }
+
+  aportacion_columns <- ai_profile_aportacion_columns(names(data))
+  period_columns <- ai_profile_period_columns(variable_profiles)
+
+  summaries <- list(
+    ai_profile_granularity_key_summary(
+      data = data,
+      columns = unname(entity_columns[c("empresa", "contribuyente")]),
+      label = "empresa + contribuyente",
+      role = "entidad"
+    )
+  )
+
+  if (length(aportacion_columns) > 0) {
+    aportacion_column <- aportacion_columns[[1]]
+    entity_aportacion_columns <- c(unname(entity_columns[c("empresa", "contribuyente")]), aportacion_column)
+    summaries <- c(
+      summaries,
+      list(ai_profile_granularity_key_summary(
+        data = data,
+        columns = entity_aportacion_columns,
+        label = paste("empresa + contribuyente", aportacion_column, sep = " + "),
+        role = "entidad_aportacion"
+      ))
+    )
+
+    if (length(period_columns) > 0) {
+      summaries <- c(
+        summaries,
+        lapply(period_columns, function(period_column) {
+          ai_profile_granularity_key_summary(
+            data = data,
+            columns = c(entity_aportacion_columns, period_column),
+            label = paste("empresa + contribuyente", aportacion_column, period_column, sep = " + "),
+            role = "entidad_aportacion_periodo"
+          )
+        })
+      )
+    }
+  }
+
+  Filter(Negate(is.null), summaries)
+}
+
+ai_profile_build_temporal_signals <- function(data, composite_summaries, variable_profiles) {
+  period_columns <- ai_profile_period_columns(variable_profiles)
+  if (length(period_columns) == 0 || length(composite_summaries) == 0) {
+    return(list())
+  }
+
+  base_summaries <- Filter(
+    function(summary) identical(summary$role, "entidad_aportacion"),
+    composite_summaries
+  )
+  if (length(base_summaries) == 0) {
+    return(list())
+  }
+
+  unlist(lapply(base_summaries, function(base_summary) {
+    lapply(period_columns, function(period_column) {
+      key_summary <- ai_profile_granularity_key_summary(
+        data = data,
+        columns = base_summary$columns,
+        label = base_summary$label,
+        role = base_summary$role
+      )
+      period_summary <- ai_profile_granularity_key_summary(
+        data = data,
+        columns = c(base_summary$columns, period_column),
+        label = paste(base_summary$label, period_column, sep = " + "),
+        role = paste0(base_summary$role, "_periodo")
+      )
+      if (is.null(key_summary) || is.null(period_summary) || key_summary$max_rows_per_key <= 1) {
+        return(NULL)
+      }
+
+      list(
+        base_role = base_summary$role,
+        base_label = base_summary$label,
+        period_column = period_column,
+        base_max_rows_per_key = key_summary$max_rows_per_key,
+        period_unique_row_pct = period_summary$unique_row_pct
+      )
+    })
+  }), recursive = FALSE)
+}
+
 ai_profile_build_granularity_analysis <- function(data, variable_profiles, max_candidates = 5) {
   identifier_columns <- names(variable_profiles)[vapply(
     variable_profiles,
@@ -191,6 +382,21 @@ ai_profile_build_granularity_analysis <- function(data, variable_profiles, max_c
       identifier_summaries = list()
     ))
   }
+
+  identifier_groups <- ai_profile_build_identifier_groups(data, identifier_columns)
+  composite_summaries <- ai_profile_build_composite_summaries(
+    data = data,
+    identifier_groups = identifier_groups,
+    variable_profiles = variable_profiles
+  )
+  temporal_signals <- Filter(
+    Negate(is.null),
+    ai_profile_build_temporal_signals(
+      data = data,
+      composite_summaries = composite_summaries,
+      variable_profiles = variable_profiles
+    )
+  )
 
   candidate_columns <- names(variable_profiles)[vapply(
     variable_profiles,
@@ -249,6 +455,9 @@ ai_profile_build_granularity_analysis <- function(data, variable_profiles, max_c
 
   list(
     available = TRUE,
+    identifier_groups = identifier_groups,
+    composite_summaries = composite_summaries,
+    temporal_signals = temporal_signals,
     identifier_summaries = identifier_summaries
   )
 }
