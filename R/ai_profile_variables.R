@@ -119,7 +119,7 @@ ai_profile_looks_like_entity_label <- function(column_name, values) {
   canonical_entity_label <- unique_ratio >= 0.7 &&
     (title_case_rate >= 0.6 || explicit_name_hint || uppercase_label_rate >= 0.6)
 
-  (sensitive_entity_name_hint && max_length <= 120 && avg_words <= 10 && punctuation_rate < 0.1) ||
+  (sensitive_entity_name_hint && max_length <= 300 && punctuation_rate < 0.2) ||
     (base_shape_match && (canonical_entity_label || repeated_institutional_label))
 }
 

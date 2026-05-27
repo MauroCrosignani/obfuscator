@@ -1709,8 +1709,27 @@ test_that("granularidad institucional agrupa identificadores equivalentes y dete
   expect_match(rendered, "contribuyente: NRO_INT_CONTR, NRO_CONTRIBUYENTE_TITULO", fixed = TRUE)
   expect_match(rendered, "Unidad de observacion candidata:", fixed = TRUE)
   expect_match(rendered, "empresa + contribuyente + TIPO_APORTACION + PERIODO_DESDE", fixed = TRUE)
-  expect_match(rendered, "Senal temporal:", fixed = TRUE)
+  expect_match(rendered, "Periodo observado:", fixed = TRUE)
+  expect_match(rendered, "puede indicar el periodo asociado a cada registro", fixed = TRUE)
   expect_match(rendered, "Otros identificadores casi unicos: TITULO", fixed = TRUE)
+})
+
+test_that("denominacion se trata como etiqueta de entidad aunque sea extensa", {
+  df <- data.frame(
+    DENOMINACION = c(
+      paste(rep("Empresa con nombre institucional largo", 4), collapse = " "),
+      paste(rep("Persona titular con denominacion extensa", 4), collapse = " ")
+    ),
+    MONTO = c(10, 20),
+    stringsAsFactors = FALSE
+  )
+
+  profile <- profile_dataset_for_ai(df, dataset_name = "denominacion_larga")
+  rendered <- render_dataset_profile_for_ai(profile)
+
+  expect_equal(profile$variables$DENOMINACION$inferred_type, "entity_label")
+  expect_match(rendered, "DENOMINACION: importada como character; interpretada como etiqueta nominal de entidad", fixed = TRUE)
+  expect_false(grepl("Empresa con nombre institucional largo", rendered, fixed = TRUE))
 })
 
 test_that("granularidad reconoce persona, documento compuesto y solicitud", {
