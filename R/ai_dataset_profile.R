@@ -39,7 +39,7 @@ ai_profile_sensitive_name <- function(column_name) {
 ai_profile_quasi_identifier_name <- function(column_name) {
   normalized_name <- ai_profile_normalize_column_name(column_name)
   grepl(
-    "fecha|date|nacimiento|alta|periodo|mes|anio|edad|antiguedad|cantidad_hijos|tam_hogar|ingreso|salario|monto|facturacion|departamento|localidad|ocupacion|sector|tramo|educ|sexo",
+    "fecha|date|nacimiento|alta|periodo|mes|anio|edad|antiguedad|cantidad_hijos|tam_hogar|ingreso|salario|monto|facturacion|departamento|localidad|domicilio|direccion|calle|puerta|apartamento|apto|barrio|ocupacion|sector|tramo|educ|sexo",
     normalized_name
   )
 }

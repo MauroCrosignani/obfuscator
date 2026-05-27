@@ -1732,6 +1732,25 @@ test_that("denominacion se trata como etiqueta de entidad aunque sea extensa", {
   expect_false(grepl("Empresa con nombre institucional largo", rendered, fixed = TRUE))
 })
 
+test_that("domicilio se reconoce como cuasi-identificador sin exponer valores", {
+  df <- data.frame(
+    DOMICILIO_CONSTITUIDO = c(
+      "CALLE FICTICIA 1234 APTO 101",
+      "AVENIDA IMAGINARIA 5678 ESQUINA PRUEBA"
+    ),
+    MONTO = c(10, 20),
+    stringsAsFactors = FALSE
+  )
+
+  profile <- profile_dataset_for_ai(df, dataset_name = "domicilios")
+  rendered <- render_dataset_profile_for_ai(profile)
+
+  expect_equal(profile$variables$DOMICILIO_CONSTITUIDO$inferred_type, "free_text")
+  expect_equal(profile$variables$DOMICILIO_CONSTITUIDO$role_guess, "quasi_identifier")
+  expect_match(rendered, "DOMICILIO_CONSTITUIDO: importada como character; interpretada como texto libre", fixed = TRUE)
+  expect_false(grepl("CALLE FICTICIA", rendered, fixed = TRUE))
+})
+
 test_that("granularidad reconoce persona, documento compuesto y solicitud", {
   df <- data.frame(
     NRO_EMPRESA = c("E1", "E1", "E1", "E2", "E2", "E2"),

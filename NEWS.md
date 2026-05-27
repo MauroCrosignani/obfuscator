@@ -1,3 +1,10 @@
+# ObfuscatoR 0.4.8
+
+Version de clasificacion explicita para domicilios en `resumen_de()`.
+
+- Marca columnas de domicilio, direccion, calle, puerta, apartamento o barrio como cuasi-identificadores cuando se detectan por nombre.
+- Mantiene la censura de valores reales para texto domiciliario.
+
 # ObfuscatoR 0.4.7
 
 Version de ajuste semantico para periodos y denominaciones en `resumen_de()`.
