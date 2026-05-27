@@ -95,7 +95,12 @@ ai_profile_looks_like_entity_label <- function(column_name, values) {
   title_case_rate <- mean(grepl("^[[:upper:]][[:alpha:]'`.-]*( [[:upper:]][[:alpha:]'`.-]*)*$", values))
   uppercase_label_rate <- mean(grepl("^[[:upper:]0-9'`.,()/-]+( [[:upper:]0-9'`.,()/-]+)*$", values))
   explicit_name_hint <- grepl(
-    "(^|_)(name|nombre|label|etiqueta|title|titulo|cliente|persona|paciente|proveedor|unidad|oficina|gerencia|division|departamento|sector|area)($|_)",
+    "(^|_)(name|nombre|label|etiqueta|title|titulo|cliente|persona|paciente|proveedor|unidad|oficina|gerencia|division|departamento|sector|area|denominacion|razon|razon_social|empresa)($|_)",
+    column_name,
+    ignore.case = TRUE
+  )
+  sensitive_entity_name_hint <- grepl(
+    "(^|_)(denominacion|razon|razon_social|nombre_empresa|nombre_persona)($|_)",
     column_name,
     ignore.case = TRUE
   )
@@ -114,7 +119,8 @@ ai_profile_looks_like_entity_label <- function(column_name, values) {
   canonical_entity_label <- unique_ratio >= 0.7 &&
     (title_case_rate >= 0.6 || explicit_name_hint || uppercase_label_rate >= 0.6)
 
-  base_shape_match && (canonical_entity_label || repeated_institutional_label)
+  (sensitive_entity_name_hint && max_length <= 120 && avg_words <= 10 && punctuation_rate < 0.1) ||
+    (base_shape_match && (canonical_entity_label || repeated_institutional_label))
 }
 
 ai_profile_description_core <- function(column_name) {
