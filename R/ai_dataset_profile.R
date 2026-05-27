@@ -31,7 +31,7 @@ ai_profile_period_name <- function(column_name) {
 ai_profile_sensitive_name <- function(column_name) {
   normalized_name <- ai_profile_normalize_column_name(column_name)
   grepl(
-    "diagnost|enfermed|patolog|beneficio|subsid|sancion|riesgo|situacion|indicador_privado|sensib|privad|ingreso",
+    "diagnost|enfermed|patolog|beneficio|subsid|sancion|riesgo|situacion|indicador_privado|sensib|privad|ingreso|correo|email|e_mail|(^|_)mail($|_)|contacto|telefono|celular",
     normalized_name
   )
 }
