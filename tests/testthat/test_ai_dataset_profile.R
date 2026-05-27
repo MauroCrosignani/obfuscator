@@ -1662,6 +1662,57 @@ test_that("granularidad detecta multiples filas por identificador y candidatos d
   expect_match(rendered, "Variables candidatas para refinar granularidad: TIPO_TITULO", fixed = TRUE)
 })
 
+test_that("granularidad institucional agrupa identificadores equivalentes y detecta claves compuestas", {
+  df <- data.frame(
+    NRO_INT_EMP = c(10, 10, 10, 20, 20, 20, 20, 30),
+    NRO_EMPRESA = c("0000000000010", "0000000000010", "0000000000010", "A000000000020", "A000000000020", "A000000000020", "A000000000020", "0000000000030"),
+    NRO_INT_CONTR = c(100, 100, 100, 200, 200, 200, 200, 300),
+    NRO_CONTRIBUYENTE_TITULO = c("0000000000100", "0000000000100", "0000000000100", "0000000000200", "0000000000200", "0000000000200", "0000000000200", "0000000000300"),
+    TIPO_APORTACION = c(1, 1, 4, 1, 1, 4, 4, 1),
+    PERIODO_DESDE = c("202401", "202402", "202401", "202401", "202402", "202401", "202402", "202401"),
+    TITULO = c(1, 2, 3, 4, 5, 6, 7, 8),
+    MONTO = c(10, 20, 30, 40, 50, 60, 70, 80),
+    stringsAsFactors = FALSE
+  )
+
+  profile <- profile_dataset_for_ai(df, dataset_name = "granularidad_institucional")
+  rendered <- render_dataset_profile_for_ai(profile)
+
+  expect_true(profile$granularity$available)
+  expect_true(length(profile$granularity$identifier_groups) >= 2)
+  expect_true(any(vapply(
+    profile$granularity$identifier_groups,
+    function(group) identical(group$entity, "empresa") &&
+      identical(group$columns, c("NRO_INT_EMP", "NRO_EMPRESA")),
+    logical(1)
+  )))
+  expect_true(any(vapply(
+    profile$granularity$identifier_groups,
+    function(group) identical(group$entity, "contribuyente") &&
+      identical(group$columns, c("NRO_INT_CONTR", "NRO_CONTRIBUYENTE_TITULO")),
+    logical(1)
+  )))
+  expect_true(any(vapply(
+    profile$granularity$composite_summaries,
+    function(summary) identical(summary$role, "entidad_aportacion_periodo") &&
+      summary$unique_row_pct == 100,
+    logical(1)
+  )))
+  expect_true(any(vapply(
+    profile$granularity$temporal_signals,
+    function(signal) identical(signal$period_column, "PERIODO_DESDE") &&
+      identical(signal$base_role, "entidad_aportacion"),
+    logical(1)
+  )))
+  expect_match(rendered, "Identificadores equivalentes detectados:", fixed = TRUE)
+  expect_match(rendered, "empresa: NRO_INT_EMP, NRO_EMPRESA", fixed = TRUE)
+  expect_match(rendered, "contribuyente: NRO_INT_CONTR, NRO_CONTRIBUYENTE_TITULO", fixed = TRUE)
+  expect_match(rendered, "Unidad de observacion candidata:", fixed = TRUE)
+  expect_match(rendered, "empresa + contribuyente + TIPO_APORTACION + PERIODO_DESDE", fixed = TRUE)
+  expect_match(rendered, "Senal temporal:", fixed = TRUE)
+  expect_match(rendered, "Otros identificadores casi unicos: TITULO", fixed = TRUE)
+})
+
 test_that("descripcion sin emparejamiento claro se mantiene como texto libre prudente", {
   df <- data.frame(
     OBSERVACION = c("Texto abierto con detalle operativo 1", "Texto abierto con detalle operativo 2"),

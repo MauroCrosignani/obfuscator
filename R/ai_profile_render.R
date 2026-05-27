@@ -246,6 +246,87 @@ render_ai_profile_granularity <- function(granularity) {
   }
 
   lines <- "Granularidad observada:"
+  identifier_groups <- granularity$identifier_groups %||% list()
+  composite_summaries <- granularity$composite_summaries %||% list()
+  temporal_signals <- granularity$temporal_signals %||% list()
+
+  grouped_identifier_columns <- unique(unlist(
+    lapply(identifier_groups, `[[`, "columns"),
+    use.names = FALSE
+  ))
+
+  if (length(identifier_groups) > 0) {
+    lines <- c(lines, "- Identificadores equivalentes detectados:")
+    group_lines <- vapply(
+      identifier_groups,
+      function(group) {
+        sprintf("  %s: %s.", group$entity, paste(group$columns, collapse = ", "))
+      },
+      character(1)
+    )
+    lines <- c(lines, group_lines)
+  }
+
+  if (length(composite_summaries) > 0) {
+    best_summary <- composite_summaries[[order(
+      -vapply(composite_summaries, `[[`, numeric(1), "unique_row_pct"),
+      vapply(composite_summaries, `[[`, numeric(1), "duplicate_rows_remaining")
+    )[[1]]]]
+    lines <- c(
+      lines,
+      "- Unidad de observacion candidata:",
+      sprintf(
+        "  %s; %.1f%% de filas quedan unicas con esta combinacion.",
+        best_summary$label,
+        best_summary$unique_row_pct
+      )
+    )
+  }
+
+  if (length(temporal_signals) > 0) {
+    signal <- temporal_signals[[1]]
+    lines <- c(
+      lines,
+      "- Senal temporal:",
+      sprintf(
+        "  %s parece representar periodos; hay multiples periodos por %s.",
+        signal$period_column,
+        signal$base_label
+      )
+    )
+  }
+
+  nearly_unique_identifiers <- vapply(
+    granularity$identifier_summaries,
+    function(identifier_summary) {
+      unique_pct <- if ((identifier_summary$rows_considered %||% 0) > 0) {
+        identifier_summary$distinct_identifiers / identifier_summary$rows_considered * 100
+      } else {
+        0
+      }
+      if (
+        unique_pct >= 95 &&
+          !identifier_summary$identifier_column %in% grouped_identifier_columns
+      ) {
+        identifier_summary$identifier_column
+      } else {
+        NA_character_
+      }
+    },
+    character(1)
+  )
+  nearly_unique_identifiers <- nearly_unique_identifiers[!is.na(nearly_unique_identifiers)]
+  if (length(nearly_unique_identifiers) > 0) {
+    lines <- c(
+      lines,
+      sprintf("- Otros identificadores casi unicos: %s.", paste(nearly_unique_identifiers, collapse = ", "))
+    )
+  }
+
+  if (length(identifier_groups) > 0 || length(composite_summaries) > 0 || length(temporal_signals) > 0) {
+    return(lines)
+  }
+
   for (identifier_summary in granularity$identifier_summaries) {
     lines <- c(
       lines,
