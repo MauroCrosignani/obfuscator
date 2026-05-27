@@ -294,9 +294,9 @@ render_ai_profile_granularity <- function(granularity) {
     signal <- temporal_signals[[1]]
     lines <- c(
       lines,
-      "- Senal temporal:",
+      "- Periodo observado:",
       sprintf(
-        "  %s parece representar periodos; hay multiples periodos por %s.",
+        "  %s participa en multiples filas por %s; puede indicar el periodo asociado a cada registro.",
         signal$period_column,
         signal$base_label
       )

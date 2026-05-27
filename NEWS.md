@@ -1,3 +1,10 @@
+# ObfuscatoR 0.4.7
+
+Version de ajuste semantico para periodos y denominaciones en `resumen_de()`.
+
+- Redacta la senal de periodos como periodo observado asociado a registros, evitando sugerir automaticamente una serie temporal.
+- Trata `DENOMINACION` y nombres equivalentes como etiquetas de entidad aunque el texto sea extenso, sin listar valores reales.
+
 # ObfuscatoR 0.4.6
 
 Version de granularidad por persona, documento y solicitud en `resumen_de()`.
